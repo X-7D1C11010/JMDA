@@ -13,14 +13,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ABLATION_DIR = ROOT / "Ablation"
 SINGLE_DIR = ABLATION_DIR / "signle modal"
-DATA_DIR = ROOT / "Data"
+DEFAULT_DATA_ROOT = ROOT / "Data"
 PYTHON = Path(sys.executable)
-DEFAULT_TARGET_WEATHERS = ["逆光", "雨天", "雾天", "黑天"]
+DEFAULT_SOURCE_WEATHER = "\u6674\u5929"
+DEFAULT_TARGET_WEATHERS = ["\u9006\u5149", "\u96e8\u5929", "\u96fe\u5929", "\u9ed1\u5929"]
+DEFAULT_AIS_FILE = "balanced_AIS-dataset_16classes_100persample.mat"
 
 
-def discover_target_weathers(source_weather="晴天"):
+def discover_target_weathers(data_root, source_weather=DEFAULT_SOURCE_WEATHER):
     targets = []
-    for path in sorted(DATA_DIR.iterdir(), key=lambda p: p.name):
+    for path in sorted(data_root.iterdir(), key=lambda p: p.name):
         train_dir = path / "train"
         if not path.is_dir() or not train_dir.is_dir() or path.name in {source_weather, "AIS"}:
             continue
@@ -60,10 +62,37 @@ def parse_args():
         description="Run all requested module and single-modality ablation experiments once.",
     )
     parser.add_argument(
+        "--data_root",
+        type=Path,
+        default=Path(os.environ.get("JMDA_DATA_ROOT", DEFAULT_DATA_ROOT)),
+        help="Dataset root containing source/target weather folders and AIS/. "
+             "Can also be set by JMDA_DATA_ROOT. Default: project Data/.",
+    )
+    parser.add_argument(
+        "--source_root",
+        type=Path,
+        default=None,
+        help="Explicit source-domain folder. Default: data_root/source_weather.",
+    )
+    parser.add_argument(
         "--target_weathers",
         nargs="+",
         default=None,
-        help="Target weather folder names. Default: 逆光 雨天 雾天 黑天 when present.",
+        help="Target weather folder names under data_root. Default: 逆光 雨天 雾天 黑天 when present.",
+    )
+    parser.add_argument(
+        "--target_roots",
+        nargs="+",
+        type=Path,
+        default=None,
+        help="Explicit target-domain folders. If set, target_weathers is ignored.",
+    )
+    parser.add_argument(
+        "--ais_data_path",
+        type=Path,
+        default=None,
+        help="Explicit AIS .mat path. Default: data_root/AIS/balanced_AIS-dataset_16classes_100persample.mat, "
+             "or the first .mat file under data_root/AIS.",
     )
     parser.add_argument(
         "--num_iterations",
@@ -85,23 +114,67 @@ def parse_args():
     )
     parser.add_argument(
         "--source_weather",
-        default="晴天",
+        default=DEFAULT_SOURCE_WEATHER,
         help="Source weather folder name to exclude from target discovery.",
     )
     return parser.parse_args()
 
 
-def resolve_target_weathers(args):
-    if args.target_weathers:
-        targets = args.target_weathers
-    else:
-        existing_defaults = [name for name in DEFAULT_TARGET_WEATHERS if (DATA_DIR / name).is_dir()]
-        targets = existing_defaults or discover_target_weathers(args.source_weather)
+def resolve_default_ais_path(data_root):
+    ais_dir = data_root / "AIS"
+    preferred = ais_dir / DEFAULT_AIS_FILE
+    if preferred.is_file():
+        return preferred
 
-    missing = [name for name in targets if not (DATA_DIR / name).is_dir()]
-    if missing:
-        raise FileNotFoundError(f"Missing target weather folders under {DATA_DIR}: {missing}")
-    return targets
+    mat_files = sorted(ais_dir.glob("*.mat")) if ais_dir.is_dir() else []
+    if mat_files:
+        return mat_files[0]
+    return preferred
+
+
+def resolve_experiment_paths(args):
+    data_root = args.data_root.expanduser().resolve()
+    if not data_root.is_dir():
+        raise FileNotFoundError(f"data_root does not exist: {data_root}")
+
+    source_root = (
+        args.source_root.expanduser().resolve()
+        if args.source_root is not None
+        else (data_root / args.source_weather).resolve()
+    )
+
+    if args.target_roots:
+        target_roots = [path.expanduser().resolve() for path in args.target_roots]
+    else:
+        if args.target_weathers:
+            target_weathers = args.target_weathers
+        else:
+            existing_defaults = [
+                name for name in DEFAULT_TARGET_WEATHERS
+                if (data_root / name).is_dir()
+            ]
+            target_weathers = existing_defaults or discover_target_weathers(data_root, args.source_weather)
+        target_roots = [(data_root / name).resolve() for name in target_weathers]
+
+    ais_data_path = (
+        args.ais_data_path.expanduser().resolve()
+        if args.ais_data_path is not None
+        else resolve_default_ais_path(data_root).resolve()
+    )
+
+    if not source_root.is_dir():
+        raise FileNotFoundError(f"source_root does not exist: {source_root}")
+
+    missing_targets = [path for path in target_roots if not path.is_dir()]
+    if missing_targets:
+        raise FileNotFoundError(f"target_root does not exist: {missing_targets}")
+    if not ais_data_path.is_file():
+        raise FileNotFoundError(
+            f"AIS .mat file does not exist: {ais_data_path}. "
+            "Pass --ais_data_path explicitly if it is stored elsewhere."
+        )
+
+    return data_root, source_root, target_roots, ais_data_path
 
 
 def metric_section(lines, metric_name):
@@ -260,7 +333,7 @@ def run_command(label, cwd, args, manifest, start_time):
 
 def main():
     args = parse_args()
-    target_weathers = resolve_target_weathers(args)
+    data_root, source_root, target_roots, ais_data_path = resolve_experiment_paths(args)
 
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     CMD_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -272,7 +345,11 @@ def main():
         "root": str(ROOT),
         "started_at": datetime.now().isoformat(timespec="seconds"),
         "python": str(PYTHON),
-        "target_weathers": target_weathers,
+        "data_root": str(data_root),
+        "source_root": str(source_root),
+        "target_roots": [str(path) for path in target_roots],
+        "target_weathers": [path.name for path in target_roots],
+        "ais_data_path": str(ais_data_path),
         "source_weather": args.source_weather,
         "num_iterations": args.num_iterations,
         "epochs": args.epochs,
@@ -285,13 +362,15 @@ def main():
     }
     MANIFEST_JSON.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    for weather in target_weathers:
-        target_root = DATA_DIR / weather
+    for target_root in target_roots:
+        weather = target_root.name
         run_command(
             f"module_{weather}",
             ABLATION_DIR,
             [
                 "module_ablation.py",
+                "--source_root",
+                str(source_root),
                 "--target_root",
                 str(target_root),
                 "--ablation_mode",
@@ -307,15 +386,19 @@ def main():
             run_start,
         )
 
-    for weather in target_weathers:
-        target_root = DATA_DIR / weather
+    for target_root in target_roots:
+        weather = target_root.name
         run_command(
             f"single_modal_{weather}",
             SINGLE_DIR,
             [
                 "main_single.py",
+                "--source_root",
+                str(source_root),
                 "--target_root",
                 str(target_root),
+                "--ais_data_path",
+                str(ais_data_path),
                 "--modality",
                 "all",
                 "--num_iterations",
