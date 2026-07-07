@@ -69,17 +69,19 @@ def evaluate(feature_extractor, classifier, dataloader, device, label_map):
     all_labels = np.array(all_labels)
 
     all_class_labels = sorted(list(label_map.values()))
+    present_class_labels = sorted(np.unique(all_labels).tolist())
+    macro_labels = present_class_labels or all_class_labels
 
     precision_macro = precision_score(all_labels, all_predicted, average='macro',
-                                     zero_division=0, labels=all_class_labels)
+                                     zero_division=0, labels=macro_labels)
     precision_micro = precision_score(all_labels, all_predicted, average='micro',
                                      zero_division=0, labels=all_class_labels)
     recall_macro = recall_score(all_labels, all_predicted, average='macro',
-                                zero_division=0, labels=all_class_labels)
+                                zero_division=0, labels=macro_labels)
     recall_micro = recall_score(all_labels, all_predicted, average='micro',
                                 zero_division=0, labels=all_class_labels)
     f1_macro = f1_score(all_labels, all_predicted, average='macro',
-                       zero_division=0, labels=all_class_labels)
+                       zero_division=0, labels=macro_labels)
     f1_micro = f1_score(all_labels, all_predicted, average='micro',
                        zero_division=0, labels=all_class_labels)
 
@@ -90,7 +92,14 @@ def evaluate(feature_extractor, classifier, dataloader, device, label_map):
         'recall_macro': recall_macro,
         'recall_micro': recall_micro,
         'f1_macro': f1_macro,
-        'f1_micro': f1_micro
+        'f1_micro': f1_micro,
+        # Macro metrics are computed over classes that actually appear in the
+        # target validation set. Keep coverage so incomplete target domains are
+        # visible in logs and summaries.
+        'val_class_coverage': len(present_class_labels) / len(all_class_labels) if all_class_labels else 0.0,
+        'val_present_classes': len(present_class_labels),
+        'val_total_classes': len(all_class_labels),
+        'val_samples': len(all_labels),
     }
 
     return metrics
@@ -415,13 +424,22 @@ def run_single_experiment(args):
             logger.info(f"  Precision (Micro): {best_metrics['precision_micro']:.4f}")
             logger.info(f"  Recall (Micro): {best_metrics['recall_micro']:.4f}")
             logger.info(f"  F1 (Micro): {best_metrics['f1_micro']:.4f}")
+            logger.info(
+                "  Val class coverage: "
+                f"{best_metrics['val_present_classes']:.0f}/"
+                f"{best_metrics['val_total_classes']:.0f} "
+                f"({best_metrics['val_class_coverage']:.4f}), "
+                f"samples={best_metrics['val_samples']:.0f}"
+            )
 
     logger.info("\n" + "=" * 80)
     logger.info(f"{NUM_ITERATIONS}次迭代统计结果")
     logger.info("=" * 80)
 
     metrics_to_report = ['accuracy', 'precision_macro', 'recall_macro', 'f1_macro',
-                        'precision_micro', 'recall_micro', 'f1_micro']
+                        'precision_micro', 'recall_micro', 'f1_micro',
+                        'val_class_coverage', 'val_present_classes',
+                        'val_total_classes', 'val_samples']
 
     summary_results = {}
     for metric_name in metrics_to_report:

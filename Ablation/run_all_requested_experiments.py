@@ -40,6 +40,10 @@ METRICS = [
     "precision_micro",
     "recall_micro",
     "f1_micro",
+    "val_class_coverage",
+    "val_present_classes",
+    "val_total_classes",
+    "val_samples",
 ]
 
 
