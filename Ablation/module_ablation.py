@@ -551,11 +551,11 @@ def run_ablation_experiment(args):
 
 def main():
     parser = argparse.ArgumentParser(description='模块消融实验')
-    parser.add_argument('--source_root', type=str, default=r"D:\Code\JMDA-Net\Data\晴天",
+    parser.add_argument('--source_root', type=str, default=r"/home/lixiang/lx/Data/晴天",
                        help='源域数据路径')
     parser.add_argument('--target_root', type=str, default='all',
                        help='目标域数据路径，或填 all 自动遍历 source_root 同级目录下其他天气文件夹')
-    parser.add_argument('--batch_size', type=int, default=16, help='批次大小')
+    parser.add_argument('--batch_size', type=int, default=64, help='批次大小')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
     parser.add_argument('--num_iterations', type=int, default=5, help='迭代次数')
     parser.add_argument('--use_tensor_module', action='store_true', help='使用Tensor模块')
