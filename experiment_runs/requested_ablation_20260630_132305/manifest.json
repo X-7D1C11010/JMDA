@@ -1,0 +1,38 @@
+{
+  "run_id": "20260630_132305",
+  "root": "D:\\Code\\JMDA-Net",
+  "started_at": "2026-06-30T13:23:05",
+  "target_weathers": [
+    "逆光",
+    "雨天",
+    "雾天",
+    "黑天"
+  ],
+  "num_iterations": 5,
+  "epochs": 100,
+  "commands": [
+    {
+      "label": "module_逆光",
+      "cwd": "D:\\Code\\JMDA-Net\\Ablation",
+      "command": [
+        "D:\\Anaconda\\envs\\pytorch\\python.exe",
+        "module_ablation.py",
+        "--target_root",
+        "D:\\Code\\JMDA-Net\\Data\\逆光",
+        "--ablation_mode",
+        "all",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "16"
+      ],
+      "started_at": "2026-06-30T13:23:05",
+      "log_path": "D:\\Code\\JMDA-Net\\experiment_runs\\requested_ablation_20260630_132305\\command_logs\\module_逆光_20260630_132305.log",
+      "return_code": null
+    }
+  ],
+  "summary_csv": "D:\\Code\\JMDA-Net\\experiment_runs\\requested_ablation_20260630_132305\\summary.csv",
+  "summary_json": "D:\\Code\\JMDA-Net\\experiment_runs\\requested_ablation_20260630_132305\\summary.json"
+}
