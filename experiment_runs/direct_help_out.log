@@ -1,0 +1,28 @@
+﻿usage: module_ablation.py [-h] [--source_root SOURCE_ROOT]
+                          [--target_root TARGET_ROOT]
+                          [--batch_size BATCH_SIZE] [--epochs EPOCHS]
+                          [--num_iterations NUM_ITERATIONS]
+                          [--use_tensor_module] [--no_tensor_module]
+                          [--use_ot_module] [--no_ot_module]
+                          [--ablation_mode {all,full,with_tensor_with_ot,no_tensor_no_ot,no_tensor_with_ot,with_tensor_no_ot}]
+
+ģ������ʵ��
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --source_root SOURCE_ROOT
+                        Դ������·��
+  --target_root TARGET_ROOT
+                        Ŀ��������·�������� all �Զ����� source_root ͬ��Ŀ¼�����������ļ���
+  --batch_size BATCH_SIZE
+                        ���δ�С
+  --epochs EPOCHS       ѵ������
+  --num_iterations NUM_ITERATIONS
+                        ��������
+  --use_tensor_module   ʹ��Tensorģ��
+  --no_tensor_module    ��ʹ��Tensorģ�飨ʹ��ͨ��ƴ�ӣ�
+  --use_ot_module       ʹ��OTģ��
+  --no_ot_module        ��ʹ��OTģ�飨ʹ�ó���Կ�ѵ����
+  --ablation_mode {all,full,with_tensor_with_ot,no_tensor_no_ot,no_tensor_with_ot,with_tensor_no_ot}
+                        ����ģʽ
+

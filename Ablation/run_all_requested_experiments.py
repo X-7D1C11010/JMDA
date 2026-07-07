@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ABLATION_DIR = ROOT / "Ablation"
 SINGLE_DIR = ABLATION_DIR / "signle modal"
-DEFAULT_DATA_ROOT = ROOT / "Data"
+DEFAULT_DATA_ROOT = "/home/lixiang/lx/Data"
 PYTHON = Path(sys.executable)
 DEFAULT_SOURCE_WEATHER = "\u6674\u5929"
 DEFAULT_TARGET_WEATHERS = ["\u9006\u5149", "\u96e8\u5929", "\u96fe\u5929", "\u9ed1\u5929"]
@@ -113,7 +113,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=16,
+        default=32,
         help="Batch size passed to module and single-modality ablation scripts.",
     )
     parser.add_argument(
