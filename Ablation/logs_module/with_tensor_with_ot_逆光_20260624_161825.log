@@ -1,0 +1,42 @@
+================================================================================
+模块消融实验 - with_tensor_with_ot
+目标域天气: 逆光
+训练开始时间: 2026-06-24 16:18:25
+设备: cuda
+源域: /home/lixiang/lx/Data/晴天
+目标域: /home/lixiang/lx/Data/逆光
+批次大小: 32
+总轮数: 100
+迭代次数: 5
+使用Tensor模块: 是
+使用OT模块: 是
+特征融合方式: Tensor对齐
+域对齐方式: 最优传输
+================================================================================
+
+================================================================================
+迭代 1/5
+随机种子: 42
+================================================================================
+Feature fusion: Tensor alignment (512+512 -> 128+128); fused_dim=256
+Domain adaptation: Neural OT generator with 3-domain discriminator
+Loss weights: tensor=0.30, adv=0.15
+Epoch [1/100] | Loss: 9.0070 (Cls: 8.8953, TAL: 0.2204, Adv: 0.3034) | Train Acc: 0.1094 | Val Acc: 0.2500 | Val P/R/F1 (Macro): 0.1188/0.1893/0.1344 | LR: 0.000010
+  >>> New Best Val Acc: 0.2500
+Epoch [2/100] | Loss: 6.8752 (Cls: 6.7550, TAL: 0.2117, Adv: 0.3783) | Train Acc: 0.2656 | Val Acc: 0.3889 | Val P/R/F1 (Macro): 0.2623/0.2667/0.2192 | LR: 0.000010
+  >>> New Best Val Acc: 0.3889
+Epoch [3/100] | Loss: 5.8849 (Cls: 5.7730, TAL: 0.0912, Adv: 0.5637) | Train Acc: 0.4531 | Val Acc: 0.4722 | Val P/R/F1 (Macro): 0.3129/0.3274/0.2856 | LR: 0.000010
+  >>> New Best Val Acc: 0.4722
+Epoch [4/100] | Loss: 4.9370 (Cls: 4.7979, TAL: 0.1393, Adv: 0.6491) | Train Acc: 0.5938 | Val Acc: 0.5556 | Val P/R/F1 (Macro): 0.3420/0.3810/0.3406 | LR: 0.000010
+  >>> New Best Val Acc: 0.5556
+Epoch [5/100] | Loss: 4.5414 (Cls: 4.3733, TAL: 0.1518, Adv: 0.8169) | Train Acc: 0.6562 | Val Acc: 0.4444 | Val P/R/F1 (Macro): 0.3450/0.3131/0.2731 | LR: 0.000010
+Epoch [6/100] | Loss: 4.1695 (Cls: 3.9372, TAL: 0.2582, Adv: 1.0324) | Train Acc: 0.6953 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.3393/0.3625/0.3264 | LR: 0.000010
+  >>> New Best Val Acc: 0.5833
+Epoch [7/100] | Loss: 4.0752 (Cls: 3.8026, TAL: 0.3401, Adv: 1.1374) | Train Acc: 0.7656 | Val Acc: 0.8333 | Val P/R/F1 (Macro): 0.5125/0.5095/0.5071 | LR: 0.000010
+  >>> New Best Val Acc: 0.8333
+Epoch [8/100] | Loss: 3.9861 (Cls: 3.6917, TAL: 0.4777, Adv: 1.0073) | Train Acc: 0.7422 | Val Acc: 0.8056 | Val P/R/F1 (Macro): 0.5021/0.4899/0.4801 | LR: 0.000010
+Epoch [9/100] | Loss: 3.2879 (Cls: 2.9929, TAL: 0.4318, Adv: 1.1030) | Train Acc: 0.8828 | Val Acc: 0.8333 | Val P/R/F1 (Macro): 0.5643/0.5554/0.5417 | LR: 0.000010
+Epoch [10/100] | Loss: 3.6753 (Cls: 3.3698, TAL: 0.2990, Adv: 1.4387) | Train Acc: 0.8359 | Val Acc: 0.8889 | Val P/R/F1 (Macro): 0.5869/0.5875/0.5776 | LR: 0.000010
+  >>> New Best Val Acc: 0.8889
+Epoch [11/100] | Loss: 3.2095 (Cls: 2.9029, TAL: 0.2462, Adv: 1.5518) | Train Acc: 0.8359 | Val Acc: 0.9444 | Val P/R/F1 (Macro): 0.6184/0.6196/0.6167 | LR: 0.000010
+  >>> New Best Val Acc: 0.9444

@@ -1,0 +1,33 @@
+COMMAND: D:\Anaconda\envs\pytorch\python.exe module_ablation.py --target_root D:\Code\JMDA-Net\Data\逆光 --ablation_mode all --num_iterations 5 --epochs 100 --batch_size 16
+CWD: D:\Code\JMDA-Net\Ablation
+================================================================================
+================================================================================
+模块消融实验 - with_tensor_with_ot
+目标域天气: 逆光
+训练开始时间: 2026-06-30 13:23:09
+设备: cuda
+源域: D:\Code\JMDA-Net\Data\晴天
+目标域: D:\Code\JMDA-Net\Data\逆光
+批次大小: 16
+总轮数: 100
+迭代次数: 5
+使用Tensor模块: 是
+使用OT模块: 是
+特征融合方式: Tensor对齐
+域对齐方式: 最优传输
+================================================================================
+
+================================================================================
+迭代 1/5
+随机种子: 42
+================================================================================
+INFO:Tensor:参数初始化完成：正交初始化
+Feature fusion: Tensor alignment (512+512 -> 128+128); fused_dim=256
+Domain adaptation: Neural OT generator with 3-domain discriminator
+Loss weights: tensor=0.30, adv=0.15
+Epoch [1/100] | Loss: 8.0742 (Cls: 7.9675, TAL: 0.2214, Adv: 0.2688) | Train Acc: 0.3047 | Val Acc: 0.2222 | Val P/R/F1 (Macro): 0.0651/0.1429/0.0811 | LR: 0.000010
+  >>> New Best Val Acc: 0.2222
+Epoch [2/100] | Loss: 6.6668 (Cls: 6.5602, TAL: 0.1755, Adv: 0.3597) | Train Acc: 0.3594 | Val Acc: 0.3611 | Val P/R/F1 (Macro): 0.1852/0.1964/0.1594 | LR: 0.000010
+  >>> New Best Val Acc: 0.3611
+Epoch [3/100] | Loss: 5.5500 (Cls: 5.3836, TAL: 0.2154, Adv: 0.6782) | Train Acc: 0.4609 | Val Acc: 0.5000 | Val P/R/F1 (Macro): 0.3339/0.3554/0.3056 | LR: 0.000010
+  >>> New Best Val Acc: 0.5000
