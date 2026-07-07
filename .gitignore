@@ -1,0 +1,13 @@
+# 忽略模型权重
+*.pt
+*.pth
+*.safetensors
+
+# 忽略数据集和训练日志
+
+
+output/
+
+# 忽略 Python 缓存
+__pycache__/
+*.pyc
