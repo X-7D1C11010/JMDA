@@ -117,6 +117,30 @@ def parse_args():
         help="Batch size passed to module and single-modality ablation scripts.",
     )
     parser.add_argument(
+        "--single_modalities",
+        nargs="+",
+        default=["vis", "ir", "ais"],
+        choices=["vis", "ir", "ais"],
+        help="Single-modality ablations to run. Default: vis ir ais.",
+    )
+    parser.add_argument(
+        "--use_target_labels",
+        action="store_true",
+        help="Pass through to ablation scripts for semi-supervised target training. "
+             "Default is unsupervised target adaptation.",
+    )
+    parser.add_argument(
+        "--stop_on_error",
+        action="store_true",
+        help="Stop the whole batch when one sub-command fails. Default: record failure and continue.",
+    )
+    parser.add_argument(
+        "--run_order",
+        choices=["single_first", "module_first"],
+        default="single_first",
+        help="Execution order. Default runs single-modality ablations first.",
+    )
+    parser.add_argument(
         "--source_weather",
         default=DEFAULT_SOURCE_WEATHER,
         help="Source weather folder name to exclude from target discovery.",
@@ -234,32 +258,46 @@ def parse_result_log(path, experiment_type, factor, weather):
     return row
 
 
-def collect_results(start_time):
+MODULE_LOG_PATTERN = re.compile(
+    r"^(with_tensor_with_ot|without_tensor_without_ot|without_tensor_with_ot|with_tensor_without_ot)_(.+)_\d{8}_\d{6}\.log$"
+)
+SINGLE_LOG_PATTERN = re.compile(r"^(vis|ir|ais)_(.+)_\d{8}_\d{6}\.log$")
+
+
+def current_result_logs():
+    paths = []
+    paths.extend((ABLATION_DIR / "logs_module").glob("*.log"))
+    paths.extend((SINGLE_DIR / "logs_single").glob("*.log"))
+    return {str(path.resolve()) for path in paths}
+
+
+def parse_known_result_log(path):
+    path = Path(path)
+    module_match = MODULE_LOG_PATTERN.match(path.name)
+    if module_match:
+        factor, weather = module_match.groups()
+        return parse_result_log(path, "module", factor, weather)
+
+    single_match = SINGLE_LOG_PATTERN.match(path.name)
+    if single_match:
+        factor, weather = single_match.groups()
+        return parse_result_log(path, "single_modal", factor, weather)
+
+    return None
+
+
+def collect_results_from_manifest(manifest):
     rows = []
-
-    module_pattern = re.compile(
-        r"^(with_tensor_with_ot|without_tensor_without_ot|without_tensor_with_ot|with_tensor_without_ot)_(.+)_\d{8}_\d{6}\.log$"
-    )
-    module_logs = sorted((ABLATION_DIR / "logs_module").glob("*.log"), key=lambda p: p.stat().st_mtime)
-    for path in module_logs:
-        if path.stat().st_mtime < start_time:
-            continue
-        match = module_pattern.match(path.name)
-        if not match:
-            continue
-        factor, weather = match.groups()
-        rows.append(parse_result_log(path, "module", factor, weather))
-
-    single_pattern = re.compile(r"^(vis|ir|ais)_(.+)_\d{8}_\d{6}\.log$")
-    single_logs = sorted((SINGLE_DIR / "logs_single").glob("*.log"), key=lambda p: p.stat().st_mtime)
-    for path in single_logs:
-        if path.stat().st_mtime < start_time:
-            continue
-        match = single_pattern.match(path.name)
-        if not match:
-            continue
-        factor, weather = match.groups()
-        rows.append(parse_result_log(path, "single_modal", factor, weather))
+    seen = set()
+    for record in manifest.get("commands", []):
+        for log_path in record.get("produced_logs", []):
+            resolved = str(Path(log_path).resolve())
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            row = parse_known_result_log(resolved)
+            if row is not None:
+                rows.append(row)
 
     return rows
 
@@ -287,7 +325,7 @@ def redirect_runner_stdio():
     sys.stderr = RUNNER_STDERR.open("a", encoding="utf-8", buffering=1)
 
 
-def run_command(label, cwd, args, manifest, start_time):
+def run_command(label, cwd, args, manifest, start_time, stop_on_error=False):
     CMD_LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = CMD_LOG_DIR / f"{label}_{timestamp()}.log"
     command = [str(PYTHON)] + args
@@ -303,6 +341,7 @@ def run_command(label, cwd, args, manifest, start_time):
     manifest["commands"].append(record)
     MANIFEST_JSON.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    before_logs = current_result_logs()
     print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] START {label}", flush=True)
     with log_path.open("w", encoding="utf-8", errors="replace") as f:
         f.write(f"COMMAND: {' '.join(command)}\n")
@@ -322,9 +361,11 @@ def run_command(label, cwd, args, manifest, start_time):
 
     record["finished_at"] = datetime.now().isoformat(timespec="seconds")
     record["return_code"] = result.returncode
+    after_logs = current_result_logs()
+    record["produced_logs"] = sorted(after_logs - before_logs)
     MANIFEST_JSON.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    rows = collect_results(start_time)
+    rows = collect_results_from_manifest(manifest)
     save_summary(rows)
     print(
         f"[{datetime.now():%Y-%m-%d %H:%M:%S}] END {label} rc={result.returncode}; "
@@ -332,7 +373,12 @@ def run_command(label, cwd, args, manifest, start_time):
         flush=True,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"Command failed: {label}, see {log_path}")
+        message = f"Command failed: {label}, see {log_path}"
+        print(message, file=sys.stderr, flush=True)
+        if stop_on_error:
+            raise RuntimeError(message)
+        return False
+    return True
 
 
 def main():
@@ -358,6 +404,10 @@ def main():
         "num_iterations": args.num_iterations,
         "epochs": args.epochs,
         "batch_size": args.batch_size,
+        "single_modalities": args.single_modalities,
+        "use_target_labels": args.use_target_labels,
+        "stop_on_error": args.stop_on_error,
+        "run_order": args.run_order,
         "commands": [],
         "summary_csv": str(SUMMARY_CSV),
         "summary_json": str(SUMMARY_JSON),
@@ -366,12 +416,10 @@ def main():
     }
     MANIFEST_JSON.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    for target_root in target_roots:
-        weather = target_root.name
-        run_command(
-            f"module_{weather}",
-            ABLATION_DIR,
-            [
+    def run_modules():
+        for target_root in target_roots:
+            weather = target_root.name
+            module_args = [
                 "module_ablation.py",
                 "--source_root",
                 str(source_root),
@@ -385,38 +433,58 @@ def main():
                 str(args.epochs),
                 "--batch_size",
                 str(args.batch_size),
-            ],
-            manifest,
-            run_start,
-        )
+            ]
+            if args.use_target_labels:
+                module_args.append("--use_target_labels")
+            run_command(
+                f"module_{weather}",
+                ABLATION_DIR,
+                module_args,
+                manifest,
+                run_start,
+                stop_on_error=args.stop_on_error,
+            )
 
-    for target_root in target_roots:
-        weather = target_root.name
-        run_command(
-            f"single_modal_{weather}",
-            SINGLE_DIR,
-            [
-                "main_single.py",
-                "--source_root",
-                str(source_root),
-                "--target_root",
-                str(target_root),
-                "--ais_data_path",
-                str(ais_data_path),
-                "--modality",
-                "all",
-                "--num_iterations",
-                str(args.num_iterations),
-                "--epochs",
-                str(args.epochs),
-                "--batch_size",
-                str(args.batch_size),
-            ],
-            manifest,
-            run_start,
-        )
+    def run_singles():
+        for target_root in target_roots:
+            weather = target_root.name
+            for modality in args.single_modalities:
+                single_args = [
+                    "main_single.py",
+                    "--source_root",
+                    str(source_root),
+                    "--target_root",
+                    str(target_root),
+                    "--ais_data_path",
+                    str(ais_data_path),
+                    "--modality",
+                    modality,
+                    "--num_iterations",
+                    str(args.num_iterations),
+                    "--epochs",
+                    str(args.epochs),
+                    "--batch_size",
+                    str(args.batch_size),
+                ]
+                if args.use_target_labels:
+                    single_args.append("--use_target_labels")
+                run_command(
+                    f"single_modal_{modality}_{weather}",
+                    SINGLE_DIR,
+                    single_args,
+                    manifest,
+                    run_start,
+                    stop_on_error=args.stop_on_error,
+                )
 
-    rows = collect_results(run_start)
+    if args.run_order == "single_first":
+        run_singles()
+        run_modules()
+    else:
+        run_modules()
+        run_singles()
+
+    rows = collect_results_from_manifest(manifest)
     save_summary(rows)
     manifest["finished_at"] = datetime.now().isoformat(timespec="seconds")
     MANIFEST_JSON.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
