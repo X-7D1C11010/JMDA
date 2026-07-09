@@ -39,6 +39,27 @@ def set_requires_grad(model, requires_grad=False):
         param.requires_grad = requires_grad
 
 
+class UnpairedSingleModalitySampler:
+    """Randomly pair source and target batches without using target labels."""
+
+    def __init__(self, src_ds, tgt_ds, batch_size):
+        self.src_ds = src_ds
+        self.tgt_ds = tgt_ds
+        self.batch_size = batch_size
+        self.n_batches = min(len(src_ds), len(tgt_ds)) // batch_size
+
+    def __iter__(self):
+        for _ in range(self.n_batches):
+            src_indices = random.choices(range(len(self.src_ds)), k=self.batch_size)
+            tgt_indices = random.choices(range(len(self.tgt_ds)), k=self.batch_size)
+            src_batch = torch.utils.data.default_collate([self.src_ds[i] for i in src_indices])
+            tgt_batch = torch.utils.data.default_collate([self.tgt_ds[i] for i in tgt_indices])
+            yield src_batch, tgt_batch
+
+    def __len__(self):
+        return self.n_batches
+
+
 def evaluate(feature_extractor, classifier, dataloader, device, label_map):
     feature_extractor.eval()
     classifier.eval()
@@ -174,7 +195,12 @@ def run_single_iteration(args, seed, logger):
             global_label_map=global_map
         )
 
-    paired_loader = PairedSingleModalitySampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
+    if args.use_target_labels:
+        paired_loader = PairedSingleModalitySampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
+        logger.info("Training mode: supervised target labels enabled (class-paired batches).")
+    else:
+        paired_loader = UnpairedSingleModalitySampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
+        logger.info("Training mode: unsupervised target adaptation (target labels ignored in training).")
     val_loader = DataLoader(tgt_val_ds, batch_size=BATCH_SIZE, shuffle=False,
                            drop_last=False, num_workers=0)
 
@@ -278,10 +304,12 @@ def run_single_iteration(args, seed, logger):
                 pred_mid = classifier(feat_mid)
 
                 loss_cls_src = criterion_cls(pred_src, s_label)
-                loss_cls_tgt = criterion_cls(pred_tgt, t_label)
                 loss_cls_mid = criterion_cls(pred_mid, s_label)
 
-                loss_cls_total = loss_cls_src + loss_cls_tgt + loss_cls_mid
+                loss_cls_total = loss_cls_src + loss_cls_mid
+                if args.use_target_labels:
+                    loss_cls_tgt = criterion_cls(pred_tgt, t_label)
+                    loss_cls_total = loss_cls_total + loss_cls_tgt
 
                 alpha = min(2.0 / (1.0 + np.exp(-10 * epoch / EPOCHS)) - 1.0, 1.0)
                 loss_adv = compute_generator_loss(
@@ -299,9 +327,11 @@ def run_single_iteration(args, seed, logger):
                 pred_tgt = classifier(feat_tgt)
 
                 loss_cls_src = criterion_cls(pred_src, s_label)
-                loss_cls_tgt = criterion_cls(pred_tgt, t_label)
 
-                loss_cls_total = loss_cls_src + loss_cls_tgt
+                loss_cls_total = loss_cls_src
+                if args.use_target_labels:
+                    loss_cls_tgt = criterion_cls(pred_tgt, t_label)
+                    loss_cls_total = loss_cls_total + loss_cls_tgt
                 loss_total = loss_cls_total
 
             loss_total.backward()
@@ -314,9 +344,11 @@ def run_single_iteration(args, seed, logger):
             loss_accum += loss_total.item()
             loss_cls_accum += loss_cls_total.item()
 
-            _, predicted = torch.max(pred_tgt.data, 1)
-            train_correct += (predicted == t_label).sum().item()
-            train_total += t_label.size(0)
+            train_logits = pred_tgt if args.use_target_labels else pred_src
+            train_labels = t_label if args.use_target_labels else s_label
+            _, predicted = torch.max(train_logits.data, 1)
+            train_correct += (predicted == train_labels).sum().item()
+            train_total += train_labels.size(0)
 
         val_metrics = evaluate(feature_extractor, classifier, val_loader, DEVICE, global_map)
         train_acc = train_correct / train_total if train_total > 0 else 0
@@ -479,6 +511,8 @@ def main():
     parser.add_argument('--batch_size', type=int, default=16, help='批次大小')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
     parser.add_argument('--num_iterations', type=int, default=5, help='迭代次数')
+    parser.add_argument('--use_target_labels', action='store_true',
+                       help='使用目标域训练标签进行半监督训练；默认不使用目标域标签')
     parser.add_argument('--feature_dim', type=int, default=512, help='特征维度')
     parser.add_argument('--lr_feature', type=float, default=1e-5, help='特征提取器学习率')
     parser.add_argument('--lr_other', type=float, default=5e-4, help='其他模块学习率')

@@ -6,7 +6,10 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from torchvision.transforms import ColorJitter, RandomErasing, RandomHorizontalFlip, RandomRotation
 import scipy.io as sio
-import h5py
+try:
+    import h5py
+except ImportError:
+    h5py = None
 
 
 def get_advanced_transforms(phase='train', modality='vis'):
@@ -145,6 +148,11 @@ class SingleModalityDataset(Dataset):
                 else:
                     raise ValueError("无法从MAT文件中提取数据")
         except NotImplementedError:
+            if h5py is None:
+                raise ImportError(
+                    "AIS MAT file appears to be MATLAB v7.3/HDF5, but h5py is not installed. "
+                    "Install h5py to run AIS modality experiments."
+                )
             # v7.3: scipy 不支持，使用 h5py 读取
             with h5py.File(self.ais_data_path, 'r') as f:
                 keys = list(f.keys())

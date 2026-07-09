@@ -131,6 +131,27 @@ def compute_binary_domain_loss(src_logits, tgt_logits):
     return 0.5 * (F.cross_entropy(src_logits, src_labels) + F.cross_entropy(tgt_logits, tgt_labels))
 
 
+class UnpairedDomainSampler:
+    """Randomly pair source and target batches without using target labels."""
+
+    def __init__(self, src_ds, tgt_ds, batch_size):
+        self.src_ds = src_ds
+        self.tgt_ds = tgt_ds
+        self.batch_size = batch_size
+        self.n_batches = min(len(src_ds), len(tgt_ds)) // batch_size
+
+    def __iter__(self):
+        for _ in range(self.n_batches):
+            src_indices = random.choices(range(len(self.src_ds)), k=self.batch_size)
+            tgt_indices = random.choices(range(len(self.tgt_ds)), k=self.batch_size)
+            src_batch = torch.utils.data.default_collate([self.src_ds[i] for i in src_indices])
+            tgt_batch = torch.utils.data.default_collate([self.tgt_ds[i] for i in tgt_indices])
+            yield src_batch, tgt_batch
+
+    def __len__(self):
+        return self.n_batches
+
+
 def evaluate(net_vis, net_ir, tal_module, classifier, dataloader, device, 
              label_map, use_tensor_module):
     net_vis.eval()
@@ -237,7 +258,12 @@ def run_single_iteration(args, seed, logger):
     tgt_val_ds = MultiModalDomainDataset(TARGET_ROOT, domain_type='target', phase='val',
                                          global_label_map=global_map, val_augment=False)
 
-    paired_loader = PairedClassSampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
+    if args.use_target_labels:
+        paired_loader = PairedClassSampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
+        logger.info("Training mode: supervised target labels enabled (class-paired batches).")
+    else:
+        paired_loader = UnpairedDomainSampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
+        logger.info("Training mode: unsupervised target adaptation (target labels ignored in training).")
     val_loader = DataLoader(tgt_val_ds, batch_size=BATCH_SIZE, shuffle=False, 
                            drop_last=False, num_workers=0)
 
@@ -374,9 +400,10 @@ def run_single_iteration(args, seed, logger):
             pred_tgt = classifier(feat_tgt)
 
             loss_cls_src = criterion_cls(pred_src, s_label)
-            loss_cls_tgt = criterion_cls(pred_tgt, t_label)
-
-            loss_cls_total = loss_cls_src + loss_cls_tgt
+            loss_cls_total = loss_cls_src
+            if args.use_target_labels:
+                loss_cls_tgt = criterion_cls(pred_tgt, t_label)
+                loss_cls_total = loss_cls_total + loss_cls_tgt
             if args.use_ot_module:
                 pred_mid = classifier(feat_mid)
                 loss_cls_mid = criterion_cls(pred_mid, s_label)
@@ -424,9 +451,11 @@ def run_single_iteration(args, seed, logger):
             loss_tal_accum += loss_tal.item()
             loss_adv_accum += loss_adv.item()
 
-            _, predicted = torch.max(pred_tgt.data, 1)
-            train_correct += (predicted == t_label).sum().item()
-            train_total += t_label.size(0)
+            train_logits = pred_tgt if args.use_target_labels else pred_src
+            train_labels = t_label if args.use_target_labels else s_label
+            _, predicted = torch.max(train_logits.data, 1)
+            train_correct += (predicted == train_labels).sum().item()
+            train_total += train_labels.size(0)
 
         val_metrics = evaluate(net_vis, net_ir, tal_module, classifier, 
                               val_loader, DEVICE, global_map, args.use_tensor_module)
@@ -576,6 +605,8 @@ def main():
     parser.add_argument('--batch_size', type=int, default=64, help='批次大小')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
     parser.add_argument('--num_iterations', type=int, default=5, help='迭代次数')
+    parser.add_argument('--use_target_labels', action='store_true',
+                       help='使用目标域训练标签进行半监督训练；默认不使用目标域标签')
     parser.add_argument('--use_tensor_module', action='store_true', help='使用Tensor模块')
     parser.add_argument('--no_tensor_module', dest='use_tensor_module', action='store_false',
                        help='不使用Tensor模块（使用通道拼接）')
