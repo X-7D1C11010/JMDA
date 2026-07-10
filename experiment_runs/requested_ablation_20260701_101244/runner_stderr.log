@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "/home/lixiang/lx/JMDA/Ablation/run_all_requested_experiments.py", line 424, in <module>
-    main()
-  File "/home/lixiang/lx/JMDA/Ablation/run_all_requested_experiments.py", line 391, in main
-    run_command(
-  File "/home/lixiang/lx/JMDA/Ablation/run_all_requested_experiments.py", line 331, in run_command
-    raise RuntimeError(f"Command failed: {label}, see {log_path}")
-RuntimeError: Command failed: single_modal_逆光, see /home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260701_101244/command_logs/single_modal_逆光_20260701_213836.log

@@ -1,0 +1,34 @@
+[2026-07-09 16:20:38] START single_modal_vis_逆光
+[2026-07-09 16:38:17] END single_modal_vis_逆光 rc=0; summary_rows=1
+[2026-07-09 16:38:17] START single_modal_ir_逆光
+[2026-07-09 16:48:12] END single_modal_ir_逆光 rc=0; summary_rows=2
+[2026-07-09 16:48:12] START single_modal_ais_逆光
+[2026-07-09 16:48:14] END single_modal_ais_逆光 rc=1; summary_rows=3
+[2026-07-09 16:48:14] START single_modal_vis_雨天
+[2026-07-09 17:02:29] END single_modal_vis_雨天 rc=0; summary_rows=4
+[2026-07-09 17:02:29] START single_modal_ir_雨天
+[2026-07-09 17:08:37] END single_modal_ir_雨天 rc=0; summary_rows=5
+[2026-07-09 17:08:37] START single_modal_ais_雨天
+[2026-07-09 17:08:39] END single_modal_ais_雨天 rc=1; summary_rows=6
+[2026-07-09 17:08:39] START single_modal_vis_雾天
+[2026-07-09 18:08:55] END single_modal_vis_雾天 rc=0; summary_rows=7
+[2026-07-09 18:08:55] START single_modal_ir_雾天
+[2026-07-09 18:40:18] END single_modal_ir_雾天 rc=0; summary_rows=8
+[2026-07-09 18:40:18] START single_modal_ais_雾天
+[2026-07-09 18:40:20] END single_modal_ais_雾天 rc=1; summary_rows=9
+[2026-07-09 18:40:20] START single_modal_vis_黑天
+[2026-07-09 19:42:45] END single_modal_vis_黑天 rc=0; summary_rows=10
+[2026-07-09 19:42:45] START single_modal_ir_黑天
+[2026-07-09 20:10:10] END single_modal_ir_黑天 rc=0; summary_rows=11
+[2026-07-09 20:10:10] START single_modal_ais_黑天
+[2026-07-09 20:10:12] END single_modal_ais_黑天 rc=1; summary_rows=12
+[2026-07-09 20:10:12] START module_逆光
+[2026-07-09 21:21:15] END module_逆光 rc=0; summary_rows=15
+[2026-07-09 21:21:15] START module_雨天
+[2026-07-09 22:05:38] END module_雨天 rc=0; summary_rows=18
+[2026-07-09 22:05:38] START module_雾天
+[2026-07-10 01:29:24] END module_雾天 rc=0; summary_rows=21
+[2026-07-10 01:29:24] START module_黑天
+[2026-07-10 05:00:30] END module_黑天 rc=0; summary_rows=24
+Saved summary to /home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/summary.csv
+Saved summary to /home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/summary.json
