@@ -130,6 +130,19 @@ def parse_args():
              "Default is unsupervised target adaptation.",
     )
     parser.add_argument(
+        "--target_label_ratio",
+        type=float,
+        default=0.35,
+        help="Fraction of the target training set used as a fixed labeled subset. "
+             "Ignored when --use_target_labels is set. Use 0 for fully unsupervised.",
+    )
+    parser.add_argument(
+        "--target_cls_weight",
+        type=float,
+        default=0.50,
+        help="Weight of the controlled target-label loss. Ignored when --use_target_labels is set.",
+    )
+    parser.add_argument(
         "--stop_on_error",
         action="store_true",
         help="Stop the whole batch when one sub-command fails. Default: record failure and continue.",
@@ -406,6 +419,8 @@ def main():
         "batch_size": args.batch_size,
         "single_modalities": args.single_modalities,
         "use_target_labels": args.use_target_labels,
+        "target_label_ratio": args.target_label_ratio,
+        "target_cls_weight": args.target_cls_weight,
         "stop_on_error": args.stop_on_error,
         "run_order": args.run_order,
         "commands": [],
@@ -433,6 +448,10 @@ def main():
                 str(args.epochs),
                 "--batch_size",
                 str(args.batch_size),
+                "--target_label_ratio",
+                str(args.target_label_ratio),
+                "--target_cls_weight",
+                str(args.target_cls_weight),
             ]
             if args.use_target_labels:
                 module_args.append("--use_target_labels")
@@ -465,6 +484,10 @@ def main():
                     str(args.epochs),
                     "--batch_size",
                     str(args.batch_size),
+                    "--target_label_ratio",
+                    str(args.target_label_ratio),
+                    "--target_cls_weight",
+                    str(args.target_cls_weight),
                 ]
                 if args.use_target_labels:
                     single_args.append("--use_target_labels")
