@@ -1,0 +1,504 @@
+{
+  "run_id": "20260709_162038",
+  "root": "/home/lixiang/lx/JMDA",
+  "started_at": "2026-07-09T16:20:38",
+  "python": "/home/lixiang/envs/lx_pytorch/bin/python",
+  "data_root": "/home/lixiang/lx/Data",
+  "source_root": "/home/lixiang/lx/Data/晴天",
+  "target_roots": [
+    "/home/lixiang/lx/Data/逆光",
+    "/home/lixiang/lx/Data/雨天",
+    "/home/lixiang/lx/Data/雾天",
+    "/home/lixiang/lx/Data/黑天"
+  ],
+  "target_weathers": [
+    "逆光",
+    "雨天",
+    "雾天",
+    "黑天"
+  ],
+  "ais_data_path": "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+  "source_weather": "晴天",
+  "num_iterations": 5,
+  "epochs": 100,
+  "batch_size": 32,
+  "single_modalities": [
+    "vis",
+    "ir",
+    "ais"
+  ],
+  "use_target_labels": false,
+  "stop_on_error": false,
+  "run_order": "single_first",
+  "commands": [
+    {
+      "label": "single_modal_vis_逆光",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/逆光",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "vis",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T16:20:38",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_vis_逆光_20260709_162038.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T16:38:17",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/vis_逆光_20260709_162041.log"
+      ]
+    },
+    {
+      "label": "single_modal_ir_逆光",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/逆光",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ir",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T16:38:17",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ir_逆光_20260709_163817.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T16:48:12",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ir_逆光_20260709_163819.log"
+      ]
+    },
+    {
+      "label": "single_modal_ais_逆光",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/逆光",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ais",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T16:48:12",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ais_逆光_20260709_164812.log",
+      "return_code": 1,
+      "finished_at": "2026-07-09T16:48:14",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ais_逆光_20260709_164813.log"
+      ]
+    },
+    {
+      "label": "single_modal_vis_雨天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雨天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "vis",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T16:48:14",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_vis_雨天_20260709_164814.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T17:02:29",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/vis_雨天_20260709_164815.log"
+      ]
+    },
+    {
+      "label": "single_modal_ir_雨天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雨天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ir",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T17:02:29",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ir_雨天_20260709_170229.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T17:08:37",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ir_雨天_20260709_170230.log"
+      ]
+    },
+    {
+      "label": "single_modal_ais_雨天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雨天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ais",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T17:08:37",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ais_雨天_20260709_170837.log",
+      "return_code": 1,
+      "finished_at": "2026-07-09T17:08:39",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ais_雨天_20260709_170839.log"
+      ]
+    },
+    {
+      "label": "single_modal_vis_雾天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雾天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "vis",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T17:08:39",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_vis_雾天_20260709_170839.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T18:08:55",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/vis_雾天_20260709_170841.log"
+      ]
+    },
+    {
+      "label": "single_modal_ir_雾天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雾天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ir",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T18:08:55",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ir_雾天_20260709_180855.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T18:40:18",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ir_雾天_20260709_180857.log"
+      ]
+    },
+    {
+      "label": "single_modal_ais_雾天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雾天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ais",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T18:40:18",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ais_雾天_20260709_184018.log",
+      "return_code": 1,
+      "finished_at": "2026-07-09T18:40:20",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ais_雾天_20260709_184020.log"
+      ]
+    },
+    {
+      "label": "single_modal_vis_黑天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/黑天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "vis",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T18:40:20",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_vis_黑天_20260709_184020.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T19:42:45",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/vis_黑天_20260709_184021.log"
+      ]
+    },
+    {
+      "label": "single_modal_ir_黑天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/黑天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ir",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T19:42:45",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ir_黑天_20260709_194245.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T20:10:10",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ir_黑天_20260709_194246.log"
+      ]
+    },
+    {
+      "label": "single_modal_ais_黑天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation/signle modal",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "main_single.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/黑天",
+        "--ais_data_path",
+        "/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+        "--modality",
+        "ais",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T20:10:10",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/single_modal_ais_黑天_20260709_201010.log",
+      "return_code": 1,
+      "finished_at": "2026-07-09T20:10:12",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/signle modal/logs_single/ais_黑天_20260709_201011.log"
+      ]
+    },
+    {
+      "label": "module_逆光",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "module_ablation.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/逆光",
+        "--ablation_mode",
+        "all",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T20:10:12",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/module_逆光_20260709_201012.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T21:21:15",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/with_tensor_without_ot_逆光_20260709_205657.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_with_ot_逆光_20260709_203331.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_without_ot_逆光_20260709_201014.log"
+      ]
+    },
+    {
+      "label": "module_雨天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "module_ablation.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雨天",
+        "--ablation_mode",
+        "all",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T21:21:15",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/module_雨天_20260709_212115.log",
+      "return_code": 0,
+      "finished_at": "2026-07-09T22:05:38",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/with_tensor_without_ot_雨天_20260709_215038.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_with_ot_雨天_20260709_213550.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_without_ot_雨天_20260709_212117.log"
+      ]
+    },
+    {
+      "label": "module_雾天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "module_ablation.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/雾天",
+        "--ablation_mode",
+        "all",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-09T22:05:38",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/module_雾天_20260709_220538.log",
+      "return_code": 0,
+      "finished_at": "2026-07-10T01:29:24",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/with_tensor_without_ot_雾天_20260710_002016.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_with_ot_雾天_20260709_231259.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_without_ot_雾天_20260709_220540.log"
+      ]
+    },
+    {
+      "label": "module_黑天",
+      "cwd": "/home/lixiang/lx/JMDA/Ablation",
+      "command": [
+        "/home/lixiang/envs/lx_pytorch/bin/python",
+        "module_ablation.py",
+        "--source_root",
+        "/home/lixiang/lx/Data/晴天",
+        "--target_root",
+        "/home/lixiang/lx/Data/黑天",
+        "--ablation_mode",
+        "all",
+        "--num_iterations",
+        "5",
+        "--epochs",
+        "100",
+        "--batch_size",
+        "32"
+      ],
+      "started_at": "2026-07-10T01:29:24",
+      "log_path": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/command_logs/module_黑天_20260710_012924.log",
+      "return_code": 0,
+      "finished_at": "2026-07-10T05:00:30",
+      "produced_logs": [
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/with_tensor_without_ot_黑天_20260710_034945.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_with_ot_黑天_20260710_023946.log",
+        "/home/lixiang/lx/JMDA/Ablation/logs_module/without_tensor_without_ot_黑天_20260710_012926.log"
+      ]
+    }
+  ],
+  "summary_csv": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/summary.csv",
+  "summary_json": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/summary.json",
+  "runner_stdout": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/runner_stdout.log",
+  "runner_stderr": "/home/lixiang/lx/JMDA/experiment_runs/requested_ablation_20260709_162038/runner_stderr.log",
+  "finished_at": "2026-07-10T05:00:30"
+}

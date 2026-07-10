@@ -1,0 +1,50 @@
+COMMAND: /home/lixiang/envs/lx_pytorch/bin/python main_single.py --source_root /home/lixiang/lx/Data/晴天 --target_root /home/lixiang/lx/Data/黑天 --ais_data_path /home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat --modality ais --num_iterations 5 --epochs 100 --batch_size 32
+CWD: /home/lixiang/lx/JMDA/Ablation/signle modal
+================================================================================
+================================================================================
+单模态消融实验 - AIS
+目标域天气: 黑天
+训练开始时间: 2026-07-09 20:10:11
+设备: cuda
+模态: ais
+AIS数据路径: /home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat
+AIS架构: mlp
+批次大小: 32
+总轮数: 100
+迭代次数: 5
+特征维度: 512
+域适应: 启用
+================================================================================
+
+================================================================================
+迭代 1/5
+随机种子: 42
+================================================================================
+
+[Batch 1/1] modality=ais, target=/home/lixiang/lx/Data/黑天
+Traceback (most recent call last):
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 582, in <module>
+    main()
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 562, in main
+    summary = run_single_experiment(exp_args)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 447, in run_single_experiment
+    best_metrics = run_single_iteration(args, seed, logger)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 147, in run_single_iteration
+    src_train_ds = SingleModalityDataset(
+                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/DataLoad_single.py", line 103, in __init__
+    self._load_ais_data()
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/DataLoad_single.py", line 133, in _load_ais_data
+    mat_data = sio.loadmat(self.ais_data_path)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/envs/lx_pytorch/lib/python3.11/site-packages/scipy/io/matlab/_mio.py", line 235, in loadmat
+    MR, _ = mat_reader_factory(f, **kwargs)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/envs/lx_pytorch/lib/python3.11/site-packages/scipy/io/matlab/_mio.py", line 74, in mat_reader_factory
+    mjv, mnv = _get_matfile_version(byte_stream)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/envs/lx_pytorch/lib/python3.11/site-packages/scipy/io/matlab/_miobase.py", line 256, in _get_matfile_version
+    raise ValueError('Unknown mat file type, version {}, {}'.format(*ret))
+ValueError: Unknown mat file type, version 49, 57

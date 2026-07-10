@@ -1,9 +1,0 @@
-COMMAND: /home/lixiang/envs/lx_pytorch/bin/python main_single.py --source_root /home/lixiang/lx/Data/晴天 --target_root /home/lixiang/lx/Data/逆光 --ais_data_path /home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat --modality all --num_iterations 5 --epochs 100 --batch_size 32
-CWD: /home/lixiang/lx/JMDA/Ablation/signle modal
-================================================================================
-Traceback (most recent call last):
-  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 14, in <module>
-    from DataLoad_single import SingleModalityDataset, PairedSingleModalitySampler
-  File "/home/lixiang/lx/JMDA/Ablation/signle modal/DataLoad_single.py", line 9, in <module>
-    import h5py
-ModuleNotFoundError: No module named 'h5py'
