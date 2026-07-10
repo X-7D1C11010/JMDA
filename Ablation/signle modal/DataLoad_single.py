@@ -147,7 +147,7 @@ class SingleModalityDataset(Dataset):
                     ais_labels = ais_data_array[:, -1].flatten()
                 else:
                     raise ValueError("无法从MAT文件中提取数据")
-        except NotImplementedError:
+        except (NotImplementedError, ValueError, OSError) as mat_error:
             if h5py is None:
                 raise ImportError(
                     "AIS MAT file appears to be MATLAB v7.3/HDF5, but h5py is not installed. "
@@ -195,6 +195,42 @@ class SingleModalityDataset(Dataset):
                         label_key = f"{data_key}[:,-1]"
 
                     print(f"自动推断键: data={data_key}, labels={label_key}")
+
+                if all(k in f for k in ('balanced_rcv_I', 'balanced_rcv_Q', 'new_balanced_label')):
+                    # Balanced AIS files store I/Q components separately.
+                    # Concatenate both components so AIS uses the full signal.
+                    ais_i = np.array(f['balanced_rcv_I'])
+                    ais_q = np.array(f['balanced_rcv_Q'])
+                    ais_labels = np.array(f['new_balanced_label']).reshape(-1)
+
+                    def align_iq_features(arr, labels, key_name):
+                        arr = np.asarray(arr, dtype=np.float32)
+                        labels_len = len(labels)
+                        if arr.ndim == 2:
+                            if arr.shape[0] == labels_len:
+                                return arr
+                            if arr.shape[1] == labels_len:
+                                return arr.T
+                        elif arr.ndim > 2:
+                            sample_axis = next(
+                                (axis for axis, size in enumerate(arr.shape) if size == labels_len),
+                                None,
+                            )
+                            if sample_axis is not None:
+                                return np.moveaxis(arr, sample_axis, 0).reshape(labels_len, -1)
+                        raise ValueError(
+                            f"AIS HDF5 key {key_name} does not match label count: "
+                            f"shape={arr.shape}, labels={ais_labels.shape}"
+                        )
+
+                    ais_i = align_iq_features(ais_i, ais_labels, 'balanced_rcv_I')
+                    ais_q = align_iq_features(ais_q, ais_labels, 'balanced_rcv_Q')
+                    if ais_i.shape[0] != ais_q.shape[0]:
+                        raise ValueError(
+                            f"AIS I/Q sample count mismatch: I={ais_i.shape}, Q={ais_q.shape}"
+                        )
+                    ais_features = np.concatenate([ais_i, ais_q], axis=1)
+                    print("AIS HDF5 keys: data=balanced_rcv_I+balanced_rcv_Q, labels=new_balanced_label")
 
                 # MATLAB/HDF5 常见存储方向修正：若是 [feat_dim, n_samples]，转置为 [n_samples, feat_dim]
                 if ais_features.ndim == 2 and len(ais_labels) == ais_features.shape[0]:

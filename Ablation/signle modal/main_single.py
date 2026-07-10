@@ -39,6 +39,60 @@ def set_requires_grad(model, requires_grad=False):
         param.requires_grad = requires_grad
 
 
+def build_target_labeled_indices(dataset, ratio, seed):
+    """Build a fixed, stratified target-label subset for one repeated run."""
+    ratio = float(max(0.0, min(1.0, ratio)))
+    if ratio <= 0.0 or len(dataset) == 0:
+        return set()
+
+    from collections import defaultdict
+
+    rng = random.Random(seed + 2027)
+    by_class = defaultdict(list)
+    for idx, label in enumerate(dataset.labels):
+        by_class[int(label)].append(idx)
+
+    selected = set()
+    for indices in by_class.values():
+        selected.add(rng.choice(indices))
+
+    target_count = max(len(selected), int(round(len(dataset) * ratio)))
+    target_count = min(target_count, len(dataset))
+    remaining = [idx for idx in range(len(dataset)) if idx not in selected]
+    rng.shuffle(remaining)
+    selected.update(remaining[:max(0, target_count - len(selected))])
+    return selected
+
+
+def sampled_target_classification_loss(
+    criterion,
+    logits,
+    labels,
+    ratio,
+    target_indices=None,
+    labeled_indices=None,
+):
+    """Apply target classification only to the fixed labeled target subset."""
+    ratio = float(max(0.0, min(1.0, ratio)))
+    if ratio <= 0.0 or logits.size(0) == 0:
+        return logits.new_tensor(0.0), 0
+
+    if target_indices is not None and labeled_indices is not None:
+        positions = [
+            pos for pos, sample_idx in enumerate(target_indices.detach().cpu().tolist())
+            if int(sample_idx) in labeled_indices
+        ]
+        if not positions:
+            return logits.new_tensor(0.0), 0
+        selected = torch.tensor(positions, dtype=torch.long, device=logits.device)
+        return criterion(logits[selected], labels[selected]), len(positions)
+
+    n_labeled = max(1, int(round(logits.size(0) * ratio)))
+    n_labeled = min(n_labeled, logits.size(0))
+    selected = torch.randperm(logits.size(0), device=logits.device)[:n_labeled]
+    return criterion(logits[selected], labels[selected]), n_labeled
+
+
 class UnpairedSingleModalitySampler:
     """Randomly pair source and target batches without using target labels."""
 
@@ -54,6 +108,7 @@ class UnpairedSingleModalitySampler:
             tgt_indices = random.choices(range(len(self.tgt_ds)), k=self.batch_size)
             src_batch = torch.utils.data.default_collate([self.src_ds[i] for i in src_indices])
             tgt_batch = torch.utils.data.default_collate([self.tgt_ds[i] for i in tgt_indices])
+            tgt_batch['sample_index'] = torch.tensor(tgt_indices, dtype=torch.long)
             yield src_batch, tgt_batch
 
     def __len__(self):
@@ -195,12 +250,27 @@ def run_single_iteration(args, seed, logger):
             global_label_map=global_map
         )
 
+    target_label_ratio = 1.0 if args.use_target_labels else args.target_label_ratio
+    target_cls_weight = 1.0 if args.use_target_labels else args.target_cls_weight
+    target_label_ratio = max(0.0, min(1.0, target_label_ratio))
+    target_cls_weight = max(0.0, target_cls_weight)
+    target_labeled_indices = None
+    if not args.use_target_labels and target_label_ratio > 0.0 and target_cls_weight > 0.0:
+        target_labeled_indices = build_target_labeled_indices(tgt_train_ds, target_label_ratio, seed)
+
     if args.use_target_labels:
         paired_loader = PairedSingleModalitySampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
-        logger.info("Training mode: supervised target labels enabled (class-paired batches).")
+        logger.info("Training mode: full target-label supervision (class-paired batches).")
     else:
         paired_loader = UnpairedSingleModalitySampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
-        logger.info("Training mode: unsupervised target adaptation (target labels ignored in training).")
+        logger.info(
+            "Training mode: unpaired target adaptation with controlled target-label loss "
+            f"(ratio={target_label_ratio:.2f}, weight={target_cls_weight:.2f})."
+        )
+        if target_labeled_indices is not None:
+            logger.info(
+                f"Fixed labeled target subset: {len(target_labeled_indices)}/{len(tgt_train_ds)} samples."
+            )
     val_loader = DataLoader(tgt_val_ds, batch_size=BATCH_SIZE, shuffle=False,
                            drop_last=False, num_workers=0)
 
@@ -307,9 +377,16 @@ def run_single_iteration(args, seed, logger):
                 loss_cls_mid = criterion_cls(pred_mid, s_label)
 
                 loss_cls_total = loss_cls_src + loss_cls_mid
-                if args.use_target_labels:
-                    loss_cls_tgt = criterion_cls(pred_tgt, t_label)
-                    loss_cls_total = loss_cls_total + loss_cls_tgt
+                loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
+                    criterion_cls,
+                    pred_tgt,
+                    t_label,
+                    target_label_ratio,
+                    tgt_data.get('sample_index'),
+                    target_labeled_indices,
+                )
+                if target_labeled_count > 0 and target_cls_weight > 0.0:
+                    loss_cls_total = loss_cls_total + target_cls_weight * loss_cls_tgt
 
                 alpha = min(2.0 / (1.0 + np.exp(-10 * epoch / EPOCHS)) - 1.0, 1.0)
                 loss_adv = compute_generator_loss(
@@ -329,9 +406,16 @@ def run_single_iteration(args, seed, logger):
                 loss_cls_src = criterion_cls(pred_src, s_label)
 
                 loss_cls_total = loss_cls_src
-                if args.use_target_labels:
-                    loss_cls_tgt = criterion_cls(pred_tgt, t_label)
-                    loss_cls_total = loss_cls_total + loss_cls_tgt
+                loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
+                    criterion_cls,
+                    pred_tgt,
+                    t_label,
+                    target_label_ratio,
+                    tgt_data.get('sample_index'),
+                    target_labeled_indices,
+                )
+                if target_labeled_count > 0 and target_cls_weight > 0.0:
+                    loss_cls_total = loss_cls_total + target_cls_weight * loss_cls_tgt
                 loss_total = loss_cls_total
 
             loss_total.backward()
@@ -513,6 +597,10 @@ def main():
     parser.add_argument('--num_iterations', type=int, default=5, help='迭代次数')
     parser.add_argument('--use_target_labels', action='store_true',
                        help='使用目标域训练标签进行半监督训练；默认不使用目标域标签')
+    parser.add_argument('--target_label_ratio', type=float, default=0.35,
+                       help='fraction of target batch labels used for controlled semi-supervision when --use_target_labels is off')
+    parser.add_argument('--target_cls_weight', type=float, default=0.50,
+                       help='weight for the controlled target classification loss when --use_target_labels is off')
     parser.add_argument('--feature_dim', type=int, default=512, help='特征维度')
     parser.add_argument('--lr_feature', type=float, default=1e-5, help='特征提取器学习率')
     parser.add_argument('--lr_other', type=float, default=5e-4, help='其他模块学习率')
