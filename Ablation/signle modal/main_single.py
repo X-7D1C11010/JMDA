@@ -93,6 +93,24 @@ def sampled_target_classification_loss(
     return criterion(logits[selected], labels[selected]), n_labeled
 
 
+def select_report_metrics(metric_history, strategy='last_window', window=10):
+    """Select stable validation metrics for one run without chasing a single peak."""
+    if not metric_history:
+        return None
+    if strategy == 'best':
+        return max(metric_history, key=lambda m: m['accuracy'])
+    if strategy == 'last':
+        return metric_history[-1]
+
+    window = max(1, int(window))
+    selected = metric_history[-window:]
+    report = {}
+    for key in selected[-1].keys():
+        values = [m[key] for m in selected if isinstance(m.get(key), (int, float, np.floating))]
+        report[key] = float(np.mean(values)) if values else selected[-1][key]
+    return report
+
+
 class UnpairedSingleModalitySampler:
     """Randomly pair source and target batches without using target labels."""
 
@@ -327,6 +345,7 @@ def run_single_iteration(args, seed, logger):
 
     best_val_acc = 0.0
     best_metrics = None
+    metric_history = []
 
     for epoch in range(EPOCHS):
         feature_extractor.train()
@@ -394,7 +413,7 @@ def run_single_iteration(args, seed, logger):
                     'kl_uniform'
                 )
 
-                loss_total = loss_cls_total + 0.15 * loss_adv
+                loss_total = loss_cls_total + args.adv_loss_weight * loss_adv
                 loss_adv_accum += loss_adv.item()
 
             else:
@@ -466,12 +485,22 @@ def run_single_iteration(args, seed, logger):
 
         logger.info(log_msg)
 
+        metric_history.append(dict(val_metrics))
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_metrics = val_metrics
             logger.info(f"  >>> New Best Val Acc: {best_val_acc:.4f}")
 
-    return best_metrics
+    report_metrics = select_report_metrics(
+        metric_history,
+        strategy=args.report_strategy,
+        window=args.report_window,
+    )
+    logger.info(
+        f"Report strategy: {args.report_strategy}, window={args.report_window}, "
+        f"reported_acc={report_metrics['accuracy']:.4f}, best_acc={best_val_acc:.4f}"
+    )
+    return report_metrics
 
 
 def run_single_experiment(args):
@@ -517,6 +546,8 @@ def run_single_experiment(args):
     logger.info(f"迭代次数: {NUM_ITERATIONS}")
     logger.info(f"特征维度: {args.feature_dim}")
     logger.info(f"域适应: {'启用' if args.use_domain_adaptation else '禁用'}")
+    logger.info(f"报告策略: {args.report_strategy}, 窗口: {args.report_window}")
+    logger.info(f"对抗损失权重: {args.adv_loss_weight}")
     logger.info("=" * 80)
 
     all_iteration_results = []
@@ -532,7 +563,7 @@ def run_single_experiment(args):
         
         if best_metrics:
             all_iteration_results.append(best_metrics)
-            logger.info(f"\n迭代 {iteration + 1} 最佳指标:")
+            logger.info(f"\n迭代 {iteration + 1} 报告指标:")
             logger.info(f"  Accuracy: {best_metrics['accuracy']:.4f}")
             logger.info(f"  Precision (Macro): {best_metrics['precision_macro']:.4f}")
             logger.info(f"  Recall (Macro): {best_metrics['recall_macro']:.4f}")
@@ -605,6 +636,13 @@ def main():
     parser.add_argument('--lr_feature', type=float, default=1e-5, help='特征提取器学习率')
     parser.add_argument('--lr_other', type=float, default=5e-4, help='其他模块学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
+    parser.add_argument('--adv_loss_weight', type=float, default=0.08,
+                       help='domain adversarial loss weight for single-modality experiments')
+    parser.add_argument('--report_strategy', type=str, default='last_window',
+                       choices=['best', 'last', 'last_window'],
+                       help='which epoch metrics to report for each iteration')
+    parser.add_argument('--report_window', type=int, default=10,
+                       help='number of final epochs averaged when report_strategy=last_window')
     parser.add_argument('--ais_architecture', type=str, default='mlp',
                        choices=['mlp', 'deep_mlp', 'cnn1d'],
                        help='AIS特征提取器架构')
@@ -615,7 +653,8 @@ def main():
 
     args = parser.parse_args()
 
-    modalities = ['vis', 'ir', 'ais'] if args.modality == 'all' else [args.modality]
+    # 可见光单模态结果已稳定，默认 all 只继续跑需要跟踪的 IR/AIS。
+    modalities = ['ir', 'ais'] if args.modality == 'all' else [args.modality]
 
     def check(d):
         return d == "雾天" or d == "雨天" or d == "逆光" or d == "黑天"
