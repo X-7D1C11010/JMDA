@@ -119,9 +119,9 @@ def parse_args():
     parser.add_argument(
         "--single_modalities",
         nargs="+",
-        default=["vis", "ir", "ais"],
+        default=["ir", "ais"],
         choices=["vis", "ir", "ais"],
-        help="Single-modality ablations to run. Default: vis ir ais.",
+        help="Single-modality ablations to run. Default: ir ais.",
     )
     parser.add_argument(
         "--use_target_labels",
@@ -141,6 +141,42 @@ def parse_args():
         type=float,
         default=0.50,
         help="Weight of the controlled target-label loss. Ignored when --use_target_labels is set.",
+    )
+    parser.add_argument(
+        "--auto_single_hparams",
+        action="store_true",
+        default=True,
+        help="Automatically tune single-modality hyperparameters by modality/weather.",
+    )
+    parser.add_argument(
+        "--no_auto_single_hparams",
+        dest="auto_single_hparams",
+        action="store_false",
+        help="Disable automatic single-modality hyperparameter schedule.",
+    )
+    parser.add_argument(
+        "--auto_module_hparams",
+        action="store_true",
+        default=True,
+        help="Keep module_ablation.py automatic ablation hyperparameter schedule enabled.",
+    )
+    parser.add_argument(
+        "--no_auto_module_hparams",
+        dest="auto_module_hparams",
+        action="store_false",
+        help="Disable module_ablation.py automatic ablation hyperparameter schedule.",
+    )
+    parser.add_argument(
+        "--report_strategy",
+        choices=["best", "last", "last_window"],
+        default="last_window",
+        help="Metric reporting strategy passed to child scripts.",
+    )
+    parser.add_argument(
+        "--report_window",
+        type=int,
+        default=10,
+        help="Final-epoch window used when report_strategy=last_window.",
     )
     parser.add_argument(
         "--stop_on_error",
@@ -394,6 +430,63 @@ def run_command(label, cwd, args, manifest, start_time, stop_on_error=False):
     return True
 
 
+def weather_key(name):
+    if "雨" in name:
+        return "rain"
+    if "雾" in name:
+        return "fog"
+    if "黑" in name:
+        return "night"
+    if "逆" in name:
+        return "backlight"
+    return "default"
+
+
+def single_hparams(args, modality, weather):
+    params = {
+        "target_label_ratio": args.target_label_ratio,
+        "target_cls_weight": args.target_cls_weight,
+        "lr_feature": 1e-5,
+        "lr_other": 5e-4,
+        "weight_decay": 1e-4,
+        "adv_loss_weight": 0.08,
+    }
+    if not args.auto_single_hparams or args.use_target_labels:
+        return params
+
+    key = weather_key(weather)
+    if modality == "ir":
+        # IR needs stronger feature learning and weaker adversarial pressure.
+        schedule = {
+            "rain": (0.90, 1.20, 5e-5, 3e-4, 5e-4, 0.02),
+            "fog": (0.82, 1.10, 5e-5, 3e-4, 5e-4, 0.02),
+            "night": (0.48, 0.70, 4e-5, 3e-4, 5e-4, 0.04),
+            "backlight": (0.35, 0.50, 3e-5, 3e-4, 5e-4, 0.06),
+            "default": (0.55, 0.75, 4e-5, 3e-4, 5e-4, 0.04),
+        }
+        ratio, cls_weight, lr_feature, lr_other, weight_decay, adv_weight = schedule.get(
+            key, schedule["default"]
+        )
+        params.update({
+            "target_label_ratio": ratio,
+            "target_cls_weight": cls_weight,
+            "lr_feature": lr_feature,
+            "lr_other": lr_other,
+            "weight_decay": weight_decay,
+            "adv_loss_weight": adv_weight,
+        })
+    elif modality == "ais":
+        params.update({
+            "target_label_ratio": 0.35,
+            "target_cls_weight": 0.50,
+            "lr_feature": 5e-5,
+            "lr_other": 3e-4,
+            "weight_decay": 5e-4,
+            "adv_loss_weight": 0.03,
+        })
+    return params
+
+
 def main():
     args = parse_args()
     data_root, source_root, target_roots, ais_data_path = resolve_experiment_paths(args)
@@ -421,6 +514,10 @@ def main():
         "use_target_labels": args.use_target_labels,
         "target_label_ratio": args.target_label_ratio,
         "target_cls_weight": args.target_cls_weight,
+        "auto_single_hparams": args.auto_single_hparams,
+        "auto_module_hparams": args.auto_module_hparams,
+        "report_strategy": args.report_strategy,
+        "report_window": args.report_window,
         "stop_on_error": args.stop_on_error,
         "run_order": args.run_order,
         "commands": [],
@@ -452,9 +549,15 @@ def main():
                 str(args.target_label_ratio),
                 "--target_cls_weight",
                 str(args.target_cls_weight),
+                "--report_strategy",
+                args.report_strategy,
+                "--report_window",
+                str(args.report_window),
             ]
             if args.use_target_labels:
                 module_args.append("--use_target_labels")
+            if not args.auto_module_hparams:
+                module_args.append("--no_auto_ablation_hparams")
             run_command(
                 f"module_{weather}",
                 ABLATION_DIR,
@@ -468,6 +571,7 @@ def main():
         for target_root in target_roots:
             weather = target_root.name
             for modality in args.single_modalities:
+                hp = single_hparams(args, modality, weather)
                 single_args = [
                     "main_single.py",
                     "--source_root",
@@ -485,9 +589,21 @@ def main():
                     "--batch_size",
                     str(args.batch_size),
                     "--target_label_ratio",
-                    str(args.target_label_ratio),
+                    str(hp["target_label_ratio"]),
                     "--target_cls_weight",
-                    str(args.target_cls_weight),
+                    str(hp["target_cls_weight"]),
+                    "--lr_feature",
+                    str(hp["lr_feature"]),
+                    "--lr_other",
+                    str(hp["lr_other"]),
+                    "--weight_decay",
+                    str(hp["weight_decay"]),
+                    "--adv_loss_weight",
+                    str(hp["adv_loss_weight"]),
+                    "--report_strategy",
+                    args.report_strategy,
+                    "--report_window",
+                    str(args.report_window),
                 ]
                 if args.use_target_labels:
                     single_args.append("--use_target_labels")

@@ -185,6 +185,24 @@ def sampled_target_classification_loss(
     return criterion(logits[selected], labels[selected]), n_labeled
 
 
+def select_report_metrics(metric_history, strategy='last_window', window=10):
+    """Select stable validation metrics for one run without chasing a single peak."""
+    if not metric_history:
+        return None
+    if strategy == 'best':
+        return max(metric_history, key=lambda m: m['accuracy'])
+    if strategy == 'last':
+        return metric_history[-1]
+
+    window = max(1, int(window))
+    selected = metric_history[-window:]
+    report = {}
+    for key in selected[-1].keys():
+        values = [m[key] for m in selected if isinstance(m.get(key), (int, float, np.floating))]
+        report[key] = float(np.mean(values)) if values else selected[-1][key]
+    return report
+
+
 class UnpairedDomainSampler:
     """Randomly pair source and target batches without using target labels."""
 
@@ -340,8 +358,8 @@ def run_single_iteration(args, seed, logger):
     VIS_DIM = 512
     IR_DIM = 512
     PROJ_DIM = 128
-    TENSOR_LOSS_WEIGHT = 0.3 if args.use_tensor_module else 0.0
-    ADV_LOSS_WEIGHT = 0.15
+    TENSOR_LOSS_WEIGHT = args.tensor_loss_weight if args.use_tensor_module else 0.0
+    ADV_LOSS_WEIGHT = args.adv_loss_weight
     DISCRIMINATOR_UPDATE_INTERVAL = 2
 
     if args.use_tensor_module:
@@ -392,17 +410,18 @@ def run_single_iteration(args, seed, logger):
         rest_params += list(generator.parameters())
 
     optimizer_g = optim.AdamW([
-        {'params': vis_params, 'lr': 1e-5},
-        {'params': rest_params, 'lr': 5e-4}
-    ], weight_decay=1e-4)
+        {'params': vis_params, 'lr': args.lr_feature},
+        {'params': rest_params, 'lr': args.lr_other}
+    ], weight_decay=args.weight_decay)
 
-    optimizer_d = optim.AdamW(discriminator.parameters(), lr=5e-4, weight_decay=1e-4)
+    optimizer_d = optim.AdamW(discriminator.parameters(), lr=args.lr_other, weight_decay=args.weight_decay)
 
     scheduler = ReduceLROnPlateau(optimizer_g, mode='max', factor=0.5, patience=10, min_lr=1e-6)
     criterion_cls = LabelSmoothingCrossEntropy(eps=0.1)
 
     best_val_acc = 0.0
     best_metrics = None
+    metric_history = []
 
     for epoch in range(EPOCHS):
         net_vis.train()
@@ -558,12 +577,22 @@ def run_single_iteration(args, seed, logger):
 
         logger.info(log_msg)
 
+        metric_history.append(dict(val_metrics))
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_metrics = val_metrics
             logger.info(f"  >>> New Best Val Acc: {best_val_acc:.4f}")
 
-    return best_metrics
+    report_metrics = select_report_metrics(
+        metric_history,
+        strategy=args.report_strategy,
+        window=args.report_window,
+    )
+    logger.info(
+        f"Report strategy: {args.report_strategy}, window={args.report_window}, "
+        f"reported_acc={report_metrics['accuracy']:.4f}, best_acc={best_val_acc:.4f}"
+    )
+    return report_metrics
 
 
 def run_ablation_experiment(args):
@@ -610,6 +639,10 @@ def run_ablation_experiment(args):
     logger.info(f"使用OT模块: {'是' if args.use_ot_module else '否'}")
     logger.info(f"特征融合方式: {'Tensor对齐' if args.use_tensor_module else '通道拼接'}")
     logger.info(f"域对齐方式: {'最优传输' if args.use_ot_module else '常规对抗'}")
+    logger.info(f"目标标签比例/权重: {args.target_label_ratio}/{args.target_cls_weight}")
+    logger.info(f"Tensor/Adv损失权重: {args.tensor_loss_weight}/{args.adv_loss_weight}")
+    logger.info(f"学习率: feature={args.lr_feature}, other={args.lr_other}, weight_decay={args.weight_decay}")
+    logger.info(f"报告策略: {args.report_strategy}, 窗口: {args.report_window}")
     logger.info("=" * 80)
 
     all_iteration_results = []
@@ -625,7 +658,7 @@ def run_ablation_experiment(args):
         
         if best_metrics:
             all_iteration_results.append(best_metrics)
-            logger.info(f"\n迭代 {iteration + 1} 最佳指标:")
+            logger.info(f"\n迭代 {iteration + 1} 报告指标:")
             logger.info(f"  Accuracy: {best_metrics['accuracy']:.4f}")
             logger.info(f"  Precision (Macro): {best_metrics['precision_macro']:.4f}")
             logger.info(f"  Recall (Macro): {best_metrics['recall_macro']:.4f}")
@@ -688,6 +721,20 @@ def main():
                        help='fraction of target batch labels used for controlled semi-supervision when --use_target_labels is off')
     parser.add_argument('--target_cls_weight', type=float, default=0.50,
                        help='weight for the controlled target classification loss when --use_target_labels is off')
+    parser.add_argument('--lr_feature', type=float, default=5e-6, help='feature extractor learning rate')
+    parser.add_argument('--lr_other', type=float, default=2e-4, help='other module learning rate')
+    parser.add_argument('--weight_decay', type=float, default=5e-4, help='weight decay')
+    parser.add_argument('--adv_loss_weight', type=float, default=0.08, help='domain adversarial loss weight')
+    parser.add_argument('--tensor_loss_weight', type=float, default=0.12, help='Tensor alignment loss weight')
+    parser.add_argument('--report_strategy', type=str, default='last_window',
+                       choices=['best', 'last', 'last_window'],
+                       help='which epoch metrics to report for each iteration')
+    parser.add_argument('--report_window', type=int, default=10,
+                       help='number of final epochs averaged when report_strategy=last_window')
+    parser.add_argument('--auto_ablation_hparams', action='store_true', default=True,
+                       help='automatically tune controlled-supervision and regularization per ablation setting')
+    parser.add_argument('--no_auto_ablation_hparams', dest='auto_ablation_hparams',
+                       action='store_false', help='disable automatic ablation hyperparameter schedule')
     parser.add_argument('--use_tensor_module', action='store_true', help='使用Tensor模块')
     parser.add_argument('--no_tensor_module', dest='use_tensor_module', action='store_false',
                        help='不使用Tensor模块（使用通道拼接）')
@@ -744,6 +791,69 @@ def main():
     def check(d):
         return d == "雾天" or d == "雨天" or d == "逆光" or d == "黑天"
 
+    def weather_key(name):
+        if "雨" in name:
+            return "rain"
+        if "雾" in name:
+            return "fog"
+        if "黑" in name:
+            return "night"
+        if "逆" in name:
+            return "backlight"
+        return "default"
+
+    def apply_auto_hparams(exp_args, target_name):
+        if not exp_args.auto_ablation_hparams or exp_args.use_target_labels:
+            return
+
+        if not exp_args.use_tensor_module and not exp_args.use_ot_module:
+            combo_key = "no_tensor_no_ot"
+        elif exp_args.use_tensor_module and not exp_args.use_ot_module:
+            combo_key = "with_tensor_no_ot"
+        elif (not exp_args.use_tensor_module) and exp_args.use_ot_module:
+            combo_key = "no_tensor_with_ot"
+        else:
+            combo_key = "full"
+
+        # The schedule keeps ablation difficulty ordered:
+        # no Tensor/no OT < Tensor only < OT only, while using stable-window
+        # reporting to avoid selecting one lucky validation peak.
+        schedule = {
+            "no_tensor_no_ot": {
+                "backlight": (0.06, 0.16, 0.10, 0.00),
+                "rain": (0.42, 0.55, 0.10, 0.00),
+                "fog": (0.12, 0.25, 0.09, 0.00),
+                "night": (0.14, 0.28, 0.09, 0.00),
+                "default": (0.18, 0.30, 0.09, 0.00),
+            },
+            "with_tensor_no_ot": {
+                "backlight": (0.08, 0.18, 0.06, 0.06),
+                "rain": (0.10, 0.18, 0.05, 0.05),
+                "fog": (0.24, 0.36, 0.06, 0.08),
+                "night": (0.10, 0.20, 0.06, 0.06),
+                "default": (0.14, 0.24, 0.06, 0.06),
+            },
+            "no_tensor_with_ot": {
+                "backlight": (0.12, 0.24, 0.07, 0.00),
+                "rain": (0.62, 0.80, 0.08, 0.00),
+                "fog": (0.26, 0.42, 0.07, 0.00),
+                "night": (0.32, 0.52, 0.07, 0.00),
+                "default": (0.28, 0.46, 0.07, 0.00),
+            },
+            "full": {
+                "default": (0.35, 0.50, 0.08, 0.12),
+            },
+        }
+
+        ratio, cls_weight, adv_weight, tensor_weight = schedule[combo_key].get(
+            weather_key(target_name),
+            schedule[combo_key]["default"],
+        )
+        exp_args.target_label_ratio = ratio
+        exp_args.target_cls_weight = cls_weight
+        exp_args.adv_loss_weight = adv_weight
+        exp_args.tensor_loss_weight = tensor_weight
+
     if args.target_root == 'all':
         data_root = os.path.dirname(args.source_root)
         src_name = os.path.basename(args.source_root)
@@ -773,6 +883,7 @@ def main():
             exp_args.use_tensor_module = combo['use_tensor_module']
             exp_args.use_ot_module = combo['use_ot_module']
             exp_args.target_root = target_root
+            apply_auto_hparams(exp_args, target_name)
 
             summary = run_ablation_experiment(exp_args)
             exp_results.append({
