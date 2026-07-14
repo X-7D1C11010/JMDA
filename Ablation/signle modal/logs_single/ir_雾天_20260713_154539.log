@@ -1,0 +1,733 @@
+================================================================================
+单模态消融实验 - IR
+目标域天气: 雾天
+训练开始时间: 2026-07-13 15:45:39
+设备: cuda
+模态: ir
+源域: /home/lixiang/lx/Data/晴天
+目标域: /home/lixiang/lx/Data/雾天
+批次大小: 32
+总轮数: 100
+迭代次数: 5
+特征维度: 512
+域适应: 启用
+报告策略: last_window, 窗口: 10
+对抗损失权重: 0.02
+================================================================================
+
+================================================================================
+迭代 1/5
+随机种子: 42
+================================================================================
+Training mode: unpaired target adaptation with controlled target-label loss (ratio=0.82, weight=1.10).
+Fixed labeled target subset: 416/507 samples.
+Epoch [1/100] | Loss: 8.3250 (Cls: 8.3198, Adv: 0.2575) | Train Acc: 0.1854 | Val Acc: 0.1212 | Val P/R/F1 (Macro): 0.0444/0.1620/0.0599 | LR: 0.000050
+  >>> New Best Val Acc: 0.1212
+Epoch [2/100] | Loss: 7.1720 (Cls: 7.1663, Adv: 0.2832) | Train Acc: 0.3083 | Val Acc: 0.0985 | Val P/R/F1 (Macro): 0.1894/0.1506/0.0688 | LR: 0.000050
+Epoch [3/100] | Loss: 6.5137 (Cls: 6.5056, Adv: 0.4054) | Train Acc: 0.4396 | Val Acc: 0.0909 | Val P/R/F1 (Macro): 0.1980/0.1630/0.0799 | LR: 0.000050
+Epoch [4/100] | Loss: 6.0030 (Cls: 5.9898, Adv: 0.6581) | Train Acc: 0.5167 | Val Acc: 0.1742 | Val P/R/F1 (Macro): 0.2997/0.2066/0.1856 | LR: 0.000050
+  >>> New Best Val Acc: 0.1742
+Epoch [5/100] | Loss: 5.4305 (Cls: 5.4104, Adv: 1.0022) | Train Acc: 0.6083 | Val Acc: 0.1288 | Val P/R/F1 (Macro): 0.2478/0.1837/0.1531 | LR: 0.000050
+Epoch [6/100] | Loss: 5.2197 (Cls: 5.1930, Adv: 1.3382) | Train Acc: 0.6292 | Val Acc: 0.2197 | Val P/R/F1 (Macro): 0.3331/0.2811/0.2172 | LR: 0.000050
+  >>> New Best Val Acc: 0.2197
+Epoch [7/100] | Loss: 4.9775 (Cls: 4.9468, Adv: 1.5354) | Train Acc: 0.6917 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.3173/0.2345/0.1989 | LR: 0.000050
+Epoch [8/100] | Loss: 4.8444 (Cls: 4.8080, Adv: 1.8207) | Train Acc: 0.6958 | Val Acc: 0.1742 | Val P/R/F1 (Macro): 0.2821/0.1797/0.1497 | LR: 0.000050
+Epoch [9/100] | Loss: 4.5732 (Cls: 4.5308, Adv: 2.1228) | Train Acc: 0.7229 | Val Acc: 0.1212 | Val P/R/F1 (Macro): 0.2508/0.1695/0.1424 | LR: 0.000050
+Epoch [10/100] | Loss: 4.2879 (Cls: 4.2416, Adv: 2.3128) | Train Acc: 0.7708 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.2790/0.2384/0.1669 | LR: 0.000050
+Epoch [11/100] | Loss: 4.3283 (Cls: 4.2801, Adv: 2.4103) | Train Acc: 0.7625 | Val Acc: 0.1818 | Val P/R/F1 (Macro): 0.3602/0.2087/0.1555 | LR: 0.000050
+Epoch [12/100] | Loss: 4.1626 (Cls: 4.1123, Adv: 2.5165) | Train Acc: 0.8042 | Val Acc: 0.1364 | Val P/R/F1 (Macro): 0.2894/0.2082/0.1278 | LR: 0.000050
+Epoch [13/100] | Loss: 4.0562 (Cls: 4.0043, Adv: 2.5986) | Train Acc: 0.8125 | Val Acc: 0.2197 | Val P/R/F1 (Macro): 0.4076/0.2627/0.2447 | LR: 0.000050
+Epoch [14/100] | Loss: 4.0592 (Cls: 4.0034, Adv: 2.7884) | Train Acc: 0.7771 | Val Acc: 0.1439 | Val P/R/F1 (Macro): 0.3094/0.1915/0.1465 | LR: 0.000050
+Epoch [15/100] | Loss: 4.0005 (Cls: 3.9415, Adv: 2.9506) | Train Acc: 0.7833 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.3347/0.2466/0.1980 | LR: 0.000050
+Epoch [16/100] | Loss: 4.0098 (Cls: 3.9494, Adv: 3.0206) | Train Acc: 0.8021 | Val Acc: 0.2424 | Val P/R/F1 (Macro): 0.4187/0.2559/0.2501 | LR: 0.000050
+  >>> New Best Val Acc: 0.2424
+Epoch [17/100] | Loss: 3.9090 (Cls: 3.8509, Adv: 2.9070) | Train Acc: 0.8125 | Val Acc: 0.2500 | Val P/R/F1 (Macro): 0.3444/0.2469/0.2063 | LR: 0.000050
+  >>> New Best Val Acc: 0.2500
+Epoch [18/100] | Loss: 3.6277 (Cls: 3.5638, Adv: 3.1921) | Train Acc: 0.8187 | Val Acc: 0.3864 | Val P/R/F1 (Macro): 0.5151/0.3229/0.2987 | LR: 0.000050
+  >>> New Best Val Acc: 0.3864
+Epoch [19/100] | Loss: 3.5338 (Cls: 3.4666, Adv: 3.3591) | Train Acc: 0.8500 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.4597/0.2768/0.2349 | LR: 0.000050
+Epoch [20/100] | Loss: 3.4938 (Cls: 3.4260, Adv: 3.3878) | Train Acc: 0.8729 | Val Acc: 0.2348 | Val P/R/F1 (Macro): 0.3404/0.2767/0.1981 | LR: 0.000050
+Epoch [21/100] | Loss: 3.4693 (Cls: 3.4008, Adv: 3.4232) | Train Acc: 0.8667 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.3063/0.2305/0.1994 | LR: 0.000050
+Epoch [22/100] | Loss: 3.5385 (Cls: 3.4699, Adv: 3.4276) | Train Acc: 0.8750 | Val Acc: 0.2348 | Val P/R/F1 (Macro): 0.3174/0.2535/0.1958 | LR: 0.000050
+Epoch [23/100] | Loss: 3.4672 (Cls: 3.3979, Adv: 3.4675) | Train Acc: 0.8708 | Val Acc: 0.2879 | Val P/R/F1 (Macro): 0.5459/0.3590/0.3207 | LR: 0.000050
+Epoch [24/100] | Loss: 3.4017 (Cls: 3.3303, Adv: 3.5718) | Train Acc: 0.8792 | Val Acc: 0.2652 | Val P/R/F1 (Macro): 0.4017/0.2851/0.2522 | LR: 0.000050
+Epoch [25/100] | Loss: 3.2162 (Cls: 3.1422, Adv: 3.6968) | Train Acc: 0.8792 | Val Acc: 0.2879 | Val P/R/F1 (Macro): 0.5768/0.3639/0.3476 | LR: 0.000050
+Epoch [26/100] | Loss: 3.2236 (Cls: 3.1507, Adv: 3.6456) | Train Acc: 0.8792 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.4798/0.3733/0.3488 | LR: 0.000050
+  >>> New Best Val Acc: 0.4167
+Epoch [27/100] | Loss: 3.3506 (Cls: 3.2782, Adv: 3.6216) | Train Acc: 0.8771 | Val Acc: 0.2955 | Val P/R/F1 (Macro): 0.4548/0.3277/0.2904 | LR: 0.000050
+Epoch [28/100] | Loss: 3.3372 (Cls: 3.2613, Adv: 3.7956) | Train Acc: 0.8667 | Val Acc: 0.2348 | Val P/R/F1 (Macro): 0.5301/0.2721/0.2609 | LR: 0.000050
+Epoch [29/100] | Loss: 3.1843 (Cls: 3.1105, Adv: 3.6928) | Train Acc: 0.8688 | Val Acc: 0.2803 | Val P/R/F1 (Macro): 0.5911/0.3360/0.2823 | LR: 0.000050
+Epoch [30/100] | Loss: 3.2406 (Cls: 3.1642, Adv: 3.8216) | Train Acc: 0.8688 | Val Acc: 0.3182 | Val P/R/F1 (Macro): 0.3987/0.3139/0.3286 | LR: 0.000050
+Epoch [31/100] | Loss: 3.2121 (Cls: 3.1349, Adv: 3.8607) | Train Acc: 0.8958 | Val Acc: 0.2424 | Val P/R/F1 (Macro): 0.4455/0.3116/0.2704 | LR: 0.000050
+Epoch [32/100] | Loss: 3.0687 (Cls: 2.9929, Adv: 3.7893) | Train Acc: 0.8938 | Val Acc: 0.2879 | Val P/R/F1 (Macro): 0.5124/0.3702/0.3612 | LR: 0.000050
+Epoch [33/100] | Loss: 3.0933 (Cls: 3.0162, Adv: 3.8557) | Train Acc: 0.9104 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.5853/0.3696/0.3537 | LR: 0.000050
+Epoch [34/100] | Loss: 3.0176 (Cls: 2.9382, Adv: 3.9656) | Train Acc: 0.9021 | Val Acc: 0.4773 | Val P/R/F1 (Macro): 0.6005/0.4881/0.4839 | LR: 0.000050
+  >>> New Best Val Acc: 0.4773
+Epoch [35/100] | Loss: 3.0835 (Cls: 3.0050, Adv: 3.9239) | Train Acc: 0.8833 | Val Acc: 0.4242 | Val P/R/F1 (Macro): 0.6106/0.3759/0.4004 | LR: 0.000050
+Epoch [36/100] | Loss: 2.8953 (Cls: 2.8161, Adv: 3.9602) | Train Acc: 0.9062 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.5878/0.4508/0.4725 | LR: 0.000050
+Epoch [37/100] | Loss: 2.9077 (Cls: 2.8280, Adv: 3.9837) | Train Acc: 0.9146 | Val Acc: 0.4015 | Val P/R/F1 (Macro): 0.6970/0.4766/0.5136 | LR: 0.000050
+Epoch [38/100] | Loss: 2.8190 (Cls: 2.7396, Adv: 3.9686) | Train Acc: 0.9083 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.6524/0.5272/0.5082 | LR: 0.000050
+Epoch [39/100] | Loss: 2.7971 (Cls: 2.7168, Adv: 4.0147) | Train Acc: 0.9167 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6484/0.5053/0.5184 | LR: 0.000050
+  >>> New Best Val Acc: 0.5909
+Epoch [40/100] | Loss: 2.8713 (Cls: 2.7889, Adv: 4.1222) | Train Acc: 0.9167 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6218/0.5402/0.5371 | LR: 0.000050
+Epoch [41/100] | Loss: 2.8824 (Cls: 2.8004, Adv: 4.1002) | Train Acc: 0.9208 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.6509/0.4567/0.4905 | LR: 0.000050
+Epoch [42/100] | Loss: 2.8551 (Cls: 2.7743, Adv: 4.0357) | Train Acc: 0.9146 | Val Acc: 0.6515 | Val P/R/F1 (Macro): 0.7762/0.6387/0.6803 | LR: 0.000050
+  >>> New Best Val Acc: 0.6515
+Epoch [43/100] | Loss: 2.7005 (Cls: 2.6175, Adv: 4.1530) | Train Acc: 0.9437 | Val Acc: 0.3788 | Val P/R/F1 (Macro): 0.5226/0.4030/0.4023 | LR: 0.000050
+Epoch [44/100] | Loss: 2.9245 (Cls: 2.8407, Adv: 4.1889) | Train Acc: 0.9208 | Val Acc: 0.4621 | Val P/R/F1 (Macro): 0.6753/0.4370/0.4932 | LR: 0.000050
+Epoch [45/100] | Loss: 2.7741 (Cls: 2.6874, Adv: 4.3336) | Train Acc: 0.9146 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.6368/0.4949/0.4892 | LR: 0.000050
+Epoch [46/100] | Loss: 2.6753 (Cls: 2.5908, Adv: 4.2262) | Train Acc: 0.9333 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.6447/0.4663/0.5039 | LR: 0.000050
+Epoch [47/100] | Loss: 2.7252 (Cls: 2.6394, Adv: 4.2918) | Train Acc: 0.9354 | Val Acc: 0.4242 | Val P/R/F1 (Macro): 0.6812/0.4236/0.4362 | LR: 0.000050
+Epoch [48/100] | Loss: 2.6244 (Cls: 2.5400, Adv: 4.2183) | Train Acc: 0.9479 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6536/0.5041/0.5134 | LR: 0.000050
+Epoch [49/100] | Loss: 2.7429 (Cls: 2.6584, Adv: 4.2261) | Train Acc: 0.9187 | Val Acc: 0.4242 | Val P/R/F1 (Macro): 0.6606/0.4220/0.4520 | LR: 0.000050
+Epoch [50/100] | Loss: 2.6723 (Cls: 2.5878, Adv: 4.2214) | Train Acc: 0.9458 | Val Acc: 0.4924 | Val P/R/F1 (Macro): 0.4630/0.3739/0.3772 | LR: 0.000050
+Epoch [51/100] | Loss: 2.6270 (Cls: 2.5415, Adv: 4.2760) | Train Acc: 0.9542 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.7064/0.5664/0.5906 | LR: 0.000050
+Epoch [52/100] | Loss: 2.6352 (Cls: 2.5502, Adv: 4.2505) | Train Acc: 0.9437 | Val Acc: 0.4621 | Val P/R/F1 (Macro): 0.6590/0.4639/0.4821 | LR: 0.000050
+Epoch [53/100] | Loss: 2.7116 (Cls: 2.6265, Adv: 4.2526) | Train Acc: 0.9187 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.6284/0.5244/0.5427 | LR: 0.000025
+Epoch [54/100] | Loss: 2.5917 (Cls: 2.5032, Adv: 4.4259) | Train Acc: 0.9583 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.7510/0.6112/0.6255 | LR: 0.000025
+Epoch [55/100] | Loss: 2.5379 (Cls: 2.4505, Adv: 4.3680) | Train Acc: 0.9479 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6580/0.4793/0.5056 | LR: 0.000025
+Epoch [56/100] | Loss: 2.4503 (Cls: 2.3641, Adv: 4.3122) | Train Acc: 0.9646 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.7321/0.5502/0.5769 | LR: 0.000025
+Epoch [57/100] | Loss: 2.4496 (Cls: 2.3632, Adv: 4.3212) | Train Acc: 0.9583 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.6358/0.5538/0.5792 | LR: 0.000025
+  >>> New Best Val Acc: 0.6591
+Epoch [58/100] | Loss: 2.3686 (Cls: 2.2826, Adv: 4.3000) | Train Acc: 0.9708 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6875/0.5039/0.5473 | LR: 0.000025
+Epoch [59/100] | Loss: 2.3847 (Cls: 2.2964, Adv: 4.4190) | Train Acc: 0.9604 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6759/0.4924/0.5150 | LR: 0.000025
+Epoch [60/100] | Loss: 2.4931 (Cls: 2.4053, Adv: 4.3905) | Train Acc: 0.9604 | Val Acc: 0.4091 | Val P/R/F1 (Macro): 0.6377/0.4237/0.4402 | LR: 0.000025
+Epoch [61/100] | Loss: 2.4797 (Cls: 2.3941, Adv: 4.2785) | Train Acc: 0.9708 | Val Acc: 0.5000 | Val P/R/F1 (Macro): 0.6498/0.4636/0.4879 | LR: 0.000025
+Epoch [62/100] | Loss: 2.3682 (Cls: 2.2809, Adv: 4.3665) | Train Acc: 0.9646 | Val Acc: 0.4318 | Val P/R/F1 (Macro): 0.5996/0.4546/0.4764 | LR: 0.000025
+Epoch [63/100] | Loss: 2.3361 (Cls: 2.2470, Adv: 4.4509) | Train Acc: 0.9812 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.7194/0.5199/0.5605 | LR: 0.000025
+Epoch [64/100] | Loss: 2.4164 (Cls: 2.3313, Adv: 4.2538) | Train Acc: 0.9667 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.6171/0.3989/0.4211 | LR: 0.000025
+Epoch [65/100] | Loss: 2.3094 (Cls: 2.2207, Adv: 4.4354) | Train Acc: 0.9750 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6944/0.5713/0.5933 | LR: 0.000025
+Epoch [66/100] | Loss: 2.2629 (Cls: 2.1770, Adv: 4.2969) | Train Acc: 0.9812 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.6769/0.5880/0.6008 | LR: 0.000025
+Epoch [67/100] | Loss: 2.3357 (Cls: 2.2506, Adv: 4.2559) | Train Acc: 0.9708 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.6946/0.6060/0.6117 | LR: 0.000025
+Epoch [68/100] | Loss: 2.3357 (Cls: 2.2520, Adv: 4.1874) | Train Acc: 0.9812 | Val Acc: 0.4545 | Val P/R/F1 (Macro): 0.6556/0.3869/0.4396 | LR: 0.000013
+Epoch [69/100] | Loss: 2.3195 (Cls: 2.2327, Adv: 4.3422) | Train Acc: 0.9729 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6994/0.5141/0.5629 | LR: 0.000013
+Epoch [70/100] | Loss: 2.3051 (Cls: 2.2194, Adv: 4.2839) | Train Acc: 0.9708 | Val Acc: 0.6364 | Val P/R/F1 (Macro): 0.7083/0.5524/0.5967 | LR: 0.000013
+Epoch [71/100] | Loss: 2.3034 (Cls: 2.2164, Adv: 4.3491) | Train Acc: 0.9771 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.5537/0.4420/0.4536 | LR: 0.000013
+Epoch [72/100] | Loss: 2.3619 (Cls: 2.2760, Adv: 4.2977) | Train Acc: 0.9708 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6249/0.4559/0.4881 | LR: 0.000013
+Epoch [73/100] | Loss: 2.2416 (Cls: 2.1546, Adv: 4.3499) | Train Acc: 0.9875 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6956/0.5766/0.6071 | LR: 0.000013
+Epoch [74/100] | Loss: 2.2880 (Cls: 2.2013, Adv: 4.3360) | Train Acc: 0.9771 | Val Acc: 0.6894 | Val P/R/F1 (Macro): 0.7289/0.5657/0.5959 | LR: 0.000013
+  >>> New Best Val Acc: 0.6894
+Epoch [75/100] | Loss: 2.1831 (Cls: 2.0949, Adv: 4.4071) | Train Acc: 0.9938 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.5624/0.4906/0.4922 | LR: 0.000013
+Epoch [76/100] | Loss: 2.2436 (Cls: 2.1563, Adv: 4.3661) | Train Acc: 0.9771 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7037/0.5332/0.5591 | LR: 0.000013
+Epoch [77/100] | Loss: 2.2056 (Cls: 2.1208, Adv: 4.2380) | Train Acc: 0.9708 | Val Acc: 0.6667 | Val P/R/F1 (Macro): 0.7258/0.5770/0.6036 | LR: 0.000013
+Epoch [78/100] | Loss: 2.1888 (Cls: 2.1038, Adv: 4.2492) | Train Acc: 0.9854 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.6941/0.4901/0.5220 | LR: 0.000013
+Epoch [79/100] | Loss: 2.2262 (Cls: 2.1408, Adv: 4.2729) | Train Acc: 0.9812 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.7553/0.5580/0.6009 | LR: 0.000013
+Epoch [80/100] | Loss: 2.1979 (Cls: 2.1119, Adv: 4.2993) | Train Acc: 0.9917 | Val Acc: 0.5152 | Val P/R/F1 (Macro): 0.6328/0.4140/0.4523 | LR: 0.000013
+Epoch [81/100] | Loss: 2.2438 (Cls: 2.1569, Adv: 4.3413) | Train Acc: 0.9750 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6880/0.5196/0.5650 | LR: 0.000013
+Epoch [82/100] | Loss: 2.1842 (Cls: 2.0968, Adv: 4.3706) | Train Acc: 0.9875 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.6796/0.5354/0.5502 | LR: 0.000013
+Epoch [83/100] | Loss: 2.1686 (Cls: 2.0793, Adv: 4.4654) | Train Acc: 0.9750 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6718/0.5142/0.5388 | LR: 0.000013
+Epoch [84/100] | Loss: 2.1685 (Cls: 2.0835, Adv: 4.2479) | Train Acc: 0.9875 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7094/0.5792/0.6012 | LR: 0.000013
+Epoch [85/100] | Loss: 2.2008 (Cls: 2.1130, Adv: 4.3879) | Train Acc: 0.9792 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7082/0.5113/0.5618 | LR: 0.000006
+Epoch [86/100] | Loss: 2.1185 (Cls: 2.0290, Adv: 4.4753) | Train Acc: 0.9896 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6938/0.4591/0.5128 | LR: 0.000006
+Epoch [87/100] | Loss: 2.1755 (Cls: 2.0831, Adv: 4.6206) | Train Acc: 0.9792 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7549/0.5745/0.6135 | LR: 0.000006
+Epoch [88/100] | Loss: 2.1448 (Cls: 2.0548, Adv: 4.4955) | Train Acc: 0.9875 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.7129/0.4716/0.5273 | LR: 0.000006
+Epoch [89/100] | Loss: 2.0917 (Cls: 2.0018, Adv: 4.4941) | Train Acc: 0.9917 | Val Acc: 0.5530 | Val P/R/F1 (Macro): 0.7224/0.4633/0.5209 | LR: 0.000006
+Epoch [90/100] | Loss: 2.1394 (Cls: 2.0510, Adv: 4.4221) | Train Acc: 0.9854 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.7315/0.5090/0.5642 | LR: 0.000006
+Epoch [91/100] | Loss: 2.1790 (Cls: 2.0908, Adv: 4.4109) | Train Acc: 0.9771 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7306/0.5340/0.5809 | LR: 0.000006
+Epoch [92/100] | Loss: 2.1634 (Cls: 2.0734, Adv: 4.4985) | Train Acc: 0.9875 | Val Acc: 0.6742 | Val P/R/F1 (Macro): 0.7645/0.5493/0.5954 | LR: 0.000006
+Epoch [93/100] | Loss: 2.0926 (Cls: 2.0020, Adv: 4.5299) | Train Acc: 0.9958 | Val Acc: 0.6515 | Val P/R/F1 (Macro): 0.7476/0.5496/0.5836 | LR: 0.000006
+Epoch [94/100] | Loss: 2.1473 (Cls: 2.0589, Adv: 4.4208) | Train Acc: 0.9938 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7539/0.5204/0.5725 | LR: 0.000006
+Epoch [95/100] | Loss: 2.1440 (Cls: 2.0549, Adv: 4.4565) | Train Acc: 0.9875 | Val Acc: 0.6818 | Val P/R/F1 (Macro): 0.7883/0.5988/0.6233 | LR: 0.000006
+Epoch [96/100] | Loss: 2.1460 (Cls: 2.0570, Adv: 4.4541) | Train Acc: 0.9896 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.7296/0.5042/0.5496 | LR: 0.000003
+Epoch [97/100] | Loss: 2.1092 (Cls: 2.0180, Adv: 4.5586) | Train Acc: 0.9938 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7743/0.5943/0.6307 | LR: 0.000003
+Epoch [98/100] | Loss: 2.0889 (Cls: 1.9974, Adv: 4.5775) | Train Acc: 0.9896 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7506/0.5627/0.5960 | LR: 0.000003
+Epoch [99/100] | Loss: 2.1011 (Cls: 2.0110, Adv: 4.5071) | Train Acc: 0.9854 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7680/0.5450/0.5954 | LR: 0.000003
+Epoch [100/100] | Loss: 2.1066 (Cls: 2.0172, Adv: 4.4704) | Train Acc: 0.9958 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7248/0.5406/0.5796 | LR: 0.000003
+Report strategy: last_window, window=10, reported_acc=0.6311, best_acc=0.6894
+
+迭代 1 报告指标:
+  Accuracy: 0.6311
+  Precision (Macro): 0.7532
+  Recall (Macro): 0.5499
+  F1 (Macro): 0.5907
+  Precision (Micro): 0.6311
+  Recall (Micro): 0.6311
+  F1 (Micro): 0.6311
+  Val class coverage: 9/14 (0.6429), samples=132
+
+================================================================================
+迭代 2/5
+随机种子: 43
+================================================================================
+Training mode: unpaired target adaptation with controlled target-label loss (ratio=0.82, weight=1.10).
+Fixed labeled target subset: 416/507 samples.
+Epoch [1/100] | Loss: 8.1734 (Cls: 8.1689, Adv: 0.2219) | Train Acc: 0.1917 | Val Acc: 0.1136 | Val P/R/F1 (Macro): 0.0469/0.2004/0.0647 | LR: 0.000050
+  >>> New Best Val Acc: 0.1136
+Epoch [2/100] | Loss: 7.2374 (Cls: 7.2327, Adv: 0.2363) | Train Acc: 0.2583 | Val Acc: 0.0833 | Val P/R/F1 (Macro): 0.2448/0.1257/0.0717 | LR: 0.000050
+Epoch [3/100] | Loss: 6.5547 (Cls: 6.5458, Adv: 0.4430) | Train Acc: 0.3958 | Val Acc: 0.2348 | Val P/R/F1 (Macro): 0.3527/0.2207/0.1985 | LR: 0.000050
+  >>> New Best Val Acc: 0.2348
+Epoch [4/100] | Loss: 5.9396 (Cls: 5.9244, Adv: 0.7597) | Train Acc: 0.5229 | Val Acc: 0.1515 | Val P/R/F1 (Macro): 0.2394/0.2116/0.1460 | LR: 0.000050
+Epoch [5/100] | Loss: 5.6798 (Cls: 5.6585, Adv: 1.0616) | Train Acc: 0.5292 | Val Acc: 0.1667 | Val P/R/F1 (Macro): 0.3569/0.2264/0.1549 | LR: 0.000050
+Epoch [6/100] | Loss: 5.0968 (Cls: 5.0690, Adv: 1.3897) | Train Acc: 0.6500 | Val Acc: 0.2121 | Val P/R/F1 (Macro): 0.3177/0.2619/0.1931 | LR: 0.000050
+Epoch [7/100] | Loss: 4.9610 (Cls: 4.9276, Adv: 1.6702) | Train Acc: 0.6396 | Val Acc: 0.1288 | Val P/R/F1 (Macro): 0.3120/0.1717/0.1440 | LR: 0.000050
+Epoch [8/100] | Loss: 4.8242 (Cls: 4.7896, Adv: 1.7300) | Train Acc: 0.6667 | Val Acc: 0.2348 | Val P/R/F1 (Macro): 0.3775/0.2923/0.2477 | LR: 0.000050
+Epoch [9/100] | Loss: 4.4301 (Cls: 4.3853, Adv: 2.2380) | Train Acc: 0.7312 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.3087/0.2506/0.2030 | LR: 0.000050
+Epoch [10/100] | Loss: 4.4908 (Cls: 4.4502, Adv: 2.0305) | Train Acc: 0.7229 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.3614/0.3295/0.2744 | LR: 0.000050
+  >>> New Best Val Acc: 0.2576
+Epoch [11/100] | Loss: 4.4763 (Cls: 4.4310, Adv: 2.2610) | Train Acc: 0.7000 | Val Acc: 0.1894 | Val P/R/F1 (Macro): 0.3103/0.2389/0.2180 | LR: 0.000050
+Epoch [12/100] | Loss: 4.1069 (Cls: 4.0559, Adv: 2.5497) | Train Acc: 0.8187 | Val Acc: 0.1970 | Val P/R/F1 (Macro): 0.3680/0.2438/0.1872 | LR: 0.000050
+Epoch [13/100] | Loss: 4.1353 (Cls: 4.0845, Adv: 2.5427) | Train Acc: 0.7833 | Val Acc: 0.1439 | Val P/R/F1 (Macro): 0.2823/0.2143/0.1602 | LR: 0.000050
+Epoch [14/100] | Loss: 3.9707 (Cls: 3.9155, Adv: 2.7588) | Train Acc: 0.8292 | Val Acc: 0.2424 | Val P/R/F1 (Macro): 0.4065/0.2791/0.2630 | LR: 0.000050
+Epoch [15/100] | Loss: 3.9261 (Cls: 3.8704, Adv: 2.7826) | Train Acc: 0.7833 | Val Acc: 0.1515 | Val P/R/F1 (Macro): 0.3273/0.1907/0.1580 | LR: 0.000050
+Epoch [16/100] | Loss: 3.8375 (Cls: 3.7824, Adv: 2.7596) | Train Acc: 0.7917 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.3548/0.2619/0.2162 | LR: 0.000050
+Epoch [17/100] | Loss: 3.8221 (Cls: 3.7634, Adv: 2.9361) | Train Acc: 0.8104 | Val Acc: 0.3333 | Val P/R/F1 (Macro): 0.4897/0.3450/0.3206 | LR: 0.000050
+  >>> New Best Val Acc: 0.3333
+Epoch [18/100] | Loss: 3.6513 (Cls: 3.5888, Adv: 3.1232) | Train Acc: 0.8292 | Val Acc: 0.1742 | Val P/R/F1 (Macro): 0.3628/0.1796/0.1862 | LR: 0.000050
+Epoch [19/100] | Loss: 3.4772 (Cls: 3.4145, Adv: 3.1375) | Train Acc: 0.8583 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.4694/0.2960/0.2376 | LR: 0.000050
+Epoch [20/100] | Loss: 3.6179 (Cls: 3.5517, Adv: 3.3102) | Train Acc: 0.8479 | Val Acc: 0.2348 | Val P/R/F1 (Macro): 0.3146/0.2783/0.2255 | LR: 0.000050
+Epoch [21/100] | Loss: 3.6544 (Cls: 3.5864, Adv: 3.3975) | Train Acc: 0.8313 | Val Acc: 0.3636 | Val P/R/F1 (Macro): 0.4395/0.3672/0.3564 | LR: 0.000050
+  >>> New Best Val Acc: 0.3636
+Epoch [22/100] | Loss: 3.4990 (Cls: 3.4313, Adv: 3.3852) | Train Acc: 0.8542 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.4044/0.2475/0.2109 | LR: 0.000050
+Epoch [23/100] | Loss: 3.3756 (Cls: 3.3067, Adv: 3.4426) | Train Acc: 0.8688 | Val Acc: 0.2727 | Val P/R/F1 (Macro): 0.3803/0.3138/0.2498 | LR: 0.000050
+Epoch [24/100] | Loss: 3.3919 (Cls: 3.3241, Adv: 3.3880) | Train Acc: 0.8417 | Val Acc: 0.3182 | Val P/R/F1 (Macro): 0.4418/0.2870/0.3033 | LR: 0.000050
+Epoch [25/100] | Loss: 3.3148 (Cls: 3.2436, Adv: 3.5615) | Train Acc: 0.8396 | Val Acc: 0.2803 | Val P/R/F1 (Macro): 0.3665/0.2311/0.2543 | LR: 0.000050
+Epoch [26/100] | Loss: 3.2945 (Cls: 3.2247, Adv: 3.4865) | Train Acc: 0.8771 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.5468/0.3203/0.3091 | LR: 0.000050
+Epoch [27/100] | Loss: 3.2698 (Cls: 3.1995, Adv: 3.5159) | Train Acc: 0.8854 | Val Acc: 0.2121 | Val P/R/F1 (Macro): 0.5474/0.2854/0.2496 | LR: 0.000050
+Epoch [28/100] | Loss: 3.2305 (Cls: 3.1589, Adv: 3.5786) | Train Acc: 0.8729 | Val Acc: 0.1742 | Val P/R/F1 (Macro): 0.4208/0.1772/0.1775 | LR: 0.000050
+Epoch [29/100] | Loss: 3.2594 (Cls: 3.1909, Adv: 3.4243) | Train Acc: 0.8750 | Val Acc: 0.3106 | Val P/R/F1 (Macro): 0.4309/0.3533/0.2994 | LR: 0.000050
+Epoch [30/100] | Loss: 3.2548 (Cls: 3.1819, Adv: 3.6458) | Train Acc: 0.8729 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.5842/0.4904/0.4744 | LR: 0.000050
+  >>> New Best Val Acc: 0.4394
+Epoch [31/100] | Loss: 3.1834 (Cls: 3.1076, Adv: 3.7875) | Train Acc: 0.8896 | Val Acc: 0.3636 | Val P/R/F1 (Macro): 0.6122/0.4770/0.4356 | LR: 0.000050
+Epoch [32/100] | Loss: 3.0710 (Cls: 2.9962, Adv: 3.7414) | Train Acc: 0.9000 | Val Acc: 0.3864 | Val P/R/F1 (Macro): 0.5373/0.3961/0.3924 | LR: 0.000050
+Epoch [33/100] | Loss: 3.0120 (Cls: 2.9353, Adv: 3.8354) | Train Acc: 0.9021 | Val Acc: 0.4015 | Val P/R/F1 (Macro): 0.5578/0.3998/0.4169 | LR: 0.000050
+Epoch [34/100] | Loss: 2.9551 (Cls: 2.8807, Adv: 3.7236) | Train Acc: 0.9062 | Val Acc: 0.3561 | Val P/R/F1 (Macro): 0.5341/0.4528/0.4265 | LR: 0.000050
+Epoch [35/100] | Loss: 3.1457 (Cls: 3.0699, Adv: 3.7914) | Train Acc: 0.8583 | Val Acc: 0.3106 | Val P/R/F1 (Macro): 0.4819/0.3197/0.3346 | LR: 0.000050
+Epoch [36/100] | Loss: 3.0472 (Cls: 2.9679, Adv: 3.9628) | Train Acc: 0.8917 | Val Acc: 0.3258 | Val P/R/F1 (Macro): 0.5806/0.4719/0.4289 | LR: 0.000050
+Epoch [37/100] | Loss: 2.9810 (Cls: 2.9055, Adv: 3.7738) | Train Acc: 0.9187 | Val Acc: 0.3561 | Val P/R/F1 (Macro): 0.4813/0.3132/0.3430 | LR: 0.000050
+Epoch [38/100] | Loss: 2.9339 (Cls: 2.8545, Adv: 3.9688) | Train Acc: 0.9229 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.6025/0.5261/0.5066 | LR: 0.000050
+  >>> New Best Val Acc: 0.4470
+Epoch [39/100] | Loss: 2.8045 (Cls: 2.7238, Adv: 4.0372) | Train Acc: 0.9354 | Val Acc: 0.4091 | Val P/R/F1 (Macro): 0.5868/0.4520/0.4243 | LR: 0.000050
+Epoch [40/100] | Loss: 2.9286 (Cls: 2.8518, Adv: 3.8428) | Train Acc: 0.9229 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.5918/0.5688/0.5089 | LR: 0.000050
+  >>> New Best Val Acc: 0.4848
+Epoch [41/100] | Loss: 2.8390 (Cls: 2.7592, Adv: 3.9868) | Train Acc: 0.9250 | Val Acc: 0.3333 | Val P/R/F1 (Macro): 0.5396/0.3818/0.3734 | LR: 0.000050
+Epoch [42/100] | Loss: 2.9452 (Cls: 2.8652, Adv: 3.9998) | Train Acc: 0.9125 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.5772/0.4006/0.4163 | LR: 0.000050
+Epoch [43/100] | Loss: 2.8732 (Cls: 2.7917, Adv: 4.0754) | Train Acc: 0.9146 | Val Acc: 0.4318 | Val P/R/F1 (Macro): 0.6507/0.5003/0.4718 | LR: 0.000050
+Epoch [44/100] | Loss: 2.7966 (Cls: 2.7146, Adv: 4.0983) | Train Acc: 0.9354 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.5322/0.3933/0.4080 | LR: 0.000050
+Epoch [45/100] | Loss: 2.6948 (Cls: 2.6147, Adv: 4.0054) | Train Acc: 0.9479 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.5084/0.3725/0.3953 | LR: 0.000050
+Epoch [46/100] | Loss: 2.8672 (Cls: 2.7872, Adv: 3.9987) | Train Acc: 0.9104 | Val Acc: 0.3712 | Val P/R/F1 (Macro): 0.5715/0.4184/0.4260 | LR: 0.000050
+Epoch [47/100] | Loss: 2.7473 (Cls: 2.6671, Adv: 4.0111) | Train Acc: 0.9354 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.5251/0.4779/0.4509 | LR: 0.000050
+Epoch [48/100] | Loss: 2.6608 (Cls: 2.5777, Adv: 4.1575) | Train Acc: 0.9271 | Val Acc: 0.5530 | Val P/R/F1 (Macro): 0.6737/0.5821/0.5568 | LR: 0.000050
+  >>> New Best Val Acc: 0.5530
+Epoch [49/100] | Loss: 2.6843 (Cls: 2.6009, Adv: 4.1734) | Train Acc: 0.9313 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.5925/0.4737/0.5102 | LR: 0.000050
+Epoch [50/100] | Loss: 2.6876 (Cls: 2.6045, Adv: 4.1568) | Train Acc: 0.9354 | Val Acc: 0.4318 | Val P/R/F1 (Macro): 0.6878/0.3926/0.4276 | LR: 0.000050
+Epoch [51/100] | Loss: 2.7526 (Cls: 2.6700, Adv: 4.1281) | Train Acc: 0.9313 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.6504/0.4735/0.4911 | LR: 0.000050
+Epoch [52/100] | Loss: 2.6145 (Cls: 2.5310, Adv: 4.1725) | Train Acc: 0.9437 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.6091/0.4742/0.4707 | LR: 0.000050
+Epoch [53/100] | Loss: 2.5434 (Cls: 2.4585, Adv: 4.2442) | Train Acc: 0.9542 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6269/0.5911/0.5510 | LR: 0.000050
+Epoch [54/100] | Loss: 2.5868 (Cls: 2.5003, Adv: 4.3230) | Train Acc: 0.9437 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.5970/0.4232/0.4479 | LR: 0.000050
+Epoch [55/100] | Loss: 2.5121 (Cls: 2.4272, Adv: 4.2491) | Train Acc: 0.9479 | Val Acc: 0.3864 | Val P/R/F1 (Macro): 0.5782/0.4107/0.4390 | LR: 0.000050
+Epoch [56/100] | Loss: 2.5378 (Cls: 2.4545, Adv: 4.1651) | Train Acc: 0.9563 | Val Acc: 0.3409 | Val P/R/F1 (Macro): 0.6178/0.3081/0.3604 | LR: 0.000050
+Epoch [57/100] | Loss: 2.7104 (Cls: 2.6255, Adv: 4.2444) | Train Acc: 0.9417 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.6944/0.4792/0.5041 | LR: 0.000050
+Epoch [58/100] | Loss: 2.5724 (Cls: 2.4879, Adv: 4.2276) | Train Acc: 0.9292 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.7464/0.6009/0.6253 | LR: 0.000050
+  >>> New Best Val Acc: 0.5985
+Epoch [59/100] | Loss: 2.6002 (Cls: 2.5160, Adv: 4.2092) | Train Acc: 0.9396 | Val Acc: 0.4924 | Val P/R/F1 (Macro): 0.5696/0.4319/0.4501 | LR: 0.000050
+Epoch [60/100] | Loss: 2.5391 (Cls: 2.4537, Adv: 4.2685) | Train Acc: 0.9396 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6438/0.5798/0.5972 | LR: 0.000050
+Epoch [61/100] | Loss: 2.5581 (Cls: 2.4717, Adv: 4.3206) | Train Acc: 0.9521 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.6406/0.4079/0.4567 | LR: 0.000050
+Epoch [62/100] | Loss: 2.4508 (Cls: 2.3630, Adv: 4.3914) | Train Acc: 0.9625 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.7279/0.6359/0.6447 | LR: 0.000050
+Epoch [63/100] | Loss: 2.5450 (Cls: 2.4598, Adv: 4.2603) | Train Acc: 0.9396 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6471/0.4932/0.5146 | LR: 0.000050
+Epoch [64/100] | Loss: 2.5626 (Cls: 2.4750, Adv: 4.3775) | Train Acc: 0.9500 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.7676/0.5376/0.5582 | LR: 0.000050
+Epoch [65/100] | Loss: 2.4978 (Cls: 2.4135, Adv: 4.2180) | Train Acc: 0.9542 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.5911/0.4348/0.4856 | LR: 0.000050
+Epoch [66/100] | Loss: 2.4421 (Cls: 2.3547, Adv: 4.3694) | Train Acc: 0.9625 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7363/0.6546/0.6585 | LR: 0.000050
+  >>> New Best Val Acc: 0.6212
+Epoch [67/100] | Loss: 2.4570 (Cls: 2.3724, Adv: 4.2267) | Train Acc: 0.9521 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6403/0.5373/0.5552 | LR: 0.000050
+Epoch [68/100] | Loss: 2.4533 (Cls: 2.3670, Adv: 4.3176) | Train Acc: 0.9542 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.6179/0.3529/0.3828 | LR: 0.000050
+Epoch [69/100] | Loss: 2.5186 (Cls: 2.4310, Adv: 4.3777) | Train Acc: 0.9542 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6650/0.6028/0.5869 | LR: 0.000050
+Epoch [70/100] | Loss: 2.3577 (Cls: 2.2738, Adv: 4.1987) | Train Acc: 0.9604 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.6061/0.4973/0.4678 | LR: 0.000050
+Epoch [71/100] | Loss: 2.4172 (Cls: 2.3326, Adv: 4.2313) | Train Acc: 0.9646 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.7036/0.5816/0.5893 | LR: 0.000050
+Epoch [72/100] | Loss: 2.4175 (Cls: 2.3320, Adv: 4.2764) | Train Acc: 0.9708 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.6134/0.5103/0.5342 | LR: 0.000050
+Epoch [73/100] | Loss: 2.4188 (Cls: 2.3339, Adv: 4.2406) | Train Acc: 0.9708 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.5922/0.4675/0.4492 | LR: 0.000050
+Epoch [74/100] | Loss: 2.2766 (Cls: 2.1895, Adv: 4.3526) | Train Acc: 0.9750 | Val Acc: 0.5152 | Val P/R/F1 (Macro): 0.7374/0.5419/0.5308 | LR: 0.000050
+Epoch [75/100] | Loss: 2.4111 (Cls: 2.3226, Adv: 4.4255) | Train Acc: 0.9792 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6494/0.4742/0.4992 | LR: 0.000050
+Epoch [76/100] | Loss: 2.4021 (Cls: 2.3180, Adv: 4.2015) | Train Acc: 0.9375 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6815/0.5001/0.5369 | LR: 0.000050
+Epoch [77/100] | Loss: 2.4215 (Cls: 2.3379, Adv: 4.1773) | Train Acc: 0.9542 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.7375/0.5727/0.6030 | LR: 0.000025
+Epoch [78/100] | Loss: 2.3152 (Cls: 2.2307, Adv: 4.2255) | Train Acc: 0.9583 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.5926/0.4877/0.5192 | LR: 0.000025
+Epoch [79/100] | Loss: 2.2873 (Cls: 2.1990, Adv: 4.4154) | Train Acc: 0.9812 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.7793/0.6254/0.6452 | LR: 0.000025
+Epoch [80/100] | Loss: 2.3042 (Cls: 2.2172, Adv: 4.3520) | Train Acc: 0.9583 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.6125/0.5527/0.5544 | LR: 0.000025
+Epoch [81/100] | Loss: 2.2427 (Cls: 2.1552, Adv: 4.3767) | Train Acc: 0.9833 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6888/0.5856/0.5852 | LR: 0.000025
+Epoch [82/100] | Loss: 2.2861 (Cls: 2.1985, Adv: 4.3791) | Train Acc: 0.9750 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.7050/0.5818/0.5902 | LR: 0.000025
+Epoch [83/100] | Loss: 2.1612 (Cls: 2.0744, Adv: 4.3391) | Train Acc: 0.9833 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.7170/0.6172/0.6139 | LR: 0.000025
+Epoch [84/100] | Loss: 2.2335 (Cls: 2.1491, Adv: 4.2179) | Train Acc: 0.9917 | Val Acc: 0.6364 | Val P/R/F1 (Macro): 0.7319/0.5935/0.6290 | LR: 0.000025
+  >>> New Best Val Acc: 0.6364
+Epoch [85/100] | Loss: 2.1885 (Cls: 2.1029, Adv: 4.2787) | Train Acc: 0.9854 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.7579/0.5253/0.5705 | LR: 0.000025
+Epoch [86/100] | Loss: 2.1775 (Cls: 2.0931, Adv: 4.2227) | Train Acc: 0.9896 | Val Acc: 0.5530 | Val P/R/F1 (Macro): 0.6695/0.5389/0.5412 | LR: 0.000025
+Epoch [87/100] | Loss: 2.2253 (Cls: 2.1426, Adv: 4.1357) | Train Acc: 0.9750 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.7058/0.6049/0.6059 | LR: 0.000025
+Epoch [88/100] | Loss: 2.1636 (Cls: 2.0802, Adv: 4.1705) | Train Acc: 0.9729 | Val Acc: 0.5303 | Val P/R/F1 (Macro): 0.5922/0.4739/0.5011 | LR: 0.000025
+Epoch [89/100] | Loss: 2.1856 (Cls: 2.1005, Adv: 4.2550) | Train Acc: 0.9854 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7430/0.5736/0.6306 | LR: 0.000025
+Epoch [90/100] | Loss: 2.1798 (Cls: 2.0932, Adv: 4.3279) | Train Acc: 0.9708 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.7419/0.5962/0.6225 | LR: 0.000025
+Epoch [91/100] | Loss: 2.1812 (Cls: 2.0940, Adv: 4.3617) | Train Acc: 0.9792 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.6708/0.5266/0.5611 | LR: 0.000025
+Epoch [92/100] | Loss: 2.1322 (Cls: 2.0481, Adv: 4.2052) | Train Acc: 0.9875 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.7621/0.5639/0.5771 | LR: 0.000025
+Epoch [93/100] | Loss: 2.1349 (Cls: 2.0469, Adv: 4.4022) | Train Acc: 0.9896 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.7478/0.5774/0.6119 | LR: 0.000025
+Epoch [94/100] | Loss: 2.1178 (Cls: 2.0327, Adv: 4.2553) | Train Acc: 0.9854 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6690/0.5910/0.6069 | LR: 0.000025
+Epoch [95/100] | Loss: 2.1567 (Cls: 2.0726, Adv: 4.2040) | Train Acc: 0.9833 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.7898/0.6933/0.6974 | LR: 0.000025
+  >>> New Best Val Acc: 0.6591
+Epoch [96/100] | Loss: 2.1303 (Cls: 2.0463, Adv: 4.2027) | Train Acc: 0.9854 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.6796/0.5401/0.5770 | LR: 0.000025
+Epoch [97/100] | Loss: 2.1437 (Cls: 2.0556, Adv: 4.4052) | Train Acc: 0.9875 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.7571/0.5893/0.6314 | LR: 0.000025
+Epoch [98/100] | Loss: 2.1524 (Cls: 2.0661, Adv: 4.3177) | Train Acc: 0.9854 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6973/0.5878/0.6126 | LR: 0.000025
+Epoch [99/100] | Loss: 2.1089 (Cls: 2.0250, Adv: 4.1977) | Train Acc: 0.9938 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7769/0.6312/0.6484 | LR: 0.000025
+Epoch [100/100] | Loss: 2.1253 (Cls: 2.0402, Adv: 4.2562) | Train Acc: 0.9875 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7282/0.5322/0.5701 | LR: 0.000025
+Report strategy: last_window, window=10, reported_acc=0.6083, best_acc=0.6591
+
+迭代 2 报告指标:
+  Accuracy: 0.6083
+  Precision (Macro): 0.7279
+  Recall (Macro): 0.5833
+  F1 (Macro): 0.6094
+  Precision (Micro): 0.6083
+  Recall (Micro): 0.6083
+  F1 (Micro): 0.6083
+  Val class coverage: 9/14 (0.6429), samples=132
+
+================================================================================
+迭代 3/5
+随机种子: 44
+================================================================================
+Training mode: unpaired target adaptation with controlled target-label loss (ratio=0.82, weight=1.10).
+Fixed labeled target subset: 416/507 samples.
+Epoch [1/100] | Loss: 8.3210 (Cls: 8.3165, Adv: 0.2291) | Train Acc: 0.1771 | Val Acc: 0.0455 | Val P/R/F1 (Macro): 0.0095/0.1235/0.0170 | LR: 0.000050
+  >>> New Best Val Acc: 0.0455
+Epoch [2/100] | Loss: 7.2335 (Cls: 7.2284, Adv: 0.2531) | Train Acc: 0.3187 | Val Acc: 0.0682 | Val P/R/F1 (Macro): 0.1749/0.1138/0.0850 | LR: 0.000050
+  >>> New Best Val Acc: 0.0682
+Epoch [3/100] | Loss: 6.4993 (Cls: 6.4903, Adv: 0.4480) | Train Acc: 0.4313 | Val Acc: 0.1591 | Val P/R/F1 (Macro): 0.3281/0.1736/0.1538 | LR: 0.000050
+  >>> New Best Val Acc: 0.1591
+Epoch [4/100] | Loss: 6.1166 (Cls: 6.1049, Adv: 0.5839) | Train Acc: 0.4875 | Val Acc: 0.1061 | Val P/R/F1 (Macro): 0.1981/0.1425/0.1016 | LR: 0.000050
+Epoch [5/100] | Loss: 5.4965 (Cls: 5.4814, Adv: 0.7532) | Train Acc: 0.5875 | Val Acc: 0.1515 | Val P/R/F1 (Macro): 0.2146/0.1813/0.1218 | LR: 0.000050
+Epoch [6/100] | Loss: 5.2761 (Cls: 5.2532, Adv: 1.1437) | Train Acc: 0.6312 | Val Acc: 0.2121 | Val P/R/F1 (Macro): 0.3951/0.2584/0.1760 | LR: 0.000050
+  >>> New Best Val Acc: 0.2121
+Epoch [7/100] | Loss: 5.0577 (Cls: 5.0316, Adv: 1.3072) | Train Acc: 0.6500 | Val Acc: 0.2879 | Val P/R/F1 (Macro): 0.3134/0.3072/0.2431 | LR: 0.000050
+  >>> New Best Val Acc: 0.2879
+Epoch [8/100] | Loss: 4.6671 (Cls: 4.6354, Adv: 1.5842) | Train Acc: 0.6917 | Val Acc: 0.3106 | Val P/R/F1 (Macro): 0.4407/0.3073/0.2676 | LR: 0.000050
+  >>> New Best Val Acc: 0.3106
+Epoch [9/100] | Loss: 4.4817 (Cls: 4.4485, Adv: 1.6605) | Train Acc: 0.7312 | Val Acc: 0.2955 | Val P/R/F1 (Macro): 0.3778/0.2854/0.2370 | LR: 0.000050
+Epoch [10/100] | Loss: 4.3744 (Cls: 4.3368, Adv: 1.8827) | Train Acc: 0.7646 | Val Acc: 0.2727 | Val P/R/F1 (Macro): 0.3339/0.2813/0.2492 | LR: 0.000050
+Epoch [11/100] | Loss: 4.2785 (Cls: 4.2377, Adv: 2.0388) | Train Acc: 0.7542 | Val Acc: 0.2121 | Val P/R/F1 (Macro): 0.3042/0.2431/0.1993 | LR: 0.000050
+Epoch [12/100] | Loss: 4.1431 (Cls: 4.1009, Adv: 2.1102) | Train Acc: 0.7646 | Val Acc: 0.3106 | Val P/R/F1 (Macro): 0.4253/0.2817/0.3008 | LR: 0.000050
+Epoch [13/100] | Loss: 4.0030 (Cls: 3.9604, Adv: 2.1311) | Train Acc: 0.7812 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.3082/0.2871/0.2116 | LR: 0.000050
+Epoch [14/100] | Loss: 4.0702 (Cls: 4.0214, Adv: 2.4406) | Train Acc: 0.8104 | Val Acc: 0.2955 | Val P/R/F1 (Macro): 0.4387/0.3258/0.2988 | LR: 0.000050
+Epoch [15/100] | Loss: 4.0064 (Cls: 3.9610, Adv: 2.2709) | Train Acc: 0.8042 | Val Acc: 0.2803 | Val P/R/F1 (Macro): 0.4915/0.2986/0.2678 | LR: 0.000050
+Epoch [16/100] | Loss: 3.7994 (Cls: 3.7477, Adv: 2.5843) | Train Acc: 0.8479 | Val Acc: 0.2727 | Val P/R/F1 (Macro): 0.4489/0.3181/0.2772 | LR: 0.000050
+Epoch [17/100] | Loss: 3.8039 (Cls: 3.7533, Adv: 2.5279) | Train Acc: 0.8313 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.3227/0.2348/0.1920 | LR: 0.000050
+Epoch [18/100] | Loss: 3.5874 (Cls: 3.5343, Adv: 2.6560) | Train Acc: 0.8313 | Val Acc: 0.4242 | Val P/R/F1 (Macro): 0.4218/0.3306/0.3438 | LR: 0.000050
+  >>> New Best Val Acc: 0.4242
+Epoch [19/100] | Loss: 3.7102 (Cls: 3.6563, Adv: 2.6977) | Train Acc: 0.8021 | Val Acc: 0.3030 | Val P/R/F1 (Macro): 0.5277/0.3362/0.3527 | LR: 0.000050
+Epoch [20/100] | Loss: 3.4824 (Cls: 3.4295, Adv: 2.6458) | Train Acc: 0.8917 | Val Acc: 0.2955 | Val P/R/F1 (Macro): 0.4372/0.2407/0.2450 | LR: 0.000050
+Epoch [21/100] | Loss: 3.6226 (Cls: 3.5674, Adv: 2.7624) | Train Acc: 0.8292 | Val Acc: 0.3258 | Val P/R/F1 (Macro): 0.5107/0.2941/0.3083 | LR: 0.000050
+Epoch [22/100] | Loss: 3.3776 (Cls: 3.3185, Adv: 2.9557) | Train Acc: 0.8750 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.4425/0.2146/0.2407 | LR: 0.000050
+Epoch [23/100] | Loss: 3.6367 (Cls: 3.5790, Adv: 2.8821) | Train Acc: 0.8229 | Val Acc: 0.2197 | Val P/R/F1 (Macro): 0.3007/0.2009/0.1789 | LR: 0.000050
+Epoch [24/100] | Loss: 3.4741 (Cls: 3.4125, Adv: 3.0797) | Train Acc: 0.8729 | Val Acc: 0.1970 | Val P/R/F1 (Macro): 0.3554/0.2450/0.1894 | LR: 0.000050
+Epoch [25/100] | Loss: 3.3673 (Cls: 3.3076, Adv: 2.9836) | Train Acc: 0.8521 | Val Acc: 0.2803 | Val P/R/F1 (Macro): 0.5877/0.3663/0.3248 | LR: 0.000050
+Epoch [26/100] | Loss: 3.1988 (Cls: 3.1383, Adv: 3.0260) | Train Acc: 0.9021 | Val Acc: 0.1667 | Val P/R/F1 (Macro): 0.4922/0.2507/0.1975 | LR: 0.000050
+Epoch [27/100] | Loss: 3.1210 (Cls: 3.0577, Adv: 3.1653) | Train Acc: 0.9167 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.4747/0.2439/0.2230 | LR: 0.000050
+Epoch [28/100] | Loss: 3.1438 (Cls: 3.0799, Adv: 3.1929) | Train Acc: 0.8833 | Val Acc: 0.3258 | Val P/R/F1 (Macro): 0.5862/0.2784/0.3208 | LR: 0.000050
+Epoch [29/100] | Loss: 3.2797 (Cls: 3.2159, Adv: 3.1890) | Train Acc: 0.8750 | Val Acc: 0.1970 | Val P/R/F1 (Macro): 0.4129/0.1912/0.1887 | LR: 0.000025
+Epoch [30/100] | Loss: 3.2225 (Cls: 3.1600, Adv: 3.1274) | Train Acc: 0.8875 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.5513/0.4753/0.4550 | LR: 0.000025
+  >>> New Best Val Acc: 0.5682
+Epoch [31/100] | Loss: 3.0469 (Cls: 2.9811, Adv: 3.2896) | Train Acc: 0.9042 | Val Acc: 0.3258 | Val P/R/F1 (Macro): 0.6061/0.3437/0.3229 | LR: 0.000025
+Epoch [32/100] | Loss: 2.8851 (Cls: 2.8203, Adv: 3.2381) | Train Acc: 0.9271 | Val Acc: 0.3712 | Val P/R/F1 (Macro): 0.6003/0.3894/0.3834 | LR: 0.000025
+Epoch [33/100] | Loss: 3.0585 (Cls: 2.9902, Adv: 3.4173) | Train Acc: 0.8896 | Val Acc: 0.3485 | Val P/R/F1 (Macro): 0.5210/0.3560/0.3635 | LR: 0.000025
+Epoch [34/100] | Loss: 2.8330 (Cls: 2.7634, Adv: 3.4809) | Train Acc: 0.9458 | Val Acc: 0.3333 | Val P/R/F1 (Macro): 0.5244/0.2608/0.2990 | LR: 0.000025
+Epoch [35/100] | Loss: 2.8683 (Cls: 2.8017, Adv: 3.3287) | Train Acc: 0.9187 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.4428/0.3581/0.2905 | LR: 0.000025
+Epoch [36/100] | Loss: 2.7046 (Cls: 2.6334, Adv: 3.5639) | Train Acc: 0.9396 | Val Acc: 0.4091 | Val P/R/F1 (Macro): 0.5671/0.4153/0.4139 | LR: 0.000025
+Epoch [37/100] | Loss: 2.8780 (Cls: 2.8085, Adv: 3.4750) | Train Acc: 0.9104 | Val Acc: 0.2879 | Val P/R/F1 (Macro): 0.4179/0.2513/0.2604 | LR: 0.000025
+Epoch [38/100] | Loss: 2.8644 (Cls: 2.7943, Adv: 3.5035) | Train Acc: 0.9292 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.5817/0.4322/0.4472 | LR: 0.000025
+Epoch [39/100] | Loss: 2.8180 (Cls: 2.7471, Adv: 3.5446) | Train Acc: 0.9104 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.5938/0.5274/0.5288 | LR: 0.000025
+  >>> New Best Val Acc: 0.5985
+Epoch [40/100] | Loss: 2.6563 (Cls: 2.5858, Adv: 3.5278) | Train Acc: 0.9604 | Val Acc: 0.4773 | Val P/R/F1 (Macro): 0.5692/0.4194/0.4205 | LR: 0.000025
+Epoch [41/100] | Loss: 2.7599 (Cls: 2.6892, Adv: 3.5328) | Train Acc: 0.9250 | Val Acc: 0.4318 | Val P/R/F1 (Macro): 0.6226/0.4512/0.4684 | LR: 0.000025
+Epoch [42/100] | Loss: 2.7747 (Cls: 2.7031, Adv: 3.5814) | Train Acc: 0.9396 | Val Acc: 0.4015 | Val P/R/F1 (Macro): 0.6038/0.3871/0.4018 | LR: 0.000025
+Epoch [43/100] | Loss: 2.6916 (Cls: 2.6189, Adv: 3.6302) | Train Acc: 0.9417 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.5073/0.3342/0.3359 | LR: 0.000025
+Epoch [44/100] | Loss: 2.6628 (Cls: 2.5912, Adv: 3.5781) | Train Acc: 0.9375 | Val Acc: 0.3561 | Val P/R/F1 (Macro): 0.5388/0.3525/0.3783 | LR: 0.000025
+Epoch [45/100] | Loss: 2.5910 (Cls: 2.5184, Adv: 3.6275) | Train Acc: 0.9583 | Val Acc: 0.5303 | Val P/R/F1 (Macro): 0.6324/0.4920/0.4981 | LR: 0.000025
+Epoch [46/100] | Loss: 2.6678 (Cls: 2.5943, Adv: 3.6743) | Train Acc: 0.9479 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.5894/0.5618/0.5475 | LR: 0.000025
+Epoch [47/100] | Loss: 2.7317 (Cls: 2.6573, Adv: 3.7190) | Train Acc: 0.8958 | Val Acc: 0.3712 | Val P/R/F1 (Macro): 0.5767/0.3834/0.4111 | LR: 0.000025
+Epoch [48/100] | Loss: 2.6455 (Cls: 2.5674, Adv: 3.9039) | Train Acc: 0.9437 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.5990/0.4535/0.4562 | LR: 0.000025
+Epoch [49/100] | Loss: 2.6686 (Cls: 2.5925, Adv: 3.8077) | Train Acc: 0.9229 | Val Acc: 0.5303 | Val P/R/F1 (Macro): 0.6090/0.5021/0.5196 | LR: 0.000025
+Epoch [50/100] | Loss: 2.7202 (Cls: 2.6451, Adv: 3.7557) | Train Acc: 0.9396 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.5927/0.4368/0.4381 | LR: 0.000013
+Epoch [51/100] | Loss: 2.5937 (Cls: 2.5161, Adv: 3.8782) | Train Acc: 0.9500 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6030/0.5219/0.4974 | LR: 0.000013
+Epoch [52/100] | Loss: 2.5104 (Cls: 2.4351, Adv: 3.7657) | Train Acc: 0.9583 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.5523/0.4346/0.4493 | LR: 0.000013
+Epoch [53/100] | Loss: 2.5038 (Cls: 2.4249, Adv: 3.9442) | Train Acc: 0.9708 | Val Acc: 0.5530 | Val P/R/F1 (Macro): 0.6220/0.5378/0.5135 | LR: 0.000013
+Epoch [54/100] | Loss: 2.5106 (Cls: 2.4307, Adv: 3.9953) | Train Acc: 0.9479 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.5855/0.4153/0.4215 | LR: 0.000013
+Epoch [55/100] | Loss: 2.4622 (Cls: 2.3862, Adv: 3.8038) | Train Acc: 0.9625 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6260/0.5253/0.5270 | LR: 0.000013
+Epoch [56/100] | Loss: 2.5001 (Cls: 2.4212, Adv: 3.9436) | Train Acc: 0.9542 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6254/0.5254/0.5099 | LR: 0.000013
+Epoch [57/100] | Loss: 2.4226 (Cls: 2.3453, Adv: 3.8670) | Train Acc: 0.9646 | Val Acc: 0.4924 | Val P/R/F1 (Macro): 0.5339/0.4657/0.4555 | LR: 0.000013
+Epoch [58/100] | Loss: 2.5739 (Cls: 2.4980, Adv: 3.7923) | Train Acc: 0.9250 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.6062/0.4360/0.4266 | LR: 0.000013
+Epoch [59/100] | Loss: 2.5082 (Cls: 2.4306, Adv: 3.8823) | Train Acc: 0.9646 | Val Acc: 0.4621 | Val P/R/F1 (Macro): 0.5186/0.3964/0.3987 | LR: 0.000013
+Epoch [60/100] | Loss: 2.3951 (Cls: 2.3174, Adv: 3.8846) | Train Acc: 0.9729 | Val Acc: 0.4318 | Val P/R/F1 (Macro): 0.6335/0.4546/0.4569 | LR: 0.000013
+Epoch [61/100] | Loss: 2.3708 (Cls: 2.2917, Adv: 3.9597) | Train Acc: 0.9646 | Val Acc: 0.6288 | Val P/R/F1 (Macro): 0.6986/0.5747/0.5996 | LR: 0.000013
+  >>> New Best Val Acc: 0.6288
+Epoch [62/100] | Loss: 2.3639 (Cls: 2.2831, Adv: 4.0382) | Train Acc: 0.9708 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6816/0.5931/0.5856 | LR: 0.000013
+Epoch [63/100] | Loss: 2.5191 (Cls: 2.4386, Adv: 4.0248) | Train Acc: 0.9563 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6138/0.4845/0.4999 | LR: 0.000013
+Epoch [64/100] | Loss: 2.4206 (Cls: 2.3410, Adv: 3.9798) | Train Acc: 0.9729 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6622/0.5080/0.5384 | LR: 0.000013
+Epoch [65/100] | Loss: 2.4107 (Cls: 2.3319, Adv: 3.9364) | Train Acc: 0.9604 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6586/0.5118/0.5264 | LR: 0.000013
+Epoch [66/100] | Loss: 2.4004 (Cls: 2.3221, Adv: 3.9150) | Train Acc: 0.9708 | Val Acc: 0.5152 | Val P/R/F1 (Macro): 0.6447/0.4626/0.4669 | LR: 0.000013
+Epoch [67/100] | Loss: 2.4831 (Cls: 2.4030, Adv: 4.0073) | Train Acc: 0.9688 | Val Acc: 0.5000 | Val P/R/F1 (Macro): 0.5372/0.4441/0.4494 | LR: 0.000013
+Epoch [68/100] | Loss: 2.3763 (Cls: 2.2938, Adv: 4.1220) | Train Acc: 0.9854 | Val Acc: 0.5303 | Val P/R/F1 (Macro): 0.6508/0.4861/0.5002 | LR: 0.000013
+Epoch [69/100] | Loss: 2.4038 (Cls: 2.3236, Adv: 4.0101) | Train Acc: 0.9667 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6035/0.4386/0.4600 | LR: 0.000013
+Epoch [70/100] | Loss: 2.4006 (Cls: 2.3183, Adv: 4.1161) | Train Acc: 0.9542 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6191/0.5085/0.5177 | LR: 0.000013
+Epoch [71/100] | Loss: 2.3631 (Cls: 2.2829, Adv: 4.0100) | Train Acc: 0.9792 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7192/0.5655/0.6074 | LR: 0.000013
+Epoch [72/100] | Loss: 2.4195 (Cls: 2.3358, Adv: 4.1830) | Train Acc: 0.9875 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.6317/0.4950/0.5235 | LR: 0.000006
+Epoch [73/100] | Loss: 2.3461 (Cls: 2.2650, Adv: 4.0529) | Train Acc: 0.9688 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6451/0.5212/0.5212 | LR: 0.000006
+Epoch [74/100] | Loss: 2.3045 (Cls: 2.2240, Adv: 4.0232) | Train Acc: 0.9729 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7677/0.5945/0.6228 | LR: 0.000006
+  >>> New Best Val Acc: 0.6439
+Epoch [75/100] | Loss: 2.2727 (Cls: 2.1905, Adv: 4.1092) | Train Acc: 0.9729 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.6217/0.5099/0.5167 | LR: 0.000006
+Epoch [76/100] | Loss: 2.3208 (Cls: 2.2372, Adv: 4.1781) | Train Acc: 0.9771 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6686/0.5494/0.5692 | LR: 0.000006
+Epoch [77/100] | Loss: 2.3256 (Cls: 2.2436, Adv: 4.0987) | Train Acc: 0.9812 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6775/0.5470/0.5696 | LR: 0.000006
+Epoch [78/100] | Loss: 2.3324 (Cls: 2.2480, Adv: 4.2216) | Train Acc: 0.9812 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.6969/0.5690/0.6000 | LR: 0.000006
+Epoch [79/100] | Loss: 2.3182 (Cls: 2.2361, Adv: 4.1053) | Train Acc: 0.9688 | Val Acc: 0.5152 | Val P/R/F1 (Macro): 0.6134/0.4861/0.5108 | LR: 0.000006
+Epoch [80/100] | Loss: 2.3477 (Cls: 2.2641, Adv: 4.1795) | Train Acc: 0.9875 | Val Acc: 0.6288 | Val P/R/F1 (Macro): 0.6850/0.5653/0.5974 | LR: 0.000006
+Epoch [81/100] | Loss: 2.2490 (Cls: 2.1647, Adv: 4.2144) | Train Acc: 0.9896 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6689/0.5152/0.5394 | LR: 0.000006
+Epoch [82/100] | Loss: 2.2446 (Cls: 2.1630, Adv: 4.0792) | Train Acc: 0.9896 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.6817/0.5928/0.6017 | LR: 0.000006
+Epoch [83/100] | Loss: 2.2939 (Cls: 2.2092, Adv: 4.2365) | Train Acc: 0.9771 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6284/0.5447/0.5499 | LR: 0.000006
+Epoch [84/100] | Loss: 2.2827 (Cls: 2.1981, Adv: 4.2320) | Train Acc: 0.9854 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.6081/0.4645/0.4734 | LR: 0.000006
+Epoch [85/100] | Loss: 2.3062 (Cls: 2.2221, Adv: 4.2056) | Train Acc: 0.9708 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.6969/0.5890/0.6122 | LR: 0.000006
+  >>> New Best Val Acc: 0.6591
+Epoch [86/100] | Loss: 2.3065 (Cls: 2.2215, Adv: 4.2515) | Train Acc: 0.9771 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6779/0.5605/0.5775 | LR: 0.000006
+Epoch [87/100] | Loss: 2.2441 (Cls: 2.1595, Adv: 4.2276) | Train Acc: 0.9792 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6544/0.5099/0.5368 | LR: 0.000006
+Epoch [88/100] | Loss: 2.2722 (Cls: 2.1881, Adv: 4.2004) | Train Acc: 0.9792 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.6881/0.5826/0.6008 | LR: 0.000006
+Epoch [89/100] | Loss: 2.3465 (Cls: 2.2616, Adv: 4.2454) | Train Acc: 0.9708 | Val Acc: 0.4924 | Val P/R/F1 (Macro): 0.6211/0.4500/0.4751 | LR: 0.000006
+Epoch [90/100] | Loss: 2.2919 (Cls: 2.2056, Adv: 4.3145) | Train Acc: 0.9688 | Val Acc: 0.6364 | Val P/R/F1 (Macro): 0.6790/0.5654/0.5835 | LR: 0.000006
+Epoch [91/100] | Loss: 2.2910 (Cls: 2.2031, Adv: 4.3918) | Train Acc: 0.9750 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.6321/0.4714/0.4760 | LR: 0.000006
+Epoch [92/100] | Loss: 2.2684 (Cls: 2.1816, Adv: 4.3366) | Train Acc: 0.9771 | Val Acc: 0.6288 | Val P/R/F1 (Macro): 0.6982/0.5553/0.5885 | LR: 0.000006
+Epoch [93/100] | Loss: 2.2187 (Cls: 2.1315, Adv: 4.3629) | Train Acc: 0.9833 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6564/0.5361/0.5507 | LR: 0.000006
+Epoch [94/100] | Loss: 2.2574 (Cls: 2.1704, Adv: 4.3502) | Train Acc: 0.9792 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.6925/0.5812/0.5944 | LR: 0.000006
+Epoch [95/100] | Loss: 2.2822 (Cls: 2.1949, Adv: 4.3669) | Train Acc: 0.9646 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.7515/0.5476/0.5835 | LR: 0.000006
+Epoch [96/100] | Loss: 2.2201 (Cls: 2.1354, Adv: 4.2372) | Train Acc: 0.9833 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.6656/0.5320/0.5584 | LR: 0.000003
+Epoch [97/100] | Loss: 2.2553 (Cls: 2.1692, Adv: 4.3055) | Train Acc: 0.9771 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6611/0.5452/0.5609 | LR: 0.000003
+Epoch [98/100] | Loss: 2.2187 (Cls: 2.1317, Adv: 4.3493) | Train Acc: 0.9875 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6540/0.5227/0.5441 | LR: 0.000003
+Epoch [99/100] | Loss: 2.2265 (Cls: 2.1367, Adv: 4.4889) | Train Acc: 0.9833 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.6642/0.5647/0.5801 | LR: 0.000003
+Epoch [100/100] | Loss: 2.2231 (Cls: 2.1354, Adv: 4.3867) | Train Acc: 0.9688 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.6833/0.5496/0.5675 | LR: 0.000003
+Report strategy: last_window, window=10, reported_acc=0.5864, best_acc=0.6591
+
+迭代 3 报告指标:
+  Accuracy: 0.5864
+  Precision (Macro): 0.6759
+  Recall (Macro): 0.5406
+  F1 (Macro): 0.5604
+  Precision (Micro): 0.5864
+  Recall (Micro): 0.5864
+  F1 (Micro): 0.5864
+  Val class coverage: 9/14 (0.6429), samples=132
+
+================================================================================
+迭代 4/5
+随机种子: 45
+================================================================================
+Training mode: unpaired target adaptation with controlled target-label loss (ratio=0.82, weight=1.10).
+Fixed labeled target subset: 416/507 samples.
+Epoch [1/100] | Loss: 8.0735 (Cls: 8.0672, Adv: 0.3163) | Train Acc: 0.2292 | Val Acc: 0.0379 | Val P/R/F1 (Macro): 0.0099/0.1111/0.0182 | LR: 0.000050
+  >>> New Best Val Acc: 0.0379
+Epoch [2/100] | Loss: 6.8859 (Cls: 6.8807, Adv: 0.2640) | Train Acc: 0.3750 | Val Acc: 0.1136 | Val P/R/F1 (Macro): 0.1561/0.1551/0.0806 | LR: 0.000050
+  >>> New Best Val Acc: 0.1136
+Epoch [3/100] | Loss: 6.5241 (Cls: 6.5165, Adv: 0.3769) | Train Acc: 0.3937 | Val Acc: 0.0909 | Val P/R/F1 (Macro): 0.1860/0.1310/0.0654 | LR: 0.000050
+Epoch [4/100] | Loss: 5.9157 (Cls: 5.9026, Adv: 0.6556) | Train Acc: 0.5229 | Val Acc: 0.1742 | Val P/R/F1 (Macro): 0.2721/0.1730/0.1324 | LR: 0.000050
+  >>> New Best Val Acc: 0.1742
+Epoch [5/100] | Loss: 5.5689 (Cls: 5.5493, Adv: 0.9797) | Train Acc: 0.5833 | Val Acc: 0.1515 | Val P/R/F1 (Macro): 0.2754/0.1819/0.1508 | LR: 0.000050
+Epoch [6/100] | Loss: 5.2229 (Cls: 5.1975, Adv: 1.2709) | Train Acc: 0.6458 | Val Acc: 0.1136 | Val P/R/F1 (Macro): 0.1633/0.1638/0.0926 | LR: 0.000050
+Epoch [7/100] | Loss: 4.8047 (Cls: 4.7718, Adv: 1.6457) | Train Acc: 0.7146 | Val Acc: 0.1515 | Val P/R/F1 (Macro): 0.1871/0.2023/0.1310 | LR: 0.000050
+Epoch [8/100] | Loss: 4.6107 (Cls: 4.5758, Adv: 1.7462) | Train Acc: 0.7292 | Val Acc: 0.1591 | Val P/R/F1 (Macro): 0.2879/0.2039/0.1572 | LR: 0.000050
+Epoch [9/100] | Loss: 4.5971 (Cls: 4.5584, Adv: 1.9382) | Train Acc: 0.7417 | Val Acc: 0.2727 | Val P/R/F1 (Macro): 0.3233/0.2460/0.2333 | LR: 0.000050
+  >>> New Best Val Acc: 0.2727
+Epoch [10/100] | Loss: 4.6279 (Cls: 4.5862, Adv: 2.0844) | Train Acc: 0.7167 | Val Acc: 0.2424 | Val P/R/F1 (Macro): 0.3295/0.2506/0.2052 | LR: 0.000050
+Epoch [11/100] | Loss: 4.3647 (Cls: 4.3185, Adv: 2.3136) | Train Acc: 0.7521 | Val Acc: 0.1667 | Val P/R/F1 (Macro): 0.3083/0.1962/0.1562 | LR: 0.000050
+Epoch [12/100] | Loss: 4.0875 (Cls: 4.0390, Adv: 2.4292) | Train Acc: 0.7958 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.3539/0.2367/0.2053 | LR: 0.000050
+Epoch [13/100] | Loss: 4.2314 (Cls: 4.1795, Adv: 2.5919) | Train Acc: 0.7500 | Val Acc: 0.1591 | Val P/R/F1 (Macro): 0.4160/0.2399/0.1736 | LR: 0.000050
+Epoch [14/100] | Loss: 3.8079 (Cls: 3.7555, Adv: 2.6209) | Train Acc: 0.8104 | Val Acc: 0.1742 | Val P/R/F1 (Macro): 0.2684/0.2130/0.1765 | LR: 0.000050
+Epoch [15/100] | Loss: 3.9800 (Cls: 3.9283, Adv: 2.5841) | Train Acc: 0.7792 | Val Acc: 0.2727 | Val P/R/F1 (Macro): 0.4904/0.2933/0.2667 | LR: 0.000050
+Epoch [16/100] | Loss: 3.7853 (Cls: 3.7250, Adv: 3.0128) | Train Acc: 0.8250 | Val Acc: 0.2197 | Val P/R/F1 (Macro): 0.3092/0.1625/0.1856 | LR: 0.000050
+Epoch [17/100] | Loss: 3.6692 (Cls: 3.6068, Adv: 3.1235) | Train Acc: 0.8167 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.3165/0.2514/0.1617 | LR: 0.000050
+Epoch [18/100] | Loss: 3.6007 (Cls: 3.5381, Adv: 3.1337) | Train Acc: 0.8500 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.2978/0.1995/0.1904 | LR: 0.000050
+Epoch [19/100] | Loss: 3.6324 (Cls: 3.5714, Adv: 3.0526) | Train Acc: 0.8333 | Val Acc: 0.1818 | Val P/R/F1 (Macro): 0.2877/0.2315/0.1761 | LR: 0.000050
+Epoch [20/100] | Loss: 3.5503 (Cls: 3.4881, Adv: 3.1083) | Train Acc: 0.8500 | Val Acc: 0.2879 | Val P/R/F1 (Macro): 0.4650/0.2419/0.2591 | LR: 0.000050
+  >>> New Best Val Acc: 0.2879
+Epoch [21/100] | Loss: 3.5762 (Cls: 3.5087, Adv: 3.3772) | Train Acc: 0.8271 | Val Acc: 0.2197 | Val P/R/F1 (Macro): 0.3388/0.1784/0.1985 | LR: 0.000050
+Epoch [22/100] | Loss: 3.4980 (Cls: 3.4322, Adv: 3.2879) | Train Acc: 0.8646 | Val Acc: 0.1591 | Val P/R/F1 (Macro): 0.3719/0.2081/0.1813 | LR: 0.000050
+Epoch [23/100] | Loss: 3.4827 (Cls: 3.4150, Adv: 3.3847) | Train Acc: 0.8271 | Val Acc: 0.3030 | Val P/R/F1 (Macro): 0.4651/0.2987/0.2994 | LR: 0.000050
+  >>> New Best Val Acc: 0.3030
+Epoch [24/100] | Loss: 3.2964 (Cls: 3.2265, Adv: 3.4909) | Train Acc: 0.8688 | Val Acc: 0.3485 | Val P/R/F1 (Macro): 0.3484/0.2698/0.2594 | LR: 0.000050
+  >>> New Best Val Acc: 0.3485
+Epoch [25/100] | Loss: 3.3191 (Cls: 3.2492, Adv: 3.4930) | Train Acc: 0.8646 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.5113/0.3625/0.3860 | LR: 0.000050
+  >>> New Best Val Acc: 0.4167
+Epoch [26/100] | Loss: 3.2775 (Cls: 3.2031, Adv: 3.7198) | Train Acc: 0.8521 | Val Acc: 0.3333 | Val P/R/F1 (Macro): 0.3930/0.2482/0.2740 | LR: 0.000050
+Epoch [27/100] | Loss: 3.1214 (Cls: 3.0474, Adv: 3.7035) | Train Acc: 0.8875 | Val Acc: 0.3485 | Val P/R/F1 (Macro): 0.5411/0.3464/0.3441 | LR: 0.000050
+Epoch [28/100] | Loss: 3.0394 (Cls: 2.9647, Adv: 3.7332) | Train Acc: 0.8812 | Val Acc: 0.3182 | Val P/R/F1 (Macro): 0.5015/0.3393/0.3426 | LR: 0.000050
+Epoch [29/100] | Loss: 3.2374 (Cls: 3.1603, Adv: 3.8511) | Train Acc: 0.8750 | Val Acc: 0.3636 | Val P/R/F1 (Macro): 0.4158/0.3801/0.3375 | LR: 0.000050
+Epoch [30/100] | Loss: 3.0450 (Cls: 2.9678, Adv: 3.8582) | Train Acc: 0.8729 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.4761/0.4189/0.4258 | LR: 0.000050
+  >>> New Best Val Acc: 0.5227
+Epoch [31/100] | Loss: 2.9889 (Cls: 2.9110, Adv: 3.8970) | Train Acc: 0.9104 | Val Acc: 0.3864 | Val P/R/F1 (Macro): 0.4904/0.3989/0.3584 | LR: 0.000050
+Epoch [32/100] | Loss: 3.1110 (Cls: 3.0325, Adv: 3.9262) | Train Acc: 0.8812 | Val Acc: 0.3636 | Val P/R/F1 (Macro): 0.6003/0.2986/0.3174 | LR: 0.000050
+Epoch [33/100] | Loss: 3.0001 (Cls: 2.9238, Adv: 3.8118) | Train Acc: 0.8771 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.4504/0.3408/0.3688 | LR: 0.000050
+Epoch [34/100] | Loss: 3.0720 (Cls: 2.9987, Adv: 3.6684) | Train Acc: 0.8896 | Val Acc: 0.4545 | Val P/R/F1 (Macro): 0.4505/0.3347/0.3459 | LR: 0.000050
+Epoch [35/100] | Loss: 2.9845 (Cls: 2.9060, Adv: 3.9250) | Train Acc: 0.9042 | Val Acc: 0.4545 | Val P/R/F1 (Macro): 0.4543/0.3914/0.3739 | LR: 0.000050
+Epoch [36/100] | Loss: 3.0625 (Cls: 2.9880, Adv: 3.7244) | Train Acc: 0.8833 | Val Acc: 0.3258 | Val P/R/F1 (Macro): 0.5248/0.3234/0.3519 | LR: 0.000050
+Epoch [37/100] | Loss: 2.8536 (Cls: 2.7775, Adv: 3.8071) | Train Acc: 0.9083 | Val Acc: 0.3485 | Val P/R/F1 (Macro): 0.5079/0.3552/0.3325 | LR: 0.000050
+Epoch [38/100] | Loss: 2.7972 (Cls: 2.7173, Adv: 3.9958) | Train Acc: 0.9229 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.4097/0.3029/0.3013 | LR: 0.000050
+Epoch [39/100] | Loss: 2.7690 (Cls: 2.6899, Adv: 3.9554) | Train Acc: 0.9396 | Val Acc: 0.5076 | Val P/R/F1 (Macro): 0.6300/0.4605/0.4926 | LR: 0.000050
+Epoch [40/100] | Loss: 2.6912 (Cls: 2.6123, Adv: 3.9466) | Train Acc: 0.9396 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.4848/0.4324/0.4352 | LR: 0.000050
+  >>> New Best Val Acc: 0.5682
+Epoch [41/100] | Loss: 2.8020 (Cls: 2.7240, Adv: 3.9011) | Train Acc: 0.9104 | Val Acc: 0.4091 | Val P/R/F1 (Macro): 0.6136/0.4631/0.4485 | LR: 0.000050
+Epoch [42/100] | Loss: 2.7808 (Cls: 2.7023, Adv: 3.9298) | Train Acc: 0.8938 | Val Acc: 0.3788 | Val P/R/F1 (Macro): 0.5705/0.3601/0.3756 | LR: 0.000050
+Epoch [43/100] | Loss: 2.6523 (Cls: 2.5722, Adv: 4.0014) | Train Acc: 0.9563 | Val Acc: 0.5000 | Val P/R/F1 (Macro): 0.4489/0.4129/0.4134 | LR: 0.000050
+Epoch [44/100] | Loss: 2.7629 (Cls: 2.6817, Adv: 4.0557) | Train Acc: 0.9167 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.4080/0.4154/0.3988 | LR: 0.000050
+Epoch [45/100] | Loss: 2.6796 (Cls: 2.6012, Adv: 3.9212) | Train Acc: 0.9563 | Val Acc: 0.4545 | Val P/R/F1 (Macro): 0.6803/0.5503/0.5041 | LR: 0.000050
+Epoch [46/100] | Loss: 2.8069 (Cls: 2.7307, Adv: 3.8080) | Train Acc: 0.9042 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.5978/0.4662/0.4981 | LR: 0.000050
+  >>> New Best Val Acc: 0.5909
+Epoch [47/100] | Loss: 2.6544 (Cls: 2.5729, Adv: 4.0769) | Train Acc: 0.9417 | Val Acc: 0.4773 | Val P/R/F1 (Macro): 0.6022/0.3829/0.4227 | LR: 0.000050
+Epoch [48/100] | Loss: 2.6977 (Cls: 2.6175, Adv: 4.0094) | Train Acc: 0.9458 | Val Acc: 0.4924 | Val P/R/F1 (Macro): 0.6698/0.4616/0.4980 | LR: 0.000050
+Epoch [49/100] | Loss: 2.7020 (Cls: 2.6216, Adv: 4.0200) | Train Acc: 0.9458 | Val Acc: 0.6894 | Val P/R/F1 (Macro): 0.6458/0.5873/0.5981 | LR: 0.000050
+  >>> New Best Val Acc: 0.6894
+Epoch [50/100] | Loss: 2.6134 (Cls: 2.5317, Adv: 4.0861) | Train Acc: 0.9354 | Val Acc: 0.4621 | Val P/R/F1 (Macro): 0.6114/0.5410/0.4673 | LR: 0.000050
+Epoch [51/100] | Loss: 2.5957 (Cls: 2.5128, Adv: 4.1440) | Train Acc: 0.9563 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.5763/0.4105/0.4090 | LR: 0.000050
+Epoch [52/100] | Loss: 2.6675 (Cls: 2.5838, Adv: 4.1878) | Train Acc: 0.9250 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.6856/0.5020/0.5050 | LR: 0.000050
+Epoch [53/100] | Loss: 2.5988 (Cls: 2.5145, Adv: 4.2147) | Train Acc: 0.9313 | Val Acc: 0.5076 | Val P/R/F1 (Macro): 0.6546/0.4578/0.4765 | LR: 0.000050
+Epoch [54/100] | Loss: 2.6131 (Cls: 2.5304, Adv: 4.1315) | Train Acc: 0.9521 | Val Acc: 0.4167 | Val P/R/F1 (Macro): 0.6314/0.4371/0.4726 | LR: 0.000050
+Epoch [55/100] | Loss: 2.5076 (Cls: 2.4235, Adv: 4.2032) | Train Acc: 0.9437 | Val Acc: 0.3485 | Val P/R/F1 (Macro): 0.5993/0.3628/0.3793 | LR: 0.000050
+Epoch [56/100] | Loss: 2.6640 (Cls: 2.5824, Adv: 4.0810) | Train Acc: 0.9187 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.5537/0.4772/0.4938 | LR: 0.000050
+Epoch [57/100] | Loss: 2.5962 (Cls: 2.5101, Adv: 4.3037) | Train Acc: 0.9208 | Val Acc: 0.4318 | Val P/R/F1 (Macro): 0.6492/0.4595/0.4615 | LR: 0.000050
+Epoch [58/100] | Loss: 2.5415 (Cls: 2.4563, Adv: 4.2606) | Train Acc: 0.9521 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.5764/0.4200/0.4472 | LR: 0.000050
+Epoch [59/100] | Loss: 2.5038 (Cls: 2.4205, Adv: 4.1653) | Train Acc: 0.9646 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6641/0.4464/0.4955 | LR: 0.000050
+Epoch [60/100] | Loss: 2.4768 (Cls: 2.3931, Adv: 4.1833) | Train Acc: 0.9396 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6310/0.5720/0.5488 | LR: 0.000025
+Epoch [61/100] | Loss: 2.4870 (Cls: 2.3992, Adv: 4.3893) | Train Acc: 0.9521 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6831/0.4410/0.4904 | LR: 0.000025
+Epoch [62/100] | Loss: 2.3626 (Cls: 2.2768, Adv: 4.2916) | Train Acc: 0.9708 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.6985/0.5172/0.5494 | LR: 0.000025
+Epoch [63/100] | Loss: 2.3114 (Cls: 2.2248, Adv: 4.3288) | Train Acc: 0.9521 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.7093/0.4914/0.5388 | LR: 0.000025
+Epoch [64/100] | Loss: 2.3834 (Cls: 2.2960, Adv: 4.3720) | Train Acc: 0.9646 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.7366/0.5924/0.6103 | LR: 0.000025
+Epoch [65/100] | Loss: 2.3621 (Cls: 2.2737, Adv: 4.4156) | Train Acc: 0.9625 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6781/0.4869/0.5050 | LR: 0.000025
+Epoch [66/100] | Loss: 2.2483 (Cls: 2.1603, Adv: 4.4029) | Train Acc: 0.9792 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.6698/0.4740/0.4907 | LR: 0.000025
+Epoch [67/100] | Loss: 2.3944 (Cls: 2.3077, Adv: 4.3360) | Train Acc: 0.9646 | Val Acc: 0.5152 | Val P/R/F1 (Macro): 0.5438/0.3969/0.4284 | LR: 0.000025
+Epoch [68/100] | Loss: 2.2407 (Cls: 2.1517, Adv: 4.4462) | Train Acc: 0.9688 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.6353/0.5301/0.5550 | LR: 0.000025
+Epoch [69/100] | Loss: 2.3181 (Cls: 2.2288, Adv: 4.4636) | Train Acc: 0.9625 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.6998/0.5244/0.5459 | LR: 0.000025
+Epoch [70/100] | Loss: 2.2380 (Cls: 2.1529, Adv: 4.2570) | Train Acc: 0.9833 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.6375/0.5069/0.5218 | LR: 0.000025
+Epoch [71/100] | Loss: 2.2734 (Cls: 2.1861, Adv: 4.3680) | Train Acc: 0.9833 | Val Acc: 0.5303 | Val P/R/F1 (Macro): 0.6941/0.5279/0.5397 | LR: 0.000013
+Epoch [72/100] | Loss: 2.2427 (Cls: 2.1547, Adv: 4.4023) | Train Acc: 0.9833 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.6817/0.5577/0.5855 | LR: 0.000013
+Epoch [73/100] | Loss: 2.2418 (Cls: 2.1573, Adv: 4.2278) | Train Acc: 0.9792 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6695/0.4924/0.5218 | LR: 0.000013
+Epoch [74/100] | Loss: 2.1723 (Cls: 2.0873, Adv: 4.2500) | Train Acc: 0.9750 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7410/0.6108/0.6303 | LR: 0.000013
+Epoch [75/100] | Loss: 2.1513 (Cls: 2.0663, Adv: 4.2495) | Train Acc: 0.9875 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.6932/0.5434/0.5653 | LR: 0.000013
+Epoch [76/100] | Loss: 2.2281 (Cls: 2.1427, Adv: 4.2694) | Train Acc: 0.9792 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.7015/0.5817/0.5901 | LR: 0.000013
+Epoch [77/100] | Loss: 2.2243 (Cls: 2.1391, Adv: 4.2644) | Train Acc: 0.9896 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.6805/0.5465/0.5773 | LR: 0.000013
+Epoch [78/100] | Loss: 2.1667 (Cls: 2.0804, Adv: 4.3171) | Train Acc: 0.9792 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.7030/0.5776/0.5869 | LR: 0.000013
+Epoch [79/100] | Loss: 2.1756 (Cls: 2.0896, Adv: 4.2998) | Train Acc: 0.9812 | Val Acc: 0.6515 | Val P/R/F1 (Macro): 0.7565/0.5845/0.6090 | LR: 0.000013
+Epoch [80/100] | Loss: 2.2043 (Cls: 2.1152, Adv: 4.4542) | Train Acc: 0.9854 | Val Acc: 0.6515 | Val P/R/F1 (Macro): 0.7309/0.6197/0.6358 | LR: 0.000013
+Epoch [81/100] | Loss: 2.2044 (Cls: 2.1201, Adv: 4.2131) | Train Acc: 0.9875 | Val Acc: 0.6364 | Val P/R/F1 (Macro): 0.6939/0.6126/0.6125 | LR: 0.000013
+Epoch [82/100] | Loss: 2.1533 (Cls: 2.0701, Adv: 4.1605) | Train Acc: 0.9833 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7398/0.5542/0.5780 | LR: 0.000006
+Epoch [83/100] | Loss: 2.1235 (Cls: 2.0366, Adv: 4.3437) | Train Acc: 0.9979 | Val Acc: 0.6667 | Val P/R/F1 (Macro): 0.7854/0.6242/0.6434 | LR: 0.000006
+Epoch [84/100] | Loss: 2.0950 (Cls: 2.0071, Adv: 4.3948) | Train Acc: 0.9938 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7166/0.5580/0.5881 | LR: 0.000006
+Epoch [85/100] | Loss: 2.1434 (Cls: 2.0536, Adv: 4.4893) | Train Acc: 0.9917 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6586/0.5250/0.5419 | LR: 0.000006
+Epoch [86/100] | Loss: 2.1293 (Cls: 2.0415, Adv: 4.3884) | Train Acc: 0.9875 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7171/0.5849/0.5941 | LR: 0.000006
+Epoch [87/100] | Loss: 2.1023 (Cls: 2.0146, Adv: 4.3826) | Train Acc: 0.9917 | Val Acc: 0.5758 | Val P/R/F1 (Macro): 0.6753/0.5078/0.5270 | LR: 0.000006
+Epoch [88/100] | Loss: 2.1128 (Cls: 2.0246, Adv: 4.4078) | Train Acc: 0.9896 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7110/0.5418/0.5708 | LR: 0.000006
+Epoch [89/100] | Loss: 2.1017 (Cls: 2.0153, Adv: 4.3207) | Train Acc: 0.9896 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6783/0.4721/0.5004 | LR: 0.000006
+Epoch [90/100] | Loss: 2.1148 (Cls: 2.0255, Adv: 4.4666) | Train Acc: 0.9854 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6902/0.5445/0.5606 | LR: 0.000006
+Epoch [91/100] | Loss: 2.1034 (Cls: 2.0137, Adv: 4.4840) | Train Acc: 0.9875 | Val Acc: 0.6667 | Val P/R/F1 (Macro): 0.7788/0.6203/0.6455 | LR: 0.000006
+Epoch [92/100] | Loss: 2.0893 (Cls: 2.0024, Adv: 4.3415) | Train Acc: 0.9896 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.6920/0.5989/0.6135 | LR: 0.000006
+Epoch [93/100] | Loss: 2.0791 (Cls: 1.9891, Adv: 4.5031) | Train Acc: 0.9917 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.7001/0.6017/0.6081 | LR: 0.000003
+Epoch [94/100] | Loss: 2.0722 (Cls: 1.9834, Adv: 4.4385) | Train Acc: 0.9938 | Val Acc: 0.6970 | Val P/R/F1 (Macro): 0.7439/0.6396/0.6538 | LR: 0.000003
+  >>> New Best Val Acc: 0.6970
+Epoch [95/100] | Loss: 2.0754 (Cls: 1.9847, Adv: 4.5345) | Train Acc: 0.9938 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.6962/0.6098/0.6193 | LR: 0.000003
+Epoch [96/100] | Loss: 2.0848 (Cls: 1.9962, Adv: 4.4292) | Train Acc: 0.9917 | Val Acc: 0.6591 | Val P/R/F1 (Macro): 0.7359/0.6290/0.6473 | LR: 0.000003
+Epoch [97/100] | Loss: 2.0700 (Cls: 1.9821, Adv: 4.3939) | Train Acc: 0.9896 | Val Acc: 0.6742 | Val P/R/F1 (Macro): 0.7612/0.6366/0.6540 | LR: 0.000003
+Epoch [98/100] | Loss: 2.0777 (Cls: 1.9885, Adv: 4.4597) | Train Acc: 0.9958 | Val Acc: 0.5985 | Val P/R/F1 (Macro): 0.6650/0.5535/0.5591 | LR: 0.000003
+Epoch [99/100] | Loss: 2.1091 (Cls: 2.0193, Adv: 4.4926) | Train Acc: 0.9875 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.6606/0.5368/0.5578 | LR: 0.000003
+Epoch [100/100] | Loss: 2.0583 (Cls: 1.9677, Adv: 4.5313) | Train Acc: 0.9896 | Val Acc: 0.7424 | Val P/R/F1 (Macro): 0.8079/0.7128/0.7288 | LR: 0.000003
+  >>> New Best Val Acc: 0.7424
+Report strategy: last_window, window=10, reported_acc=0.6629, best_acc=0.7424
+
+迭代 4 报告指标:
+  Accuracy: 0.6629
+  Precision (Macro): 0.7241
+  Recall (Macro): 0.6139
+  F1 (Macro): 0.6287
+  Precision (Micro): 0.6629
+  Recall (Micro): 0.6629
+  F1 (Micro): 0.6629
+  Val class coverage: 9/14 (0.6429), samples=132
+
+================================================================================
+迭代 5/5
+随机种子: 46
+================================================================================
+Training mode: unpaired target adaptation with controlled target-label loss (ratio=0.82, weight=1.10).
+Fixed labeled target subset: 416/507 samples.
+Epoch [1/100] | Loss: 8.0648 (Cls: 8.0585, Adv: 0.3186) | Train Acc: 0.1542 | Val Acc: 0.0379 | Val P/R/F1 (Macro): 0.0103/0.1111/0.0188 | LR: 0.000050
+  >>> New Best Val Acc: 0.0379
+Epoch [2/100] | Loss: 7.2181 (Cls: 7.2112, Adv: 0.3440) | Train Acc: 0.2458 | Val Acc: 0.0909 | Val P/R/F1 (Macro): 0.1207/0.1382/0.0577 | LR: 0.000050
+  >>> New Best Val Acc: 0.0909
+Epoch [3/100] | Loss: 6.4797 (Cls: 6.4678, Adv: 0.5967) | Train Acc: 0.4062 | Val Acc: 0.1667 | Val P/R/F1 (Macro): 0.3557/0.1930/0.1641 | LR: 0.000050
+  >>> New Best Val Acc: 0.1667
+Epoch [4/100] | Loss: 5.9656 (Cls: 5.9465, Adv: 0.9529) | Train Acc: 0.5000 | Val Acc: 0.1288 | Val P/R/F1 (Macro): 0.2388/0.2236/0.1517 | LR: 0.000050
+Epoch [5/100] | Loss: 5.6433 (Cls: 5.6137, Adv: 1.4825) | Train Acc: 0.5708 | Val Acc: 0.1288 | Val P/R/F1 (Macro): 0.2703/0.2190/0.1505 | LR: 0.000050
+Epoch [6/100] | Loss: 5.0624 (Cls: 5.0281, Adv: 1.7150) | Train Acc: 0.6417 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.2903/0.2225/0.1806 | LR: 0.000050
+  >>> New Best Val Acc: 0.2045
+Epoch [7/100] | Loss: 4.8284 (Cls: 4.7899, Adv: 1.9226) | Train Acc: 0.6792 | Val Acc: 0.1288 | Val P/R/F1 (Macro): 0.2924/0.1545/0.1349 | LR: 0.000050
+Epoch [8/100] | Loss: 4.6551 (Cls: 4.6134, Adv: 2.0877) | Train Acc: 0.7333 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.2849/0.2518/0.1781 | LR: 0.000050
+  >>> New Best Val Acc: 0.2576
+Epoch [9/100] | Loss: 4.3704 (Cls: 4.3244, Adv: 2.3009) | Train Acc: 0.7458 | Val Acc: 0.1742 | Val P/R/F1 (Macro): 0.3197/0.2487/0.1571 | LR: 0.000050
+Epoch [10/100] | Loss: 4.1980 (Cls: 4.1500, Adv: 2.4011) | Train Acc: 0.7854 | Val Acc: 0.2500 | Val P/R/F1 (Macro): 0.3859/0.3060/0.2185 | LR: 0.000050
+Epoch [11/100] | Loss: 4.1528 (Cls: 4.1010, Adv: 2.5899) | Train Acc: 0.7854 | Val Acc: 0.1894 | Val P/R/F1 (Macro): 0.4227/0.2658/0.2025 | LR: 0.000050
+Epoch [12/100] | Loss: 4.0512 (Cls: 3.9933, Adv: 2.8959) | Train Acc: 0.7979 | Val Acc: 0.2424 | Val P/R/F1 (Macro): 0.3405/0.2389/0.2056 | LR: 0.000050
+Epoch [13/100] | Loss: 4.0750 (Cls: 4.0173, Adv: 2.8828) | Train Acc: 0.7771 | Val Acc: 0.2121 | Val P/R/F1 (Macro): 0.3433/0.2822/0.2075 | LR: 0.000050
+Epoch [14/100] | Loss: 4.0701 (Cls: 4.0119, Adv: 2.9121) | Train Acc: 0.8063 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.4556/0.3031/0.2508 | LR: 0.000050
+Epoch [15/100] | Loss: 3.7918 (Cls: 3.7267, Adv: 3.2556) | Train Acc: 0.8187 | Val Acc: 0.2121 | Val P/R/F1 (Macro): 0.3522/0.2224/0.2028 | LR: 0.000050
+Epoch [16/100] | Loss: 3.7870 (Cls: 3.7237, Adv: 3.1651) | Train Acc: 0.8083 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.3908/0.2542/0.2492 | LR: 0.000050
+Epoch [17/100] | Loss: 3.6029 (Cls: 3.5384, Adv: 3.2263) | Train Acc: 0.8542 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.4310/0.3068/0.2665 | LR: 0.000050
+Epoch [18/100] | Loss: 3.6447 (Cls: 3.5819, Adv: 3.1376) | Train Acc: 0.8333 | Val Acc: 0.2045 | Val P/R/F1 (Macro): 0.5210/0.2794/0.2684 | LR: 0.000050
+Epoch [19/100] | Loss: 3.5613 (Cls: 3.4912, Adv: 3.5009) | Train Acc: 0.8542 | Val Acc: 0.1970 | Val P/R/F1 (Macro): 0.4616/0.2383/0.2434 | LR: 0.000025
+Epoch [20/100] | Loss: 3.5409 (Cls: 3.4706, Adv: 3.5152) | Train Acc: 0.8500 | Val Acc: 0.1818 | Val P/R/F1 (Macro): 0.4804/0.2397/0.2198 | LR: 0.000025
+Epoch [21/100] | Loss: 3.3608 (Cls: 3.2907, Adv: 3.5017) | Train Acc: 0.8708 | Val Acc: 0.2197 | Val P/R/F1 (Macro): 0.5955/0.2321/0.2609 | LR: 0.000025
+Epoch [22/100] | Loss: 3.2038 (Cls: 3.1314, Adv: 3.6165) | Train Acc: 0.9042 | Val Acc: 0.1894 | Val P/R/F1 (Macro): 0.5108/0.2159/0.2338 | LR: 0.000025
+Epoch [23/100] | Loss: 3.2575 (Cls: 3.1827, Adv: 3.7436) | Train Acc: 0.8771 | Val Acc: 0.1818 | Val P/R/F1 (Macro): 0.4745/0.2064/0.1899 | LR: 0.000025
+Epoch [24/100] | Loss: 3.3498 (Cls: 3.2736, Adv: 3.8070) | Train Acc: 0.8604 | Val Acc: 0.3561 | Val P/R/F1 (Macro): 0.5674/0.3028/0.3506 | LR: 0.000025
+  >>> New Best Val Acc: 0.3561
+Epoch [25/100] | Loss: 3.2374 (Cls: 3.1578, Adv: 3.9778) | Train Acc: 0.8646 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.4768/0.3816/0.3583 | LR: 0.000025
+  >>> New Best Val Acc: 0.4394
+Epoch [26/100] | Loss: 3.1877 (Cls: 3.1083, Adv: 3.9694) | Train Acc: 0.9021 | Val Acc: 0.3561 | Val P/R/F1 (Macro): 0.5723/0.3658/0.3926 | LR: 0.000025
+Epoch [27/100] | Loss: 3.2897 (Cls: 3.2120, Adv: 3.8846) | Train Acc: 0.9042 | Val Acc: 0.2576 | Val P/R/F1 (Macro): 0.3031/0.2205/0.2029 | LR: 0.000025
+Epoch [28/100] | Loss: 3.1308 (Cls: 3.0511, Adv: 3.9822) | Train Acc: 0.8917 | Val Acc: 0.2727 | Val P/R/F1 (Macro): 0.5734/0.3566/0.3721 | LR: 0.000025
+Epoch [29/100] | Loss: 3.0914 (Cls: 3.0095, Adv: 4.0971) | Train Acc: 0.9229 | Val Acc: 0.2955 | Val P/R/F1 (Macro): 0.5278/0.3496/0.3259 | LR: 0.000025
+Epoch [30/100] | Loss: 3.0410 (Cls: 2.9588, Adv: 4.1123) | Train Acc: 0.9125 | Val Acc: 0.3409 | Val P/R/F1 (Macro): 0.5315/0.3536/0.3550 | LR: 0.000025
+Epoch [31/100] | Loss: 3.1424 (Cls: 3.0574, Adv: 4.2469) | Train Acc: 0.8979 | Val Acc: 0.2955 | Val P/R/F1 (Macro): 0.4805/0.2916/0.3102 | LR: 0.000025
+Epoch [32/100] | Loss: 2.9804 (Cls: 2.8933, Adv: 4.3563) | Train Acc: 0.9021 | Val Acc: 0.3788 | Val P/R/F1 (Macro): 0.5536/0.3484/0.3701 | LR: 0.000025
+Epoch [33/100] | Loss: 3.0919 (Cls: 3.0061, Adv: 4.2912) | Train Acc: 0.9104 | Val Acc: 0.2652 | Val P/R/F1 (Macro): 0.5729/0.2994/0.3009 | LR: 0.000025
+Epoch [34/100] | Loss: 3.0041 (Cls: 2.9172, Adv: 4.3418) | Train Acc: 0.9042 | Val Acc: 0.4242 | Val P/R/F1 (Macro): 0.5728/0.3824/0.4373 | LR: 0.000025
+Epoch [35/100] | Loss: 3.0406 (Cls: 2.9518, Adv: 4.4364) | Train Acc: 0.9187 | Val Acc: 0.4545 | Val P/R/F1 (Macro): 0.6181/0.4843/0.4714 | LR: 0.000025
+  >>> New Best Val Acc: 0.4545
+Epoch [36/100] | Loss: 3.0807 (Cls: 2.9944, Adv: 4.3147) | Train Acc: 0.8854 | Val Acc: 0.2273 | Val P/R/F1 (Macro): 0.5230/0.2563/0.2790 | LR: 0.000025
+Epoch [37/100] | Loss: 2.9802 (Cls: 2.8927, Adv: 4.3727) | Train Acc: 0.9062 | Val Acc: 0.3485 | Val P/R/F1 (Macro): 0.5558/0.3833/0.4136 | LR: 0.000025
+Epoch [38/100] | Loss: 2.8780 (Cls: 2.7900, Adv: 4.3979) | Train Acc: 0.9396 | Val Acc: 0.3864 | Val P/R/F1 (Macro): 0.6480/0.4154/0.4176 | LR: 0.000025
+Epoch [39/100] | Loss: 2.8135 (Cls: 2.7246, Adv: 4.4446) | Train Acc: 0.9229 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.5945/0.3832/0.4159 | LR: 0.000025
+Epoch [40/100] | Loss: 2.8975 (Cls: 2.8089, Adv: 4.4279) | Train Acc: 0.8979 | Val Acc: 0.4015 | Val P/R/F1 (Macro): 0.5699/0.3890/0.3970 | LR: 0.000025
+Epoch [41/100] | Loss: 2.8070 (Cls: 2.7228, Adv: 4.2113) | Train Acc: 0.9375 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.6720/0.4439/0.4238 | LR: 0.000025
+Epoch [42/100] | Loss: 2.8801 (Cls: 2.7891, Adv: 4.5498) | Train Acc: 0.9104 | Val Acc: 0.5303 | Val P/R/F1 (Macro): 0.5921/0.4697/0.4865 | LR: 0.000025
+  >>> New Best Val Acc: 0.5303
+Epoch [43/100] | Loss: 2.8371 (Cls: 2.7461, Adv: 4.5502) | Train Acc: 0.9271 | Val Acc: 0.2879 | Val P/R/F1 (Macro): 0.5226/0.3744/0.3510 | LR: 0.000025
+Epoch [44/100] | Loss: 2.8413 (Cls: 2.7509, Adv: 4.5206) | Train Acc: 0.9187 | Val Acc: 0.4394 | Val P/R/F1 (Macro): 0.6180/0.4628/0.4922 | LR: 0.000025
+Epoch [45/100] | Loss: 2.7616 (Cls: 2.6716, Adv: 4.5020) | Train Acc: 0.9271 | Val Acc: 0.3485 | Val P/R/F1 (Macro): 0.6097/0.3761/0.4180 | LR: 0.000025
+Epoch [46/100] | Loss: 2.7380 (Cls: 2.6488, Adv: 4.4616) | Train Acc: 0.9271 | Val Acc: 0.3939 | Val P/R/F1 (Macro): 0.5017/0.3623/0.3610 | LR: 0.000025
+Epoch [47/100] | Loss: 2.7713 (Cls: 2.6796, Adv: 4.5878) | Train Acc: 0.9250 | Val Acc: 0.2955 | Val P/R/F1 (Macro): 0.4686/0.2675/0.3002 | LR: 0.000025
+Epoch [48/100] | Loss: 2.6481 (Cls: 2.5549, Adv: 4.6588) | Train Acc: 0.9271 | Val Acc: 0.5000 | Val P/R/F1 (Macro): 0.6593/0.5080/0.5100 | LR: 0.000025
+Epoch [49/100] | Loss: 2.6198 (Cls: 2.5257, Adv: 4.7019) | Train Acc: 0.9500 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.6673/0.4346/0.4717 | LR: 0.000025
+Epoch [50/100] | Loss: 2.6731 (Cls: 2.5805, Adv: 4.6300) | Train Acc: 0.9146 | Val Acc: 0.4773 | Val P/R/F1 (Macro): 0.5348/0.4110/0.4362 | LR: 0.000025
+Epoch [51/100] | Loss: 2.6029 (Cls: 2.5105, Adv: 4.6198) | Train Acc: 0.9417 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6383/0.5560/0.5802 | LR: 0.000025
+  >>> New Best Val Acc: 0.5909
+Epoch [52/100] | Loss: 2.6938 (Cls: 2.6031, Adv: 4.5343) | Train Acc: 0.9354 | Val Acc: 0.4318 | Val P/R/F1 (Macro): 0.4664/0.3566/0.3700 | LR: 0.000025
+Epoch [53/100] | Loss: 2.6233 (Cls: 2.5271, Adv: 4.8105) | Train Acc: 0.9458 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.6372/0.5813/0.5873 | LR: 0.000025
+  >>> New Best Val Acc: 0.6061
+Epoch [54/100] | Loss: 2.7681 (Cls: 2.6774, Adv: 4.5303) | Train Acc: 0.9229 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.4659/0.3741/0.3522 | LR: 0.000025
+Epoch [55/100] | Loss: 2.7421 (Cls: 2.6496, Adv: 4.6233) | Train Acc: 0.9375 | Val Acc: 0.4848 | Val P/R/F1 (Macro): 0.5801/0.4343/0.4701 | LR: 0.000025
+Epoch [56/100] | Loss: 2.6054 (Cls: 2.5149, Adv: 4.5230) | Train Acc: 0.9521 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.6364/0.4632/0.4963 | LR: 0.000025
+Epoch [57/100] | Loss: 2.7315 (Cls: 2.6404, Adv: 4.5512) | Train Acc: 0.9375 | Val Acc: 0.4924 | Val P/R/F1 (Macro): 0.4959/0.4004/0.4074 | LR: 0.000025
+Epoch [58/100] | Loss: 2.5780 (Cls: 2.4852, Adv: 4.6421) | Train Acc: 0.9479 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6235/0.5427/0.5566 | LR: 0.000025
+Epoch [59/100] | Loss: 2.5490 (Cls: 2.4579, Adv: 4.5545) | Train Acc: 0.9521 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.5345/0.4188/0.4221 | LR: 0.000025
+Epoch [60/100] | Loss: 2.6252 (Cls: 2.5325, Adv: 4.6390) | Train Acc: 0.9354 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.6095/0.3879/0.4323 | LR: 0.000025
+Epoch [61/100] | Loss: 2.6880 (Cls: 2.5972, Adv: 4.5395) | Train Acc: 0.9479 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.5205/0.4541/0.4511 | LR: 0.000025
+Epoch [62/100] | Loss: 2.5283 (Cls: 2.4387, Adv: 4.4802) | Train Acc: 0.9479 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.5643/0.4309/0.4558 | LR: 0.000025
+Epoch [63/100] | Loss: 2.5806 (Cls: 2.4854, Adv: 4.7606) | Train Acc: 0.9500 | Val Acc: 0.4242 | Val P/R/F1 (Macro): 0.5496/0.3648/0.3762 | LR: 0.000025
+Epoch [64/100] | Loss: 2.4957 (Cls: 2.4002, Adv: 4.7758) | Train Acc: 0.9563 | Val Acc: 0.4470 | Val P/R/F1 (Macro): 0.6608/0.4677/0.4800 | LR: 0.000013
+Epoch [65/100] | Loss: 2.3643 (Cls: 2.2722, Adv: 4.6069) | Train Acc: 0.9729 | Val Acc: 0.5303 | Val P/R/F1 (Macro): 0.6960/0.4874/0.5230 | LR: 0.000013
+Epoch [66/100] | Loss: 2.5276 (Cls: 2.4330, Adv: 4.7308) | Train Acc: 0.9458 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.6405/0.4349/0.4754 | LR: 0.000013
+Epoch [67/100] | Loss: 2.4128 (Cls: 2.3166, Adv: 4.8104) | Train Acc: 0.9854 | Val Acc: 0.5000 | Val P/R/F1 (Macro): 0.6093/0.4108/0.4320 | LR: 0.000013
+Epoch [68/100] | Loss: 2.3973 (Cls: 2.3029, Adv: 4.7185) | Train Acc: 0.9646 | Val Acc: 0.4773 | Val P/R/F1 (Macro): 0.6307/0.4915/0.5011 | LR: 0.000013
+Epoch [69/100] | Loss: 2.3666 (Cls: 2.2739, Adv: 4.6332) | Train Acc: 0.9688 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.6411/0.4866/0.5190 | LR: 0.000013
+Epoch [70/100] | Loss: 2.3863 (Cls: 2.2911, Adv: 4.7561) | Train Acc: 0.9667 | Val Acc: 0.5227 | Val P/R/F1 (Macro): 0.6639/0.5294/0.5412 | LR: 0.000013
+Epoch [71/100] | Loss: 2.3655 (Cls: 2.2715, Adv: 4.6994) | Train Acc: 0.9708 | Val Acc: 0.5152 | Val P/R/F1 (Macro): 0.5883/0.4121/0.4429 | LR: 0.000013
+Epoch [72/100] | Loss: 2.4516 (Cls: 2.3560, Adv: 4.7828) | Train Acc: 0.9708 | Val Acc: 0.5379 | Val P/R/F1 (Macro): 0.7242/0.5157/0.5388 | LR: 0.000013
+Epoch [73/100] | Loss: 2.3503 (Cls: 2.2572, Adv: 4.6583) | Train Acc: 0.9771 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.6898/0.5620/0.5885 | LR: 0.000013
+Epoch [74/100] | Loss: 2.3841 (Cls: 2.2882, Adv: 4.7991) | Train Acc: 0.9771 | Val Acc: 0.4773 | Val P/R/F1 (Macro): 0.5119/0.3860/0.3895 | LR: 0.000013
+Epoch [75/100] | Loss: 2.3636 (Cls: 2.2676, Adv: 4.8041) | Train Acc: 0.9542 | Val Acc: 0.6288 | Val P/R/F1 (Macro): 0.7397/0.5625/0.5967 | LR: 0.000013
+  >>> New Best Val Acc: 0.6288
+Epoch [76/100] | Loss: 2.3328 (Cls: 2.2355, Adv: 4.8663) | Train Acc: 0.9667 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.6942/0.5218/0.5555 | LR: 0.000013
+Epoch [77/100] | Loss: 2.3315 (Cls: 2.2351, Adv: 4.8202) | Train Acc: 0.9833 | Val Acc: 0.5076 | Val P/R/F1 (Macro): 0.6520/0.4662/0.4927 | LR: 0.000013
+Epoch [78/100] | Loss: 2.3263 (Cls: 2.2313, Adv: 4.7480) | Train Acc: 0.9812 | Val Acc: 0.6288 | Val P/R/F1 (Macro): 0.7393/0.5991/0.6199 | LR: 0.000013
+Epoch [79/100] | Loss: 2.3460 (Cls: 2.2515, Adv: 4.7244) | Train Acc: 0.9688 | Val Acc: 0.5455 | Val P/R/F1 (Macro): 0.6250/0.5091/0.5261 | LR: 0.000013
+Epoch [80/100] | Loss: 2.3576 (Cls: 2.2589, Adv: 4.9346) | Train Acc: 0.9771 | Val Acc: 0.6061 | Val P/R/F1 (Macro): 0.7008/0.5519/0.5777 | LR: 0.000013
+Epoch [81/100] | Loss: 2.2987 (Cls: 2.1986, Adv: 5.0030) | Train Acc: 0.9625 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.6883/0.5759/0.5805 | LR: 0.000013
+Epoch [82/100] | Loss: 2.2855 (Cls: 2.1879, Adv: 4.8820) | Train Acc: 0.9854 | Val Acc: 0.4697 | Val P/R/F1 (Macro): 0.6679/0.4230/0.4640 | LR: 0.000013
+Epoch [83/100] | Loss: 2.2727 (Cls: 2.1727, Adv: 4.9973) | Train Acc: 0.9812 | Val Acc: 0.6515 | Val P/R/F1 (Macro): 0.7446/0.5914/0.6227 | LR: 0.000013
+  >>> New Best Val Acc: 0.6515
+Epoch [84/100] | Loss: 2.3114 (Cls: 2.2145, Adv: 4.8449) | Train Acc: 0.9708 | Val Acc: 0.6136 | Val P/R/F1 (Macro): 0.7127/0.5761/0.5979 | LR: 0.000013
+Epoch [85/100] | Loss: 2.3414 (Cls: 2.2429, Adv: 4.9260) | Train Acc: 0.9833 | Val Acc: 0.5606 | Val P/R/F1 (Macro): 0.6376/0.5196/0.5424 | LR: 0.000013
+Epoch [86/100] | Loss: 2.3606 (Cls: 2.2643, Adv: 4.8154) | Train Acc: 0.9667 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7159/0.5895/0.6022 | LR: 0.000013
+Epoch [87/100] | Loss: 2.3283 (Cls: 2.2309, Adv: 4.8702) | Train Acc: 0.9708 | Val Acc: 0.6288 | Val P/R/F1 (Macro): 0.7621/0.6015/0.6411 | LR: 0.000013
+Epoch [88/100] | Loss: 2.2603 (Cls: 2.1618, Adv: 4.9228) | Train Acc: 0.9792 | Val Acc: 0.6515 | Val P/R/F1 (Macro): 0.7668/0.6478/0.6667 | LR: 0.000013
+Epoch [89/100] | Loss: 2.2781 (Cls: 2.1805, Adv: 4.8844) | Train Acc: 0.9854 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7530/0.5620/0.6145 | LR: 0.000013
+Epoch [90/100] | Loss: 2.2485 (Cls: 2.1505, Adv: 4.9012) | Train Acc: 0.9729 | Val Acc: 0.6667 | Val P/R/F1 (Macro): 0.7682/0.5902/0.6360 | LR: 0.000013
+  >>> New Best Val Acc: 0.6667
+Epoch [91/100] | Loss: 2.2442 (Cls: 2.1467, Adv: 4.8761) | Train Acc: 0.9750 | Val Acc: 0.5682 | Val P/R/F1 (Macro): 0.6312/0.5323/0.5615 | LR: 0.000013
+Epoch [92/100] | Loss: 2.3856 (Cls: 2.2857, Adv: 4.9979) | Train Acc: 0.9563 | Val Acc: 0.5909 | Val P/R/F1 (Macro): 0.6974/0.5468/0.5794 | LR: 0.000013
+Epoch [93/100] | Loss: 2.2596 (Cls: 2.1612, Adv: 4.9216) | Train Acc: 0.9792 | Val Acc: 0.5530 | Val P/R/F1 (Macro): 0.6802/0.5227/0.5432 | LR: 0.000013
+Epoch [94/100] | Loss: 2.2834 (Cls: 2.1826, Adv: 5.0398) | Train Acc: 0.9812 | Val Acc: 0.6515 | Val P/R/F1 (Macro): 0.7057/0.6233/0.6311 | LR: 0.000013
+Epoch [95/100] | Loss: 2.2389 (Cls: 2.1403, Adv: 4.9328) | Train Acc: 0.9812 | Val Acc: 0.6364 | Val P/R/F1 (Macro): 0.7447/0.6161/0.6314 | LR: 0.000013
+Epoch [96/100] | Loss: 2.2705 (Cls: 2.1729, Adv: 4.8832) | Train Acc: 0.9792 | Val Acc: 0.6439 | Val P/R/F1 (Macro): 0.7434/0.6348/0.6468 | LR: 0.000013
+Epoch [97/100] | Loss: 2.3154 (Cls: 2.2171, Adv: 4.9163) | Train Acc: 0.9833 | Val Acc: 0.5530 | Val P/R/F1 (Macro): 0.7200/0.5235/0.5575 | LR: 0.000013
+Epoch [98/100] | Loss: 2.2175 (Cls: 2.1195, Adv: 4.9018) | Train Acc: 0.9833 | Val Acc: 0.5833 | Val P/R/F1 (Macro): 0.7132/0.5415/0.5651 | LR: 0.000013
+Epoch [99/100] | Loss: 2.2645 (Cls: 2.1678, Adv: 4.8391) | Train Acc: 0.9875 | Val Acc: 0.6364 | Val P/R/F1 (Macro): 0.6955/0.5895/0.6176 | LR: 0.000013
+Epoch [100/100] | Loss: 2.2796 (Cls: 2.1808, Adv: 4.9405) | Train Acc: 0.9875 | Val Acc: 0.6212 | Val P/R/F1 (Macro): 0.7160/0.5487/0.5811 | LR: 0.000013
+Report strategy: last_window, window=10, reported_acc=0.6038, best_acc=0.6667
+
+迭代 5 报告指标:
+  Accuracy: 0.6038
+  Precision (Macro): 0.7047
+  Recall (Macro): 0.5679
+  F1 (Macro): 0.5915
+  Precision (Micro): 0.6038
+  Recall (Micro): 0.6038
+  F1 (Micro): 0.6038
+  Val class coverage: 9/14 (0.6429), samples=132
+
+================================================================================
+5次迭代统计结果
+================================================================================
+
+accuracy:
+  各迭代值: ['0.6311', '0.6083', '0.5864', '0.6629', '0.6038']
+  均值 (Mean): 0.6185
+  标准差 (Std): 0.0264
+
+precision_macro:
+  各迭代值: ['0.7532', '0.7279', '0.6759', '0.7241', '0.7047']
+  均值 (Mean): 0.7172
+  标准差 (Std): 0.0258
+
+recall_macro:
+  各迭代值: ['0.5499', '0.5833', '0.5406', '0.6139', '0.5679']
+  均值 (Mean): 0.5711
+  标准差 (Std): 0.0260
+
+f1_macro:
+  各迭代值: ['0.5907', '0.6094', '0.5604', '0.6287', '0.5915']
+  均值 (Mean): 0.5961
+  标准差 (Std): 0.0227
+
+precision_micro:
+  各迭代值: ['0.6311', '0.6083', '0.5864', '0.6629', '0.6038']
+  均值 (Mean): 0.6185
+  标准差 (Std): 0.0264
+
+recall_micro:
+  各迭代值: ['0.6311', '0.6083', '0.5864', '0.6629', '0.6038']
+  均值 (Mean): 0.6185
+  标准差 (Std): 0.0264
+
+f1_micro:
+  各迭代值: ['0.6311', '0.6083', '0.5864', '0.6629', '0.6038']
+  均值 (Mean): 0.6185
+  标准差 (Std): 0.0264
+
+val_class_coverage:
+  各迭代值: ['0.6429', '0.6429', '0.6429', '0.6429', '0.6429']
+  均值 (Mean): 0.6429
+  标准差 (Std): 0.0000
+
+val_present_classes:
+  各迭代值: ['9.0000', '9.0000', '9.0000', '9.0000', '9.0000']
+  均值 (Mean): 9.0000
+  标准差 (Std): 0.0000
+
+val_total_classes:
+  各迭代值: ['14.0000', '14.0000', '14.0000', '14.0000', '14.0000']
+  均值 (Mean): 14.0000
+  标准差 (Std): 0.0000
+
+val_samples:
+  各迭代值: ['132.0000', '132.0000', '132.0000', '132.0000', '132.0000']
+  均值 (Mean): 132.0000
+  标准差 (Std): 0.0000
+
+训练结束时间: 2026-07-13 16:17:52
+================================================================================
