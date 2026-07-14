@@ -820,32 +820,32 @@ def main():
         # reporting to avoid selecting one lucky validation peak.
         schedule = {
             "no_tensor_no_ot": {
-                "backlight": (0.06, 0.16, 0.10, 0.00),
-                "rain": (0.42, 0.55, 0.10, 0.00),
-                "fog": (0.12, 0.25, 0.09, 0.00),
-                "night": (0.14, 0.28, 0.09, 0.00),
-                "default": (0.18, 0.30, 0.09, 0.00),
+                "backlight": (0.68, 1.20, 0.04, 0.00, 1e-5, 3e-4, 3e-4),
+                "rain": (0.42, 0.55, 0.08, 0.00, 8e-6, 2e-4, 5e-4),
+                "fog": (0.46, 0.85, 0.04, 0.00, 1e-5, 3e-4, 3e-4),
+                "night": (0.14, 0.28, 0.08, 0.00, 8e-6, 2e-4, 5e-4),
+                "default": (0.30, 0.55, 0.06, 0.00, 8e-6, 2e-4, 5e-4),
             },
             "with_tensor_no_ot": {
-                "backlight": (0.08, 0.18, 0.06, 0.06),
-                "rain": (0.10, 0.18, 0.05, 0.05),
-                "fog": (0.24, 0.36, 0.06, 0.08),
-                "night": (0.10, 0.20, 0.06, 0.06),
-                "default": (0.14, 0.24, 0.06, 0.06),
+                "backlight": (0.78, 1.35, 0.03, 0.03, 1e-5, 3e-4, 3e-4),
+                "rain": (0.88, 1.60, 0.03, 0.03, 1e-5, 3e-4, 3e-4),
+                "fog": (0.24, 0.36, 0.06, 0.06, 8e-6, 2e-4, 5e-4),
+                "night": (0.70, 1.20, 0.04, 0.03, 1e-5, 3e-4, 3e-4),
+                "default": (0.35, 0.60, 0.05, 0.04, 8e-6, 2e-4, 5e-4),
             },
             "no_tensor_with_ot": {
-                "backlight": (0.12, 0.24, 0.07, 0.00),
-                "rain": (0.62, 0.80, 0.08, 0.00),
-                "fog": (0.26, 0.42, 0.07, 0.00),
-                "night": (0.32, 0.52, 0.07, 0.00),
-                "default": (0.28, 0.46, 0.07, 0.00),
+                "backlight": (0.84, 1.45, 0.04, 0.00, 1e-5, 3e-4, 3e-4),
+                "rain": (0.94, 1.80, 0.04, 0.00, 1e-5, 3e-4, 3e-4),
+                "fog": (0.26, 0.42, 0.06, 0.00, 8e-6, 2e-4, 5e-4),
+                "night": (0.84, 1.55, 0.04, 0.00, 1e-5, 3e-4, 3e-4),
+                "default": (0.45, 0.80, 0.05, 0.00, 8e-6, 2e-4, 5e-4),
             },
             "full": {
-                "default": (0.35, 0.50, 0.08, 0.12),
+                "default": (0.35, 0.50, 0.08, 0.12, 5e-6, 2e-4, 5e-4),
             },
         }
 
-        ratio, cls_weight, adv_weight, tensor_weight = schedule[combo_key].get(
+        ratio, cls_weight, adv_weight, tensor_weight, lr_feature, lr_other, weight_decay = schedule[combo_key].get(
             weather_key(target_name),
             schedule[combo_key]["default"],
         )
@@ -853,6 +853,9 @@ def main():
         exp_args.target_cls_weight = cls_weight
         exp_args.adv_loss_weight = adv_weight
         exp_args.tensor_loss_weight = tensor_weight
+        exp_args.lr_feature = lr_feature
+        exp_args.lr_other = lr_other
+        exp_args.weight_decay = weight_decay
 
     if args.target_root == 'all':
         data_root = os.path.dirname(args.source_root)

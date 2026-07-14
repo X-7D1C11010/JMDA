@@ -136,6 +136,17 @@ class SingleModalityDataset(Dataset):
             except OSError:
                 return False
 
+        def read_git_lfs_oid(path):
+            try:
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('oid sha256:'):
+                            return line.split(':', 1)[1]
+            except OSError:
+                pass
+            return None
+
         def find_real_ais_file(pointer_path):
             pointer_path = os.path.abspath(pointer_path)
             search_roots = []
@@ -144,6 +155,22 @@ class SingleModalityDataset(Dataset):
             for root in (ais_dir, data_root, os.getcwd()):
                 if root and os.path.isdir(root) and root not in search_roots:
                     search_roots.append(root)
+
+            oid = read_git_lfs_oid(pointer_path)
+            if oid and len(oid) >= 4:
+                ancestors = []
+                for root in (pointer_path, os.getcwd()):
+                    cur = os.path.abspath(root if os.path.isdir(root) else os.path.dirname(root))
+                    while cur and cur not in ancestors:
+                        ancestors.append(cur)
+                        parent = os.path.dirname(cur)
+                        if parent == cur:
+                            break
+                        cur = parent
+                for ancestor in ancestors:
+                    lfs_object = os.path.join(ancestor, '.git', 'lfs', 'objects', oid[:2], oid[2:4], oid)
+                    if os.path.isfile(lfs_object) and not is_git_lfs_pointer(lfs_object):
+                        return lfs_object
 
             exts = ('.mat', '.h5', '.hdf5', '.npz', '.npy', '.csv', '.txt')
             candidates = []
