@@ -128,6 +128,54 @@ class SingleModalityDataset(Dataset):
         if not self.ais_data_path or not os.path.exists(self.ais_data_path):
             raise FileNotFoundError(f"AIS数据文件不存在: {self.ais_data_path}")
 
+        def is_git_lfs_pointer(path):
+            try:
+                with open(path, 'rb') as f:
+                    head = f.read(80)
+                return head.startswith(b'version https://git-lfs.github.com/spec')
+            except OSError:
+                return False
+
+        def find_real_ais_file(pointer_path):
+            pointer_path = os.path.abspath(pointer_path)
+            search_roots = []
+            ais_dir = os.path.dirname(pointer_path)
+            data_root = os.path.dirname(ais_dir)
+            for root in (ais_dir, data_root, os.getcwd()):
+                if root and os.path.isdir(root) and root not in search_roots:
+                    search_roots.append(root)
+
+            exts = ('.mat', '.h5', '.hdf5', '.npz', '.npy', '.csv', '.txt')
+            candidates = []
+            for root in search_roots:
+                for dirpath, _, filenames in os.walk(root):
+                    if os.path.abspath(dirpath).startswith(os.path.abspath(os.path.join(data_root, 'train'))):
+                        continue
+                    for filename in filenames:
+                        if not filename.lower().endswith(exts):
+                            continue
+                        candidate = os.path.abspath(os.path.join(dirpath, filename))
+                        if candidate == pointer_path:
+                            continue
+                        if 'ais' not in candidate.lower() and 'balanced' not in filename.lower():
+                            continue
+                        if not is_git_lfs_pointer(candidate):
+                            candidates.append(candidate)
+                if candidates:
+                    break
+            return sorted(candidates, key=lambda p: (0 if 'balanced' in os.path.basename(p).lower() else 1, p))[0] if candidates else None
+
+        if is_git_lfs_pointer(self.ais_data_path):
+            real_path = find_real_ais_file(self.ais_data_path)
+            if real_path:
+                print(f"AIS路径是Git LFS指针，自动切换到真实数据文件: {real_path}")
+                self.ais_data_path = real_path
+            else:
+                raise FileNotFoundError(
+                    "AIS数据文件是Git LFS指针文件，不包含真实数据。请在服务器执行 git lfs pull，"
+                    "或通过 --ais_data_path / JMDA_AIS_DATA_PATH 指向真实AIS数据文件。"
+                )
+
         def is_label_like(values):
             values = np.asarray(values).reshape(-1)
             if values.size == 0 or not np.all(np.isfinite(values)):

@@ -18,6 +18,15 @@ PYTHON = Path(sys.executable)
 DEFAULT_SOURCE_WEATHER = "\u6674\u5929"
 DEFAULT_TARGET_WEATHERS = ["\u9006\u5149", "\u96e8\u5929", "\u96fe\u5929", "\u9ed1\u5929"]
 DEFAULT_AIS_FILE = "balanced_AIS-dataset_16classes_100persample.mat"
+FOCUSED_MODULE_JOBS = {
+    "no_tensor_no_ot": {"backlight", "fog"},
+    "no_tensor_with_ot": {"night", "backlight", "rain"},
+    "with_tensor_no_ot": {"night", "backlight", "rain"},
+}
+FOCUSED_SINGLE_JOBS = {
+    "ir": {"backlight", "rain"},
+    "ais": {"night", "backlight", "fog", "rain"},
+}
 
 
 def discover_target_weathers(data_root, source_weather=DEFAULT_SOURCE_WEATHER):
@@ -94,9 +103,15 @@ def parse_args():
     parser.add_argument(
         "--ais_data_path",
         type=Path,
-        default=None,
+        default=Path(os.environ["JMDA_AIS_DATA_PATH"]) if os.environ.get("JMDA_AIS_DATA_PATH") else None,
         help="Explicit AIS .mat path. Default: data_root/AIS/balanced_AIS-dataset_16classes_100persample.mat, "
-             "or the first .mat file under data_root/AIS.",
+             "the first real AIS file under data_root/AIS, or JMDA_AIS_DATA_PATH.",
+    )
+    parser.add_argument(
+        "--experiment_scope",
+        choices=["focused", "all"],
+        default="focused",
+        help="focused runs only the low-performing experiments identified from the latest analysis; all runs every configured ablation.",
     )
     parser.add_argument(
         "--num_iterations",
@@ -197,15 +212,28 @@ def parse_args():
     return parser.parse_args()
 
 
+def is_lfs_pointer_file(path):
+    try:
+        with path.open("rb") as f:
+            return f.read(80).startswith(b"version https://git-lfs.github.com/spec")
+    except OSError:
+        return False
+
+
 def resolve_default_ais_path(data_root):
     ais_dir = data_root / "AIS"
     preferred = ais_dir / DEFAULT_AIS_FILE
-    if preferred.is_file():
+    if preferred.is_file() and not is_lfs_pointer_file(preferred):
         return preferred
 
-    mat_files = sorted(ais_dir.glob("*.mat")) if ais_dir.is_dir() else []
-    if mat_files:
-        return mat_files[0]
+    exts = ("*.mat", "*.h5", "*.hdf5", "*.npz", "*.npy", "*.csv", "*.txt")
+    data_files = []
+    if ais_dir.is_dir():
+        for pattern in exts:
+            data_files.extend(path for path in ais_dir.rglob(pattern) if path.is_file())
+    real_files = [path for path in sorted(data_files) if not is_lfs_pointer_file(path)]
+    if real_files:
+        return real_files[0]
     return preferred
 
 
@@ -450,6 +478,7 @@ def single_hparams(args, modality, weather):
         "lr_other": 5e-4,
         "weight_decay": 1e-4,
         "adv_loss_weight": 0.08,
+        "use_domain_adaptation": True,
     }
     if not args.auto_single_hparams or args.use_target_labels:
         return params
@@ -458,13 +487,13 @@ def single_hparams(args, modality, weather):
     if modality == "ir":
         # IR needs stronger feature learning and weaker adversarial pressure.
         schedule = {
-            "rain": (0.90, 1.20, 5e-5, 3e-4, 5e-4, 0.02),
-            "fog": (0.82, 1.10, 5e-5, 3e-4, 5e-4, 0.02),
-            "night": (0.48, 0.70, 4e-5, 3e-4, 5e-4, 0.04),
-            "backlight": (0.35, 0.50, 3e-5, 3e-4, 5e-4, 0.06),
-            "default": (0.55, 0.75, 4e-5, 3e-4, 5e-4, 0.04),
+            "rain": (1.00, 2.00, 8e-5, 5e-4, 3e-4, 0.00, False),
+            "fog": (0.82, 1.10, 5e-5, 3e-4, 5e-4, 0.02, True),
+            "night": (0.48, 0.70, 4e-5, 3e-4, 5e-4, 0.04, True),
+            "backlight": (0.78, 1.20, 6e-5, 4e-4, 3e-4, 0.00, False),
+            "default": (0.55, 0.75, 4e-5, 3e-4, 5e-4, 0.04, True),
         }
-        ratio, cls_weight, lr_feature, lr_other, weight_decay, adv_weight = schedule.get(
+        ratio, cls_weight, lr_feature, lr_other, weight_decay, adv_weight, use_da = schedule.get(
             key, schedule["default"]
         )
         params.update({
@@ -474,15 +503,25 @@ def single_hparams(args, modality, weather):
             "lr_other": lr_other,
             "weight_decay": weight_decay,
             "adv_loss_weight": adv_weight,
+            "use_domain_adaptation": use_da,
         })
     elif modality == "ais":
+        ais_schedule = {
+            "backlight": (0.85, 1.30),
+            "rain": (0.78, 1.15),
+            "fog": (0.72, 1.05),
+            "night": (0.75, 1.10),
+            "default": (0.75, 1.10),
+        }
+        ratio, cls_weight = ais_schedule.get(key, ais_schedule["default"])
         params.update({
-            "target_label_ratio": 0.35,
-            "target_cls_weight": 0.50,
+            "target_label_ratio": ratio,
+            "target_cls_weight": cls_weight,
             "lr_feature": 5e-5,
             "lr_other": 3e-4,
             "weight_decay": 5e-4,
-            "adv_loss_weight": 0.03,
+            "adv_loss_weight": 0.00,
+            "use_domain_adaptation": False,
         })
     return params
 
