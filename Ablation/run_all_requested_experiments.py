@@ -545,6 +545,7 @@ def main():
         "target_roots": [str(path) for path in target_roots],
         "target_weathers": [path.name for path in target_roots],
         "ais_data_path": str(ais_data_path),
+        "experiment_scope": args.experiment_scope,
         "source_weather": args.source_weather,
         "num_iterations": args.num_iterations,
         "epochs": args.epochs,
@@ -567,49 +568,66 @@ def main():
     }
     MANIFEST_JSON.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def build_module_args(target_root, mode):
+        module_args = [
+            "module_ablation.py",
+            "--source_root",
+            str(source_root),
+            "--target_root",
+            str(target_root),
+            "--ablation_mode",
+            mode,
+            "--num_iterations",
+            str(args.num_iterations),
+            "--epochs",
+            str(args.epochs),
+            "--batch_size",
+            str(args.batch_size),
+            "--target_label_ratio",
+            str(args.target_label_ratio),
+            "--target_cls_weight",
+            str(args.target_cls_weight),
+            "--report_strategy",
+            args.report_strategy,
+            "--report_window",
+            str(args.report_window),
+        ]
+        if args.use_target_labels:
+            module_args.append("--use_target_labels")
+        if not args.auto_module_hparams:
+            module_args.append("--no_auto_ablation_hparams")
+        return module_args
+
     def run_modules():
         for target_root in target_roots:
             weather = target_root.name
-            module_args = [
-                "module_ablation.py",
-                "--source_root",
-                str(source_root),
-                "--target_root",
-                str(target_root),
-                "--ablation_mode",
-                "all",
-                "--num_iterations",
-                str(args.num_iterations),
-                "--epochs",
-                str(args.epochs),
-                "--batch_size",
-                str(args.batch_size),
-                "--target_label_ratio",
-                str(args.target_label_ratio),
-                "--target_cls_weight",
-                str(args.target_cls_weight),
-                "--report_strategy",
-                args.report_strategy,
-                "--report_window",
-                str(args.report_window),
-            ]
-            if args.use_target_labels:
-                module_args.append("--use_target_labels")
-            if not args.auto_module_hparams:
-                module_args.append("--no_auto_ablation_hparams")
-            run_command(
-                f"module_{weather}",
-                ABLATION_DIR,
-                module_args,
-                manifest,
-                run_start,
-                stop_on_error=args.stop_on_error,
-            )
+            if args.experiment_scope == "all":
+                jobs = [("all", "all")]
+            else:
+                key = weather_key(weather)
+                jobs = [
+                    (mode, mode)
+                    for mode, weather_keys in FOCUSED_MODULE_JOBS.items()
+                    if key in weather_keys
+                ]
+
+            for mode, label_mode in jobs:
+                run_command(
+                    f"module_{label_mode}_{weather}",
+                    ABLATION_DIR,
+                    build_module_args(target_root, mode),
+                    manifest,
+                    run_start,
+                    stop_on_error=args.stop_on_error,
+                )
 
     def run_singles():
         for target_root in target_roots:
             weather = target_root.name
+            key = weather_key(weather)
             for modality in args.single_modalities:
+                if args.experiment_scope == "focused" and key not in FOCUSED_SINGLE_JOBS.get(modality, set()):
+                    continue
                 hp = single_hparams(args, modality, weather)
                 single_args = [
                     "main_single.py",
@@ -646,6 +664,8 @@ def main():
                 ]
                 if args.use_target_labels:
                     single_args.append("--use_target_labels")
+                if not hp["use_domain_adaptation"]:
+                    single_args.append("--no_domain_adaptation")
                 run_command(
                     f"single_modal_{modality}_{weather}",
                     SINGLE_DIR,
