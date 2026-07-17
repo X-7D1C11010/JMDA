@@ -1,0 +1,43 @@
+COMMAND: /home/lixiang/envs/lx_pytorch/bin/python main_single.py --source_root /home/lixiang/lx/Data/晴天 --target_root /home/lixiang/lx/Data/黑天 --ais_data_path /home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat --modality ais --num_iterations 5 --epochs 100 --batch_size 32 --target_label_ratio 0.75 --target_cls_weight 1.1 --lr_feature 5e-05 --lr_other 0.0003 --weight_decay 0.0005 --adv_loss_weight 0.0 --report_strategy last_window --report_window 10 --no_domain_adaptation
+CWD: /home/lixiang/lx/JMDA/Ablation/signle modal
+================================================================================
+================================================================================
+单模态消融实验 - AIS
+目标域天气: 黑天
+训练开始时间: 2026-07-14 18:39:03
+设备: cuda
+模态: ais
+AIS数据路径: /home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat
+AIS架构: mlp
+批次大小: 32
+总轮数: 100
+迭代次数: 5
+特征维度: 512
+域适应: 禁用
+报告策略: last_window, 窗口: 10
+对抗损失权重: 0.0
+================================================================================
+
+================================================================================
+迭代 1/5
+随机种子: 42
+================================================================================
+
+[Batch 1/1] modality=ais, target=/home/lixiang/lx/Data/黑天
+Traceback (most recent call last):
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 709, in <module>
+    main()
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 689, in main
+    summary = run_single_experiment(exp_args)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 562, in run_single_experiment
+    best_metrics = run_single_iteration(args, seed, logger)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/main_single.py", line 220, in run_single_iteration
+    src_train_ds = SingleModalityDataset(
+                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/DataLoad_single.py", line 103, in __init__
+    self._load_ais_data()
+  File "/home/lixiang/lx/JMDA/Ablation/signle modal/DataLoad_single.py", line 201, in _load_ais_data
+    raise FileNotFoundError(
+FileNotFoundError: AIS数据文件是Git LFS指针文件，不包含真实数据。请在服务器执行 git lfs pull，或通过 --ais_data_path / JMDA_AIS_DATA_PATH 指向真实AIS数据文件。
