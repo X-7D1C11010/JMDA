@@ -1,0 +1,104 @@
+================================================================================
+模块消融实验 - without_tensor_without_ot
+目标域天气: 逆光
+训练开始时间: 2026-07-17 15:47:09
+设备: cuda
+源域: D:\Code\JMDA-Net\Data\晴天
+目标域: D:\Code\JMDA-Net\Data\逆光
+批次大小: 32
+总轮数: 1
+迭代次数: 1
+使用Tensor模块: 否
+使用OT模块: 否
+特征融合方式: 通道拼接
+域对齐方式: 常规对抗
+目标标签比例/权重: 0.28/0.45
+Tensor/Adv损失权重: 0.0/0.06
+学习率: feature=8e-06, other=0.00022, weight_decay=0.0004
+报告策略: last_window, 窗口: 1
+================================================================================
+
+================================================================================
+迭代 1/1
+随机种子: 42
+================================================================================
+Training mode: unpaired target adaptation with controlled target-label loss (ratio=0.28, weight=0.45).
+Fixed labeled target subset: 36/128 samples.
+Feature fusion: Channel concatenation (512+512); fused_dim=1024
+Domain adaptation: standard source-target adversarial training, no generator
+Loss weights: tensor=0.00, adv=0.06
+Epoch [1/1] | Loss: 4.1413 (Cls: 4.0893, TAL: 0.0000, Adv: 0.8683) | Train Acc: 0.1172 | Val Acc: 0.1667 | Val P/R/F1 (Macro): 0.1601/0.1352/0.1009 | LR: 0.000008
+  >>> New Best Val Acc: 0.1667
+Report strategy: last_window, window=1, reported_acc=0.1667, best_acc=0.1667
+
+迭代 1 报告指标:
+  Accuracy: 0.1667
+  Precision (Macro): 0.1601
+  Recall (Macro): 0.1352
+  F1 (Macro): 0.1009
+  Precision (Micro): 0.1667
+  Recall (Micro): 0.1667
+  F1 (Micro): 0.1667
+  Val class coverage: 9/14 (0.6429), samples=36
+
+================================================================================
+1次迭代统计结果
+================================================================================
+
+accuracy:
+  各迭代值: ['0.1667']
+  均值 (Mean): 0.1667
+  标准差 (Std): 0.0000
+
+precision_macro:
+  各迭代值: ['0.1601']
+  均值 (Mean): 0.1601
+  标准差 (Std): 0.0000
+
+recall_macro:
+  各迭代值: ['0.1352']
+  均值 (Mean): 0.1352
+  标准差 (Std): 0.0000
+
+f1_macro:
+  各迭代值: ['0.1009']
+  均值 (Mean): 0.1009
+  标准差 (Std): 0.0000
+
+precision_micro:
+  各迭代值: ['0.1667']
+  均值 (Mean): 0.1667
+  标准差 (Std): 0.0000
+
+recall_micro:
+  各迭代值: ['0.1667']
+  均值 (Mean): 0.1667
+  标准差 (Std): 0.0000
+
+f1_micro:
+  各迭代值: ['0.1667']
+  均值 (Mean): 0.1667
+  标准差 (Std): 0.0000
+
+val_class_coverage:
+  各迭代值: ['0.6429']
+  均值 (Mean): 0.6429
+  标准差 (Std): 0.0000
+
+val_present_classes:
+  各迭代值: ['9.0000']
+  均值 (Mean): 9.0000
+  标准差 (Std): 0.0000
+
+val_total_classes:
+  各迭代值: ['14.0000']
+  均值 (Mean): 14.0000
+  标准差 (Std): 0.0000
+
+val_samples:
+  各迭代值: ['36.0000']
+  均值 (Mean): 36.0000
+  标准差 (Std): 0.0000
+
+训练结束时间: 2026-07-17 15:47:48
+================================================================================

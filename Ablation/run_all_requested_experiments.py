@@ -20,11 +20,11 @@ DEFAULT_TARGET_WEATHERS = ["\u9006\u5149", "\u96e8\u5929", "\u96fe\u5929", "\u9e
 DEFAULT_AIS_FILE = "balanced_AIS-dataset_16classes_100persample.mat"
 FOCUSED_MODULE_JOBS = {
     "no_tensor_no_ot": {"backlight", "fog"},
-    "no_tensor_with_ot": {"night", "backlight", "rain"},
+    "no_tensor_with_ot": {"backlight", "rain"},
     "with_tensor_no_ot": {"night", "backlight", "rain"},
 }
 FOCUSED_SINGLE_JOBS = {
-    "ir": {"backlight", "rain"},
+    "ir": {"rain"},
     "ais": {"night", "backlight", "fog", "rain"},
 }
 
@@ -220,11 +220,51 @@ def is_lfs_pointer_file(path):
         return False
 
 
+def read_lfs_oid(path):
+    try:
+        with path.open("r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("oid sha256:"):
+                    return line.split(":", 1)[1]
+    except OSError:
+        pass
+    return None
+
+
+def find_lfs_object_for_pointer(pointer_path):
+    oid = read_lfs_oid(pointer_path)
+    if not oid or len(oid) < 4:
+        return None
+
+    roots = []
+    for base in (pointer_path.parent, ROOT, Path.cwd()):
+        try:
+            cur = base.expanduser().resolve()
+        except OSError:
+            continue
+        while cur not in roots:
+            roots.append(cur)
+            if cur.parent == cur:
+                break
+            cur = cur.parent
+
+    for root in roots:
+        candidate = root / ".git" / "lfs" / "objects" / oid[:2] / oid[2:4] / oid
+        if candidate.is_file() and not is_lfs_pointer_file(candidate):
+            return candidate
+    return None
+
+
 def resolve_default_ais_path(data_root):
     ais_dir = data_root / "AIS"
     preferred = ais_dir / DEFAULT_AIS_FILE
     if preferred.is_file() and not is_lfs_pointer_file(preferred):
         return preferred
+    if preferred.is_file():
+        lfs_object = find_lfs_object_for_pointer(preferred)
+        if lfs_object is not None:
+            return lfs_object
 
     exts = ("*.mat", "*.h5", "*.hdf5", "*.npz", "*.npy", "*.csv", "*.txt")
     data_files = []
@@ -266,6 +306,10 @@ def resolve_experiment_paths(args):
         if args.ais_data_path is not None
         else resolve_default_ais_path(data_root).resolve()
     )
+    if ais_data_path.is_file() and is_lfs_pointer_file(ais_data_path):
+        lfs_object = find_lfs_object_for_pointer(ais_data_path)
+        if lfs_object is not None:
+            ais_data_path = lfs_object.resolve()
 
     if not source_root.is_dir():
         raise FileNotFoundError(f"source_root does not exist: {source_root}")
@@ -487,7 +531,10 @@ def single_hparams(args, modality, weather):
     if modality == "ir":
         # IR needs stronger feature learning and weaker adversarial pressure.
         schedule = {
-            "rain": (1.00, 2.00, 8e-5, 5e-4, 3e-4, 0.00, False),
+            # Rain/IR underfit in the 2026-07-14 run, so keep domain
+            # adaptation off and give the controlled target subset more
+            # classification weight without switching to fully paired training.
+            "rain": (1.00, 5.00, 1e-4, 8e-4, 1e-4, 0.00, False),
             "fog": (0.82, 1.10, 5e-5, 3e-4, 5e-4, 0.02, True),
             "night": (0.48, 0.70, 4e-5, 3e-4, 5e-4, 0.04, True),
             "backlight": (0.78, 1.20, 6e-5, 4e-4, 3e-4, 0.00, False),
