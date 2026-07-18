@@ -71,7 +71,8 @@ class SingleModalityDataset(Dataset):
     """
 
     def __init__(self, root_dir, modality='vis', domain_type='source', phase='train',
-                 img_size=224, weather=None, global_label_map=None, ais_data_path=None):
+                 img_size=224, weather=None, global_label_map=None, ais_data_path=None,
+                 ais_allowed_labels=None, ais_split_seed=42, ais_augment=True):
         """
         Args:
             root_dir: 数据根目录
@@ -82,6 +83,9 @@ class SingleModalityDataset(Dataset):
             weather: 天气类型
             global_label_map: 全局标签映射
             ais_data_path: AIS数据路径 (.mat文件)
+            ais_allowed_labels: 当前天气中实际存在的AIS类别；None表示保留全部类别
+            ais_split_seed: AIS分层训练/验证划分的固定随机种子
+            ais_augment: 是否在AIS训练样本上应用相位/噪声增强
         """
         self.modality = modality
         if weather is not None:
@@ -97,6 +101,12 @@ class SingleModalityDataset(Dataset):
         self.samples = []
         self.domain_label = 0 if domain_type == 'source' else 1
         self.ais_data_path = ais_data_path
+        self.ais_allowed_labels = (
+            None if ais_allowed_labels is None
+            else {int(label) for label in ais_allowed_labels}
+        )
+        self.ais_split_seed = int(ais_split_seed)
+        self.ais_augment = bool(ais_augment)
 
         # 加载数据
         if modality == 'ais':
@@ -262,6 +272,13 @@ class SingleModalityDataset(Dataset):
             q_features, labels_q = align_features(container['balanced_rcv_Q'], labels, f"{source_name}:Q")
             if labels_q.shape[0] != labels.shape[0]:
                 raise ValueError(f"{source_name}: I/Q labels mismatch")
+            # Receiver gain differs considerably between records. Normalize one
+            # I/Q record by its joint RMS while preserving phase and waveform
+            # structure; this prevents the high-dimensional MLP/CNN from using
+            # amplitude scale as a sample identifier.
+            rms = np.sqrt(np.mean(i_features ** 2 + q_features ** 2, axis=1, keepdims=True) + 1e-8)
+            i_features = i_features / rms
+            q_features = q_features / rms
             print(f"AIS {source_name} keys: data=balanced_rcv_I+balanced_rcv_Q, labels=new_balanced_label")
             return np.concatenate([i_features, q_features], axis=1), labels
 
@@ -364,17 +381,40 @@ class SingleModalityDataset(Dataset):
         ais_features = np.asarray(ais_features, dtype=np.float32)
         ais_labels = np.asarray(ais_labels).reshape(-1)
 
-        # 根据phase划分数据 (简单的8:2划分)
-        n_samples = len(ais_labels)
-        indices = np.arange(n_samples)
-        np.random.seed(42)
-        np.random.shuffle(indices)
+        if not np.all(np.isfinite(ais_features)):
+            raise ValueError("AIS特征包含NaN或Inf")
+        if not np.allclose(ais_labels, np.round(ais_labels), atol=1e-4):
+            raise ValueError("AIS标签必须为整数编码")
+        ais_labels = np.round(ais_labels).astype(np.int64)
 
-        split_idx = int(0.8 * n_samples)
-        if self.phase == 'train':
-            selected_indices = indices[:split_idx]
-        else:  # val
-            selected_indices = indices[split_idx:]
+        # Perform a deterministic stratified 80/20 split. The previous global
+        # shuffle could omit rare classes from validation and made weather-wise
+        # comparisons unstable. Train and validation indices remain disjoint.
+        rng = np.random.RandomState(self.ais_split_seed)
+        train_indices = []
+        val_indices = []
+        for label in sorted(np.unique(ais_labels).tolist()):
+            class_indices = np.flatnonzero(ais_labels == label)
+            rng.shuffle(class_indices)
+            val_count = max(1, int(round(0.2 * len(class_indices))))
+            if len(class_indices) > 1:
+                val_count = min(val_count, len(class_indices) - 1)
+            train_indices.extend(class_indices[:-val_count].tolist())
+            val_indices.extend(class_indices[-val_count:].tolist())
+
+        rng.shuffle(train_indices)
+        rng.shuffle(val_indices)
+        selected_indices = train_indices if self.phase == 'train' else val_indices
+        if self.ais_allowed_labels is not None:
+            selected_indices = [
+                idx for idx in selected_indices
+                if int(ais_labels[idx]) in self.ais_allowed_labels
+            ]
+        if not selected_indices:
+            raise ValueError(
+                f"AIS {self.phase} split is empty after weather label filtering: "
+                f"allowed={sorted(self.ais_allowed_labels or [])}"
+            )
 
         for idx in selected_indices:
             self.samples.append({
@@ -442,6 +482,23 @@ class SingleModalityDataset(Dataset):
         if self.modality == 'ais':
             # AIS信号数据
             data = torch.tensor(sample['data'], dtype=torch.float32)
+            if self.phase == 'train' and self.ais_augment and data.numel() % 2 == 0:
+                # Apply the same temporal offset and phase rotation to both I/Q
+                # halves, followed by weak receiver noise. Independent I/Q
+                # transforms would destroy the underlying complex waveform.
+                half = data.numel() // 2
+                i_part, q_part = data[:half], data[half:]
+                max_shift = min(256, max(1, half // 32))
+                shift = int(torch.randint(-max_shift, max_shift + 1, ()).item())
+                i_part = torch.roll(i_part, shifts=shift, dims=0)
+                q_part = torch.roll(q_part, shifts=shift, dims=0)
+                theta = torch.rand((), dtype=data.dtype) * (2.0 * np.pi)
+                cos_theta, sin_theta = torch.cos(theta), torch.sin(theta)
+                data = torch.cat([
+                    cos_theta * i_part - sin_theta * q_part,
+                    sin_theta * i_part + cos_theta * q_part,
+                ])
+                data = data + 0.005 * torch.randn_like(data)
             return {
                 'data': data,
                 'label': torch.tensor(label_id, dtype=torch.long),
@@ -499,9 +556,19 @@ class PairedSingleModalitySampler:
             random.shuffle(self.src_indices[c])
             random.shuffle(self.tgt_indices[c])
 
-        # 计算batch数量
-        min_len = min(len(self.src_ds), len(self.tgt_ds))
-        n_batches = min_len // self.batch_size
+        # Guarantee enough updates for small targets without making each of the
+        # five repeated runs unnecessarily long.
+        smaller_batches = max(
+            1,
+            (min(len(self.src_ds), len(self.tgt_ds)) + self.batch_size - 1)
+            // self.batch_size,
+        )
+        larger_batches = max(
+            1,
+            (max(len(self.src_ds), len(self.tgt_ds)) + self.batch_size - 1)
+            // self.batch_size,
+        )
+        n_batches = min(larger_batches, max(8, smaller_batches))
 
         for _ in range(n_batches):
             batch_src_idxs = []
@@ -524,4 +591,14 @@ class PairedSingleModalitySampler:
             yield src_batch, tgt_batch
 
     def __len__(self):
-        return min(len(self.src_ds), len(self.tgt_ds)) // self.batch_size
+        smaller_batches = max(
+            1,
+            (min(len(self.src_ds), len(self.tgt_ds)) + self.batch_size - 1)
+            // self.batch_size,
+        )
+        larger_batches = max(
+            1,
+            (max(len(self.src_ds), len(self.tgt_ds)) + self.batch_size - 1)
+            // self.batch_size,
+        )
+        return min(larger_batches, max(8, smaller_batches))

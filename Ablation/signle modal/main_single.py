@@ -112,18 +112,45 @@ def select_report_metrics(metric_history, strategy='last_window', window=10):
 
 
 class UnpairedSingleModalitySampler:
-    """Randomly pair source and target batches without using target labels."""
+    """Randomly pair class-balanced source and target batches.
+
+    Target labels are used only to build the fixed controlled-supervision mask;
+    pairing remains unpaired. Using the larger dataset for epoch length avoids
+    the three-update IR epochs observed when the rain target set was small.
+    """
 
     def __init__(self, src_ds, tgt_ds, batch_size):
         self.src_ds = src_ds
         self.tgt_ds = tgt_ds
         self.batch_size = batch_size
-        self.n_batches = min(len(src_ds), len(tgt_ds)) // batch_size
+        smaller_batches = max(1, (min(len(src_ds), len(tgt_ds)) + batch_size - 1) // batch_size)
+        larger_batches = max(1, (max(len(src_ds), len(tgt_ds)) + batch_size - 1) // batch_size)
+        # Eight updates fixes the three-step rain/IR underfit while keeping the
+        # 5-repeat, 100-epoch server run practical. Equal-sized AIS domains
+        # still use their full epoch length.
+        self.n_batches = min(larger_batches, max(8, smaller_batches))
+        self.src_by_class = self._build_class_index(src_ds)
+        self.tgt_by_class = self._build_class_index(tgt_ds)
+
+    @staticmethod
+    def _build_class_index(dataset):
+        from collections import defaultdict
+
+        by_class = defaultdict(list)
+        for index, label in enumerate(dataset.labels):
+            by_class[int(label)].append(index)
+        return dict(by_class)
+
+    @staticmethod
+    def _balanced_indices(by_class, batch_size):
+        classes = list(by_class)
+        selected_classes = random.choices(classes, k=batch_size)
+        return [random.choice(by_class[label]) for label in selected_classes]
 
     def __iter__(self):
         for _ in range(self.n_batches):
-            src_indices = random.choices(range(len(self.src_ds)), k=self.batch_size)
-            tgt_indices = random.choices(range(len(self.tgt_ds)), k=self.batch_size)
+            src_indices = self._balanced_indices(self.src_by_class, self.batch_size)
+            tgt_indices = self._balanced_indices(self.tgt_by_class, self.batch_size)
             src_batch = torch.utils.data.default_collate([self.src_ds[i] for i in src_indices])
             tgt_batch = torch.utils.data.default_collate([self.tgt_ds[i] for i in tgt_indices])
             tgt_batch['sample_index'] = torch.tensor(tgt_indices, dtype=torch.long)
@@ -131,6 +158,53 @@ class UnpairedSingleModalitySampler:
 
     def __len__(self):
         return self.n_batches
+
+
+def discover_weather_ais_labels(source_root, target_root, phase):
+    """Map target-weather image classes to the AIS label order.
+
+    The image domains use vessel IDs 1..N while the AIS file uses zero-based
+    labels. The established project mapping is the sorted sunny-domain class
+    order. Filtering by weather makes AIS evaluation target-domain specific;
+    previously every weather evaluated the identical 16-class AIS split.
+    """
+    source_phase = os.path.join(source_root, 'train')
+    source_classes = []
+    for modality_folder in ('可见光', '红外'):
+        modality_root = os.path.join(source_phase, modality_folder)
+        if os.path.isdir(modality_root):
+            source_classes = sorted(
+                int(name) for name in os.listdir(modality_root)
+                if name.isdigit() and os.path.isdir(os.path.join(modality_root, name))
+            )
+            if source_classes:
+                break
+    if not source_classes:
+        raise FileNotFoundError(f"Cannot discover sunny-domain class mapping under: {source_phase}")
+
+    image_to_ais = {class_id: index for index, class_id in enumerate(source_classes)}
+    target_phase = os.path.join(target_root, phase)
+    weather_classes = []
+    if os.path.isdir(target_phase):
+        for name in os.listdir(target_phase):
+            if not name.isdigit() or int(name) not in image_to_ais:
+                continue
+            class_root = os.path.join(target_phase, name)
+            has_samples = any(
+                os.path.isdir(os.path.join(class_root, folder))
+                and any(
+                    filename.lower().endswith(('.jpg', '.jpeg', '.png'))
+                    for filename in os.listdir(os.path.join(class_root, folder))
+                )
+                for folder in ('可见光', '红外')
+            )
+            if has_samples:
+                weather_classes.append(int(name))
+    if not weather_classes:
+        raise FileNotFoundError(
+            f"No target-weather classes with image samples under: {target_phase}"
+        )
+    return sorted({image_to_ais[class_id] for class_id in weather_classes})
 
 
 def evaluate(feature_extractor, classifier, dataloader, device, label_map):
@@ -217,12 +291,34 @@ def run_single_iteration(args, seed, logger):
     target_weather = os.path.basename(TARGET_ROOT)
 
     if MODALITY == 'ais':
+        target_train_ais_labels = discover_weather_ais_labels(
+            SOURCE_ROOT, TARGET_ROOT, phase='train'
+        )
+        target_val_ais_labels = discover_weather_ais_labels(
+            SOURCE_ROOT, TARGET_ROOT, phase='val'
+        )
+        logger.info(
+            f"AIS weather label scope: train={target_train_ais_labels}, "
+            f"val={target_val_ais_labels}"
+        )
+        shared_ais_labels = sorted(
+            set(target_train_ais_labels) & set(target_val_ais_labels)
+        )
+        if not shared_ais_labels:
+            raise ValueError(
+                "AIS train/validation weather scopes do not share any labels"
+            )
+        if shared_ais_labels != target_train_ais_labels or shared_ais_labels != target_val_ais_labels:
+            logger.warning(
+                f"AIS uses the train/validation label intersection: {shared_ais_labels}"
+            )
         src_train_ds = SingleModalityDataset(
             root_dir=None,
             modality='ais',
             domain_type='source',
             phase='train',
-            ais_data_path=AIS_DATA_PATH
+            ais_data_path=AIS_DATA_PATH,
+            ais_allowed_labels=shared_ais_labels,
         )
         global_map = src_train_ds.get_label_map()
 
@@ -232,7 +328,8 @@ def run_single_iteration(args, seed, logger):
             domain_type='target',
             phase='train',
             global_label_map=global_map,
-            ais_data_path=AIS_DATA_PATH
+            ais_data_path=AIS_DATA_PATH,
+            ais_allowed_labels=shared_ais_labels,
         )
 
         tgt_val_ds = SingleModalityDataset(
@@ -241,7 +338,9 @@ def run_single_iteration(args, seed, logger):
             domain_type='target',
             phase='val',
             global_label_map=global_map,
-            ais_data_path=AIS_DATA_PATH
+            ais_data_path=AIS_DATA_PATH,
+            ais_allowed_labels=shared_ais_labels,
+            ais_augment=False,
         )
     else:
         src_train_ds = SingleModalityDataset(
@@ -395,7 +494,7 @@ def run_single_iteration(args, seed, logger):
                 loss_cls_src = criterion_cls(pred_src, s_label)
                 loss_cls_mid = criterion_cls(pred_mid, s_label)
 
-                loss_cls_total = loss_cls_src + loss_cls_mid
+                loss_cls_total = args.source_cls_weight * (loss_cls_src + loss_cls_mid)
                 loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
                     criterion_cls,
                     pred_tgt,
@@ -424,7 +523,7 @@ def run_single_iteration(args, seed, logger):
 
                 loss_cls_src = criterion_cls(pred_src, s_label)
 
-                loss_cls_total = loss_cls_src
+                loss_cls_total = args.source_cls_weight * loss_cls_src
                 loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
                     criterion_cls,
                     pred_tgt,
@@ -547,6 +646,10 @@ def run_single_experiment(args):
     logger.info(f"特征维度: {args.feature_dim}")
     logger.info(f"域适应: {'启用' if args.use_domain_adaptation else '禁用'}")
     logger.info(f"报告策略: {args.report_strategy}, 窗口: {args.report_window}")
+    logger.info(
+        f"源/目标分类损失权重: {args.source_cls_weight}/{args.target_cls_weight}, "
+        f"目标标签比例: {args.target_label_ratio}"
+    )
     logger.info(f"对抗损失权重: {args.adv_loss_weight}")
     logger.info("=" * 80)
 
@@ -632,6 +735,8 @@ def main():
                        help='fraction of target batch labels used for controlled semi-supervision when --use_target_labels is off')
     parser.add_argument('--target_cls_weight', type=float, default=0.50,
                        help='weight for the controlled target classification loss when --use_target_labels is off')
+    parser.add_argument('--source_cls_weight', type=float, default=1.0,
+                       help='source classification loss weight; useful when a small target domain needs more emphasis')
     parser.add_argument('--feature_dim', type=int, default=512, help='特征维度')
     parser.add_argument('--lr_feature', type=float, default=1e-5, help='特征提取器学习率')
     parser.add_argument('--lr_other', type=float, default=5e-4, help='其他模块学习率')
@@ -644,7 +749,7 @@ def main():
     parser.add_argument('--report_window', type=int, default=10,
                        help='number of final epochs averaged when report_strategy=last_window')
     parser.add_argument('--ais_architecture', type=str, default='mlp',
-                       choices=['mlp', 'deep_mlp', 'cnn1d'],
+                       choices=['mlp', 'deep_mlp', 'cnn1d', 'iq_cnn1d'],
                        help='AIS特征提取器架构')
     parser.add_argument('--use_domain_adaptation', action='store_true', default=True,
                        help='是否使用域适应')

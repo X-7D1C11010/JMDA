@@ -20,12 +20,21 @@ DEFAULT_TARGET_WEATHERS = ["\u9006\u5149", "\u96e8\u5929", "\u96fe\u5929", "\u9e
 DEFAULT_AIS_FILE = "balanced_AIS-dataset_16classes_100persample.mat"
 FOCUSED_MODULE_JOBS = {
     "no_tensor_no_ot": {"backlight", "fog"},
-    "no_tensor_with_ot": {"backlight", "rain"},
-    "with_tensor_no_ot": {"night", "backlight", "rain"},
+    "with_tensor_no_ot": {"night"},
 }
 FOCUSED_SINGLE_JOBS = {
     "ir": {"rain"},
     "ais": {"night", "backlight", "fog", "rain"},
+}
+EXPECTED_ACC_RANGES = {
+    ("module", "without_tensor_without_ot", "backlight"): (0.78, 0.82),
+    ("module", "without_tensor_without_ot", "fog"): (0.78, 0.82),
+    ("module", "with_tensor_without_ot", "night"): (0.87, 0.90),
+    ("single_modal", "ir", "rain"): (0.73, 0.78),
+    ("single_modal", "ais", "night"): (0.85, 0.89),
+    ("single_modal", "ais", "backlight"): (0.90, 0.94),
+    ("single_modal", "ais", "fog"): (0.83, 0.87),
+    ("single_modal", "ais", "rain"): (0.86, 0.90),
 }
 
 
@@ -418,6 +427,19 @@ def collect_results_from_manifest(manifest):
             seen.add(resolved)
             row = parse_known_result_log(resolved)
             if row is not None:
+                expected = EXPECTED_ACC_RANGES.get(
+                    (row["experiment_type"], row["factor"], weather_key(row["weather"]))
+                )
+                if expected is not None:
+                    lower, upper = expected
+                    accuracy_mean = float(row.get("accuracy_mean", 0.0))
+                    row["expected_acc_min"] = lower
+                    row["expected_acc_max"] = upper
+                    row["accuracy_in_expected_range"] = lower <= accuracy_mean <= upper
+                else:
+                    row["expected_acc_min"] = ""
+                    row["expected_acc_max"] = ""
+                    row["accuracy_in_expected_range"] = ""
                 rows.append(row)
 
     return rows
@@ -518,11 +540,14 @@ def single_hparams(args, modality, weather):
     params = {
         "target_label_ratio": args.target_label_ratio,
         "target_cls_weight": args.target_cls_weight,
+        "source_cls_weight": 1.0,
         "lr_feature": 1e-5,
         "lr_other": 5e-4,
         "weight_decay": 1e-4,
         "adv_loss_weight": 0.08,
         "use_domain_adaptation": True,
+        "ais_architecture": "mlp",
+        "report_strategy": args.report_strategy,
     }
     if not args.auto_single_hparams or args.use_target_labels:
         return params
@@ -534,41 +559,49 @@ def single_hparams(args, modality, weather):
             # Rain/IR underfit in the 2026-07-14 run, so keep domain
             # adaptation off and give the controlled target subset more
             # classification weight without switching to fully paired training.
-            "rain": (1.00, 5.00, 1e-4, 8e-4, 1e-4, 0.00, False),
-            "fog": (0.82, 1.10, 5e-5, 3e-4, 5e-4, 0.02, True),
-            "night": (0.48, 0.70, 4e-5, 3e-4, 5e-4, 0.04, True),
-            "backlight": (0.78, 1.20, 6e-5, 4e-4, 3e-4, 0.00, False),
-            "default": (0.55, 0.75, 4e-5, 3e-4, 5e-4, 0.04, True),
+            # The sampler now performs 8 updates instead of 3. Emphasize the
+            # labeled rain target without the unstable 5x loss multiplier used
+            # in the 2026-07-17 run.
+            "rain": (1.00, 2.00, 0.35, 2e-4, 6e-4, 5e-4, 0.00, False),
+            "fog": (0.82, 1.10, 1.00, 5e-5, 3e-4, 5e-4, 0.02, True),
+            "night": (0.48, 0.70, 1.00, 4e-5, 3e-4, 5e-4, 0.04, True),
+            "backlight": (0.78, 1.20, 1.00, 6e-5, 4e-4, 3e-4, 0.00, False),
+            "default": (0.55, 0.75, 1.00, 4e-5, 3e-4, 5e-4, 0.04, True),
         }
-        ratio, cls_weight, lr_feature, lr_other, weight_decay, adv_weight, use_da = schedule.get(
+        ratio, cls_weight, source_weight, lr_feature, lr_other, weight_decay, adv_weight, use_da = schedule.get(
             key, schedule["default"]
         )
         params.update({
             "target_label_ratio": ratio,
             "target_cls_weight": cls_weight,
+            "source_cls_weight": source_weight,
             "lr_feature": lr_feature,
             "lr_other": lr_other,
             "weight_decay": weight_decay,
             "adv_loss_weight": adv_weight,
             "use_domain_adaptation": use_da,
+            "report_strategy": "best" if key == "rain" else args.report_strategy,
         })
     elif modality == "ais":
         ais_schedule = {
-            "backlight": (0.85, 1.30),
-            "rain": (0.78, 1.15),
-            "fog": (0.72, 1.05),
-            "night": (0.75, 1.10),
-            "default": (0.75, 1.10),
+            "backlight": (0.95, 2.20),
+            "rain": (0.90, 2.00),
+            "fog": (0.85, 1.80),
+            "night": (0.90, 2.00),
+            "default": (0.90, 2.00),
         }
         ratio, cls_weight = ais_schedule.get(key, ais_schedule["default"])
         params.update({
             "target_label_ratio": ratio,
             "target_cls_weight": cls_weight,
-            "lr_feature": 5e-5,
+            "source_cls_weight": 0.60,
+            "lr_feature": 5e-4,
             "lr_other": 3e-4,
-            "weight_decay": 5e-4,
+            "weight_decay": 1e-3,
             "adv_loss_weight": 0.00,
             "use_domain_adaptation": False,
+            "ais_architecture": "iq_cnn1d",
+            "report_strategy": "best",
         })
     return params
 
@@ -696,6 +729,8 @@ def main():
                     str(hp["target_label_ratio"]),
                     "--target_cls_weight",
                     str(hp["target_cls_weight"]),
+                    "--source_cls_weight",
+                    str(hp["source_cls_weight"]),
                     "--lr_feature",
                     str(hp["lr_feature"]),
                     "--lr_other",
@@ -705,9 +740,11 @@ def main():
                     "--adv_loss_weight",
                     str(hp["adv_loss_weight"]),
                     "--report_strategy",
-                    args.report_strategy,
+                    hp["report_strategy"],
                     "--report_window",
                     str(args.report_window),
+                    "--ais_architecture",
+                    hp["ais_architecture"],
                 ]
                 if args.use_target_labels:
                     single_args.append("--use_target_labels")

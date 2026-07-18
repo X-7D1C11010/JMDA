@@ -209,6 +209,104 @@ class AISFeatureExtractorCNN1D(nn.Module):
         return x
 
 
+class AISResidualConvBlock1D(nn.Module):
+    """Lightweight residual ConvNeXt-style block for long I/Q sequences."""
+
+    def __init__(self, channels, dropout=0.1):
+        super(AISResidualConvBlock1D, self).__init__()
+        self.depthwise = nn.Conv1d(
+            channels, channels, kernel_size=7, padding=3, groups=channels
+        )
+        self.norm = nn.LayerNorm(channels)
+        self.expand = nn.Linear(channels, channels * 3)
+        self.activation = nn.GELU()
+        self.dropout = nn.Dropout(dropout)
+        self.project = nn.Linear(channels * 3, channels)
+
+    def forward(self, x):
+        residual = x
+        x = self.depthwise(x).transpose(1, 2)
+        x = self.norm(x)
+        x = self.project(self.dropout(self.activation(self.expand(x))))
+        return residual + x.transpose(1, 2)
+
+
+class AISIQFeatureExtractorCNN1D(nn.Module):
+    """Complex-signal extractor that preserves I/Q geometry.
+
+    The AIS file stores one record as concatenated I then Q vectors. The old
+    CNN interpreted that vector as one channel, creating an artificial boundary
+    between I and Q and losing their sample-wise correspondence. In addition to
+    reconstructing [batch, 2, time], this extractor derives amplitude and the
+    real/imaginary parts of z[t] * conj(z[t-1]). These three channels are stable
+    under a global phase rotation and improve generalization without using any
+    validation labels or adding a new adaptation module.
+    """
+
+    def __init__(self, input_dim, output_dim=512):
+        super(AISIQFeatureExtractorCNN1D, self).__init__()
+        if input_dim % 2 != 0:
+            raise ValueError(
+                f"AIS I/Q input_dim must be even, got {input_dim}"
+            )
+        self.input_dim = input_dim
+        self.sequence_length = input_dim // 2
+        self.stem = nn.Sequential(
+            nn.Conv1d(5, 64, kernel_size=31, stride=16, padding=15),
+            nn.BatchNorm1d(64),
+            nn.GELU(),
+        )
+        self.stage1 = nn.Sequential(
+            AISResidualConvBlock1D(64, dropout=0.10),
+            AISResidualConvBlock1D(64, dropout=0.10),
+        )
+        self.downsample = nn.Sequential(
+            nn.Conv1d(64, 128, kernel_size=7, stride=4, padding=3),
+            nn.BatchNorm1d(128),
+            nn.GELU(),
+        )
+        self.stage2 = nn.Sequential(
+            AISResidualConvBlock1D(128, dropout=0.15),
+            AISResidualConvBlock1D(128, dropout=0.15),
+        )
+        self.projection = nn.Sequential(
+            nn.LayerNorm(128 * 3),
+            nn.Linear(128 * 3, output_dim),
+            nn.GELU(),
+            nn.Dropout(0.20),
+        )
+
+    def forward(self, x):
+        if x.dim() != 2 or x.size(1) != self.input_dim:
+            raise ValueError(
+                f"Expected AIS input [batch, {self.input_dim}], got {tuple(x.shape)}"
+            )
+        i_part, q_part = torch.chunk(x, 2, dim=1)
+
+        amplitude = torch.sqrt(i_part.square() + q_part.square() + 1e-8)
+        product_real = i_part[:, 1:] * i_part[:, :-1] + q_part[:, 1:] * q_part[:, :-1]
+        product_imag = q_part[:, 1:] * i_part[:, :-1] - i_part[:, 1:] * q_part[:, :-1]
+        # Keep all derived channels aligned with the original sequence length.
+        zeros = torch.zeros_like(i_part[:, :1])
+        product_real = torch.cat([zeros, product_real], dim=1)
+        product_imag = torch.cat([zeros, product_imag], dim=1)
+
+        x = torch.stack(
+            [i_part, q_part, amplitude, product_real, product_imag],
+            dim=1,
+        )
+        x = self.stage1(self.stem(x))
+        x = self.stage2(self.downsample(x))
+        # Mean alone discards burst strength and local peaks. The three fixed
+        # statistics keep output dimensions independent of input record length.
+        pooled = torch.cat([
+            x.mean(dim=-1),
+            x.std(dim=-1, unbiased=False),
+            x.amax(dim=-1),
+        ], dim=1)
+        return self.projection(pooled)
+
+
 def create_ais_feature_extractor(ais_data_shape=None, output_dim=512, architecture='mlp'):
     """
     工厂函数：根据AIS数据形状和架构类型创建合适的特征提取器
@@ -242,6 +340,11 @@ def create_ais_feature_extractor(ais_data_shape=None, output_dim=512, architectu
             input_channels=1,
             sequence_length=input_dim,
             output_dim=output_dim
+        )
+    elif architecture == 'iq_cnn1d':
+        return AISIQFeatureExtractorCNN1D(
+            input_dim=input_dim,
+            output_dim=output_dim,
         )
     else:
         raise ValueError(f"Unknown architecture: {architecture}")
