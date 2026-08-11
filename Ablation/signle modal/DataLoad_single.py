@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from torchvision import transforms
 from torch.utils.data import Dataset
 from torchvision.transforms import ColorJitter, RandomErasing, RandomHorizontalFlip, RandomRotation
@@ -12,7 +12,25 @@ except ImportError:
     h5py = None
 
 
-def get_advanced_transforms(phase='train', modality='vis'):
+class AspectPadResize:
+    """Resize to a square canvas without distorting a vessel's aspect ratio."""
+
+    def __init__(self, size, fill=0):
+        self.size = int(size)
+        self.fill = fill
+
+    def __call__(self, image):
+        resampling = getattr(Image, 'Resampling', Image)
+        return ImageOps.pad(
+            image,
+            (self.size, self.size),
+            method=resampling.BILINEAR,
+            color=self.fill,
+            centering=(0.5, 0.5),
+        )
+
+
+def get_advanced_transforms(phase='train', modality='vis', ir_transform_profile='default'):
     """
     获取数据增强策略
 
@@ -36,6 +54,22 @@ def get_advanced_transforms(phase='train', modality='vis'):
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 RandomErasing(p=0.2, scale=(0.02, 0.1)),
             ])
+        elif ir_transform_profile == 'small_target':
+            # Rain IR crops can be as small as 20x20 pixels. Preserve vessel
+            # geometry and use only weak spatial jitter; the old square resize,
+            # random crop and 15-degree rotation amplified interpolation noise.
+            return transforms.Compose([
+                AspectPadResize(224, fill=0),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomAffine(
+                    degrees=0,
+                    translate=(0.03, 0.03),
+                    scale=(0.97, 1.03),
+                    fill=0,
+                ),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5], std=[0.5]),
+            ])
         else:  # ir
             return transforms.Compose([
                 transforms.Resize((256, 256)),
@@ -51,6 +85,12 @@ def get_advanced_transforms(phase='train', modality='vis'):
                 transforms.Resize((224, 224)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+        elif ir_transform_profile == 'small_target':
+            return transforms.Compose([
+                AspectPadResize(224, fill=0),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5], std=[0.5]),
             ])
         else:  # ir
             return transforms.Compose([
@@ -72,7 +112,8 @@ class SingleModalityDataset(Dataset):
 
     def __init__(self, root_dir, modality='vis', domain_type='source', phase='train',
                  img_size=224, weather=None, global_label_map=None, ais_data_path=None,
-                 ais_allowed_labels=None, ais_split_seed=42, ais_augment=True):
+                 ais_allowed_labels=None, ais_split_seed=42, ais_augment=True,
+                 ir_transform_profile='default'):
         """
         Args:
             root_dir: 数据根目录
@@ -107,6 +148,8 @@ class SingleModalityDataset(Dataset):
         )
         self.ais_split_seed = int(ais_split_seed)
         self.ais_augment = bool(ais_augment)
+        self.ir_transform_profile = ir_transform_profile
+        self._ir_image_cache = {}
 
         # 加载数据
         if modality == 'ais':
@@ -129,7 +172,11 @@ class SingleModalityDataset(Dataset):
         self.get_label_map = lambda: self.label_map
 
         # 获取变换
-        self.transform = get_advanced_transforms(phase, modality)
+        self.transform = get_advanced_transforms(
+            phase,
+            modality,
+            ir_transform_profile=self.ir_transform_profile,
+        )
 
         print(f"[{modality.upper()}] 加载完成: {len(self.samples)} 个样本, {self.num_classes} 个类别")
 
@@ -509,6 +556,18 @@ class SingleModalityDataset(Dataset):
             try:
                 if self.modality == 'vis':
                     img = Image.open(sample['path']).convert('RGB')
+                elif self.ir_transform_profile == 'small_target':
+                    # Cache only the deterministic uint8 base image. Random
+                    # affine/flip transforms still run independently on every
+                    # sample access, while repeated source/target sampling no
+                    # longer decodes the same large file every epoch.
+                    cached = self._ir_image_cache.get(sample['path'])
+                    if cached is None:
+                        cached = AspectPadResize(224, fill=0)(
+                            Image.open(sample['path']).convert('L').convert('RGB')
+                        )
+                        self._ir_image_cache[sample['path']] = cached
+                    img = cached.copy()
                 else:  # ir
                     img = Image.open(sample['path']).convert('L').convert('RGB')
             except:

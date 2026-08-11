@@ -192,7 +192,7 @@ def parse_args():
     )
     parser.add_argument(
         "--report_strategy",
-        choices=["best", "last", "last_window"],
+        choices=["best", "best_window", "last", "last_window"],
         default="last_window",
         help="Metric reporting strategy passed to child scripts.",
     )
@@ -548,6 +548,11 @@ def single_hparams(args, modality, weather):
         "use_domain_adaptation": True,
         "ais_architecture": "mlp",
         "report_strategy": args.report_strategy,
+        "report_window": args.report_window,
+        "early_stopping_patience": 0,
+        "restrict_target_classes": False,
+        "restrict_source_to_target_classes": False,
+        "ir_small_target_profile": False,
     }
     if not args.auto_single_hparams or args.use_target_labels:
         return params
@@ -556,13 +561,11 @@ def single_hparams(args, modality, weather):
     if modality == "ir":
         # IR needs stronger feature learning and weaker adversarial pressure.
         schedule = {
-            # Rain/IR underfit in the 2026-07-14 run, so keep domain
-            # adaptation off and give the controlled target subset more
-            # classification weight without switching to fully paired training.
-            # The sampler now performs 8 updates instead of 3. Emphasize the
-            # labeled rain target without the unstable 5x loss multiplier used
-            # in the 2026-07-17 run.
-            "rain": (1.00, 2.00, 0.35, 2e-4, 6e-4, 5e-4, 0.00, False),
+            # Rain IR has only six target-present classes and 26 validation
+            # samples. Use equal source/target loss weights, partial-label
+            # sampling and stronger regularization instead of the unstable 5x
+            # target loss used in the 2026-07-17 run.
+            "rain": (1.00, 1.00, 1.00, 1e-4, 3e-4, 1e-3, 0.00, False),
             "fog": (0.82, 1.10, 1.00, 5e-5, 3e-4, 5e-4, 0.02, True),
             "night": (0.48, 0.70, 1.00, 4e-5, 3e-4, 5e-4, 0.04, True),
             "backlight": (0.78, 1.20, 1.00, 6e-5, 4e-4, 3e-4, 0.00, False),
@@ -580,7 +583,14 @@ def single_hparams(args, modality, weather):
             "weight_decay": weight_decay,
             "adv_loss_weight": adv_weight,
             "use_domain_adaptation": use_da,
-            "report_strategy": "best" if key == "rain" else args.report_strategy,
+            # A three-epoch best window is less sensitive to the 1/26 accuracy
+            # jumps in rain validation than a single best checkpoint.
+            "report_strategy": "best_window" if key == "rain" else args.report_strategy,
+            "report_window": 3 if key == "rain" else args.report_window,
+            "early_stopping_patience": 20 if key == "rain" else 0,
+            "restrict_target_classes": key == "rain",
+            "restrict_source_to_target_classes": key == "rain",
+            "ir_small_target_profile": key == "rain",
         })
     elif modality == "ais":
         ais_schedule = {
@@ -742,7 +752,9 @@ def main():
                     "--report_strategy",
                     hp["report_strategy"],
                     "--report_window",
-                    str(args.report_window),
+                    str(hp["report_window"]),
+                    "--early_stopping_patience",
+                    str(hp["early_stopping_patience"]),
                     "--ais_architecture",
                     hp["ais_architecture"],
                 ]
@@ -750,6 +762,12 @@ def main():
                     single_args.append("--use_target_labels")
                 if not hp["use_domain_adaptation"]:
                     single_args.append("--no_domain_adaptation")
+                if hp["restrict_target_classes"]:
+                    single_args.append("--restrict_target_classes")
+                if hp["restrict_source_to_target_classes"]:
+                    single_args.append("--restrict_source_to_target_classes")
+                if hp["ir_small_target_profile"]:
+                    single_args.append("--ir_small_target_profile")
                 run_command(
                     f"single_modal_{modality}_{weather}",
                     SINGLE_DIR,

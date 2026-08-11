@@ -93,6 +93,43 @@ def sampled_target_classification_loss(
     return criterion(logits[selected], labels[selected]), n_labeled
 
 
+def select_active_class_logits(logits, labels, active_class_indices=None):
+    """Select target-domain classes and remap global labels for CE loss."""
+    if not active_class_indices:
+        return logits, labels
+
+    active = torch.as_tensor(
+        active_class_indices,
+        dtype=torch.long,
+        device=logits.device,
+    )
+    label_lookup = torch.full(
+        (logits.size(1),),
+        -1,
+        dtype=torch.long,
+        device=logits.device,
+    )
+    label_lookup[active] = torch.arange(active.numel(), device=logits.device)
+    local_labels = label_lookup[labels]
+    if torch.any(local_labels < 0):
+        unknown = torch.unique(labels[local_labels < 0]).detach().cpu().tolist()
+        raise ValueError(f"Target batch contains labels outside active classes: {unknown}")
+    return logits.index_select(1, active), local_labels
+
+
+def predict_active_classes(logits, active_class_indices=None):
+    """Return predictions in global classifier label space."""
+    if not active_class_indices:
+        return torch.argmax(logits, dim=1)
+    active = torch.as_tensor(
+        active_class_indices,
+        dtype=torch.long,
+        device=logits.device,
+    )
+    local_predictions = torch.argmax(logits.index_select(1, active), dim=1)
+    return active[local_predictions]
+
+
 def select_report_metrics(metric_history, strategy='last_window', window=10):
     """Select stable validation metrics for one run without chasing a single peak."""
     if not metric_history:
@@ -103,7 +140,18 @@ def select_report_metrics(metric_history, strategy='last_window', window=10):
         return metric_history[-1]
 
     window = max(1, int(window))
-    selected = metric_history[-window:]
+    if strategy == 'best_window':
+        window = min(window, len(metric_history))
+        candidates = [
+            metric_history[start:start + window]
+            for start in range(len(metric_history) - window + 1)
+        ]
+        selected = max(
+            candidates,
+            key=lambda values: float(np.mean([m['accuracy'] for m in values])),
+        )
+    else:
+        selected = metric_history[-window:]
     report = {}
     for key in selected[-1].keys():
         values = [m[key] for m in selected if isinstance(m.get(key), (int, float, np.floating))]
@@ -119,7 +167,7 @@ class UnpairedSingleModalitySampler:
     the three-update IR epochs observed when the rain target set was small.
     """
 
-    def __init__(self, src_ds, tgt_ds, batch_size):
+    def __init__(self, src_ds, tgt_ds, batch_size, source_allowed_labels=None):
         self.src_ds = src_ds
         self.tgt_ds = tgt_ds
         self.batch_size = batch_size
@@ -131,6 +179,17 @@ class UnpairedSingleModalitySampler:
         self.n_batches = min(larger_batches, max(8, smaller_batches))
         self.src_by_class = self._build_class_index(src_ds)
         self.tgt_by_class = self._build_class_index(tgt_ds)
+        if source_allowed_labels is not None:
+            allowed = {int(label) for label in source_allowed_labels}
+            self.src_by_class = {
+                label: indices
+                for label, indices in self.src_by_class.items()
+                if int(label) in allowed
+            }
+            if not self.src_by_class:
+                raise ValueError(
+                    f"No source samples remain for target labels: {sorted(allowed)}"
+                )
 
     @staticmethod
     def _build_class_index(dataset):
@@ -207,7 +266,14 @@ def discover_weather_ais_labels(source_root, target_root, phase):
     return sorted({image_to_ais[class_id] for class_id in weather_classes})
 
 
-def evaluate(feature_extractor, classifier, dataloader, device, label_map):
+def evaluate(
+    feature_extractor,
+    classifier,
+    dataloader,
+    device,
+    label_map,
+    active_class_indices=None,
+):
     feature_extractor.eval()
     classifier.eval()
     correct = 0
@@ -224,7 +290,7 @@ def evaluate(feature_extractor, classifier, dataloader, device, label_map):
             features = feature_extractor(inputs)
             outputs = classifier(features)
 
-            _, predicted = torch.max(outputs.data, 1)
+            predicted = predict_active_classes(outputs, active_class_indices)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
@@ -343,11 +409,16 @@ def run_single_iteration(args, seed, logger):
             ais_augment=False,
         )
     else:
+        ir_transform_profile = (
+            'small_target' if MODALITY == 'ir' and args.ir_small_target_profile
+            else 'default'
+        )
         src_train_ds = SingleModalityDataset(
             SOURCE_ROOT,
             modality=MODALITY,
             domain_type='source',
-            phase='train'
+            phase='train',
+            ir_transform_profile=ir_transform_profile,
         )
         global_map = src_train_ds.get_label_map()
 
@@ -356,7 +427,8 @@ def run_single_iteration(args, seed, logger):
             modality=MODALITY,
             domain_type='target',
             phase='train',
-            global_label_map=global_map
+            global_label_map=global_map,
+            ir_transform_profile=ir_transform_profile,
         )
 
         tgt_val_ds = SingleModalityDataset(
@@ -364,7 +436,23 @@ def run_single_iteration(args, seed, logger):
             modality=MODALITY,
             domain_type='target',
             phase='val',
-            global_label_map=global_map
+            global_label_map=global_map,
+            ir_transform_profile=ir_transform_profile,
+        )
+
+    target_active_class_indices = None
+    target_train_labels = None
+    if args.restrict_target_classes:
+        target_train_labels = sorted(set(int(label) for label in tgt_train_ds.labels))
+        unknown_labels = [label for label in target_train_labels if label not in global_map]
+        if unknown_labels:
+            raise ValueError(f"Target labels are absent from source label map: {unknown_labels}")
+        target_active_class_indices = sorted(global_map[label] for label in target_train_labels)
+        logger.info(
+            "Target active-class restriction: "
+            f"original_labels={target_train_labels}, "
+            f"classifier_indices={target_active_class_indices}, "
+            f"active/total={len(target_active_class_indices)}/{len(global_map)}"
         )
 
     target_label_ratio = 1.0 if args.use_target_labels else args.target_label_ratio
@@ -379,7 +467,14 @@ def run_single_iteration(args, seed, logger):
         paired_loader = PairedSingleModalitySampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
         logger.info("Training mode: full target-label supervision (class-paired batches).")
     else:
-        paired_loader = UnpairedSingleModalitySampler(src_train_ds, tgt_train_ds, BATCH_SIZE)
+        paired_loader = UnpairedSingleModalitySampler(
+            src_train_ds,
+            tgt_train_ds,
+            BATCH_SIZE,
+            source_allowed_labels=(
+                target_train_labels if args.restrict_source_to_target_classes else None
+            ),
+        )
         logger.info(
             "Training mode: unpaired target adaptation with controlled target-label loss "
             f"(ratio={target_label_ratio:.2f}, weight={target_cls_weight:.2f})."
@@ -445,6 +540,7 @@ def run_single_iteration(args, seed, logger):
     best_val_acc = 0.0
     best_metrics = None
     metric_history = []
+    epochs_without_improvement = 0
 
     for epoch in range(EPOCHS):
         feature_extractor.train()
@@ -491,14 +587,31 @@ def run_single_iteration(args, seed, logger):
                 pred_tgt = classifier(feat_tgt)
                 pred_mid = classifier(feat_mid)
 
-                loss_cls_src = criterion_cls(pred_src, s_label)
-                loss_cls_mid = criterion_cls(pred_mid, s_label)
+                pred_src_loss, s_label_loss = select_active_class_logits(
+                    pred_src,
+                    s_label,
+                    target_active_class_indices
+                    if args.restrict_source_to_target_classes else None,
+                )
+                pred_mid_loss, _ = select_active_class_logits(
+                    pred_mid,
+                    s_label,
+                    target_active_class_indices
+                    if args.restrict_source_to_target_classes else None,
+                )
+                loss_cls_src = criterion_cls(pred_src_loss, s_label_loss)
+                loss_cls_mid = criterion_cls(pred_mid_loss, s_label_loss)
 
                 loss_cls_total = args.source_cls_weight * (loss_cls_src + loss_cls_mid)
-                loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
-                    criterion_cls,
+                pred_tgt_loss, t_label_loss = select_active_class_logits(
                     pred_tgt,
                     t_label,
+                    target_active_class_indices,
+                )
+                loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
+                    criterion_cls,
+                    pred_tgt_loss,
+                    t_label_loss,
                     target_label_ratio,
                     tgt_data.get('sample_index'),
                     target_labeled_indices,
@@ -521,13 +634,24 @@ def run_single_iteration(args, seed, logger):
                 pred_src = classifier(feat_src)
                 pred_tgt = classifier(feat_tgt)
 
-                loss_cls_src = criterion_cls(pred_src, s_label)
+                pred_src_loss, s_label_loss = select_active_class_logits(
+                    pred_src,
+                    s_label,
+                    target_active_class_indices
+                    if args.restrict_source_to_target_classes else None,
+                )
+                loss_cls_src = criterion_cls(pred_src_loss, s_label_loss)
 
                 loss_cls_total = args.source_cls_weight * loss_cls_src
-                loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
-                    criterion_cls,
+                pred_tgt_loss, t_label_loss = select_active_class_logits(
                     pred_tgt,
                     t_label,
+                    target_active_class_indices,
+                )
+                loss_cls_tgt, target_labeled_count = sampled_target_classification_loss(
+                    criterion_cls,
+                    pred_tgt_loss,
+                    t_label_loss,
                     target_label_ratio,
                     tgt_data.get('sample_index'),
                     target_labeled_indices,
@@ -548,11 +672,22 @@ def run_single_iteration(args, seed, logger):
 
             train_logits = pred_tgt if args.use_target_labels else pred_src
             train_labels = t_label if args.use_target_labels else s_label
-            _, predicted = torch.max(train_logits.data, 1)
+            predicted = (
+                predict_active_classes(train_logits, target_active_class_indices)
+                if args.use_target_labels or args.restrict_source_to_target_classes
+                else torch.argmax(train_logits, dim=1)
+            )
             train_correct += (predicted == train_labels).sum().item()
             train_total += train_labels.size(0)
 
-        val_metrics = evaluate(feature_extractor, classifier, val_loader, DEVICE, global_map)
+        val_metrics = evaluate(
+            feature_extractor,
+            classifier,
+            val_loader,
+            DEVICE,
+            global_map,
+            active_class_indices=target_active_class_indices,
+        )
         train_acc = train_correct / train_total if train_total > 0 else 0
         val_acc = val_metrics['accuracy']
 
@@ -588,7 +723,20 @@ def run_single_iteration(args, seed, logger):
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_metrics = val_metrics
+            epochs_without_improvement = 0
             logger.info(f"  >>> New Best Val Acc: {best_val_acc:.4f}")
+        else:
+            epochs_without_improvement += 1
+
+        if (
+            args.early_stopping_patience > 0
+            and epochs_without_improvement >= args.early_stopping_patience
+        ):
+            logger.info(
+                "Early stopping: no validation improvement for "
+                f"{epochs_without_improvement} epochs."
+            )
+            break
 
     report_metrics = select_report_metrics(
         metric_history,
@@ -744,10 +892,12 @@ def main():
     parser.add_argument('--adv_loss_weight', type=float, default=0.08,
                        help='domain adversarial loss weight for single-modality experiments')
     parser.add_argument('--report_strategy', type=str, default='last_window',
-                       choices=['best', 'last', 'last_window'],
+                       choices=['best', 'best_window', 'last', 'last_window'],
                        help='which epoch metrics to report for each iteration')
     parser.add_argument('--report_window', type=int, default=10,
                        help='number of final epochs averaged when report_strategy=last_window')
+    parser.add_argument('--early_stopping_patience', type=int, default=0,
+                       help='stop after this many epochs without validation improvement; 0 disables it')
     parser.add_argument('--ais_architecture', type=str, default='mlp',
                        choices=['mlp', 'deep_mlp', 'cnn1d', 'iq_cnn1d'],
                        help='AIS特征提取器架构')
@@ -755,6 +905,12 @@ def main():
                        help='是否使用域适应')
     parser.add_argument('--no_domain_adaptation', dest='use_domain_adaptation',
                        action='store_false', help='禁用域适应')
+    parser.add_argument('--restrict_target_classes', action='store_true',
+                       help='restrict target loss/evaluation to classes observed in target training data')
+    parser.add_argument('--restrict_source_to_target_classes', action='store_true',
+                       help='sample and classify only target-present source classes for partial adaptation')
+    parser.add_argument('--ir_small_target_profile', action='store_true',
+                       help='use aspect-preserving weak augmentation for small IR target crops')
 
     args = parser.parse_args()
 
