@@ -54,6 +54,18 @@ def get_advanced_transforms(phase='train', modality='vis', ir_transform_profile=
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 RandomErasing(p=0.2, scale=(0.02, 0.1)),
             ])
+        elif ir_transform_profile == 'pretrained_probe':
+            # Frozen ImageNet features must use their training normalization.
+            # Keep this transform deterministic so the linear-probe result is
+            # reproducible across repeated runs.
+            return transforms.Compose([
+                AspectPadResize(224, fill=0),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                ),
+            ])
         elif ir_transform_profile == 'small_target':
             # Rain IR crops can be as small as 20x20 pixels. Preserve vessel
             # geometry and use only weak spatial jitter; the old square resize,
@@ -85,6 +97,15 @@ def get_advanced_transforms(phase='train', modality='vis', ir_transform_profile=
                 transforms.Resize((224, 224)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+        elif ir_transform_profile == 'pretrained_probe':
+            return transforms.Compose([
+                AspectPadResize(224, fill=0),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                ),
             ])
         elif ir_transform_profile == 'small_target':
             return transforms.Compose([
@@ -556,7 +577,7 @@ class SingleModalityDataset(Dataset):
             try:
                 if self.modality == 'vis':
                     img = Image.open(sample['path']).convert('RGB')
-                elif self.ir_transform_profile == 'small_target':
+                elif self.ir_transform_profile in {'small_target', 'pretrained_probe'}:
                     # Cache only the deterministic uint8 base image. Random
                     # affine/flip transforms still run independently on every
                     # sample access, while repeated source/target sampling no

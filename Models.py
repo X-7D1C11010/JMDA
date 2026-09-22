@@ -23,20 +23,8 @@ class VisualFeatureExtractor(nn.Module):
 class IRFeatureExtractor(nn.Module):
     """U-Net Encoder 提取红外特征"""
 
-    def __init__(self, input_channels=3, output_dim=512, architecture='unet'):
+    def __init__(self, input_channels=3, output_dim=512):
         super(IRFeatureExtractor, self).__init__()
-        self.architecture = architecture
-
-        if architecture == 'resnet18_pretrained':
-            resnet = models.resnet18(weights=ResNet18_Weights.DEFAULT)
-            self.features = nn.Sequential(*list(resnet.children())[:-1])
-            self.proj = (
-                nn.Identity() if output_dim == 512
-                else nn.Linear(512, output_dim)
-            )
-            return
-        if architecture != 'unet':
-            raise ValueError(f"Unknown IR architecture: {architecture}")
 
         def conv_block(in_ch, out_ch):
             return nn.Sequential(
@@ -57,11 +45,6 @@ class IRFeatureExtractor(nn.Module):
         self.proj = nn.Linear(512, output_dim)
 
     def forward(self, x):
-        if self.architecture == 'resnet18_pretrained':
-            x = self.features(x)
-            x = torch.flatten(x, 1)
-            return self.proj(x)
-
         x = self.enc1(x)
         x = self.enc2(x)
         x = self.enc3(x)

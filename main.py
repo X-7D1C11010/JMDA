@@ -473,6 +473,9 @@ def main():
 
                 loss_cls_total = loss_cls_src + loss_cls_tgt + loss_cls_mid
 
+                # Freeze the discriminator and directly minimize KL(p || u).
+                # GRL is intentionally not used here: reversing this KL
+                # gradient would make the intermediate domain less uniform.
                 set_requires_grad(discriminator, False)
                 loss_adv = compute_generator_loss(
                     discriminator(feat_mid, use_grl=False),

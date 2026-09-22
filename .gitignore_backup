@@ -1,0 +1,16 @@
+# 忽略模型权重
+*.pt
+*.pth
+*.safetensors
+*.log
+
+# 忽略数据集和训练日志
+datasets/
+runs/
+output/
+Data/
+
+# 忽略 Python 缓存
+__pycache__/
+*.pyc
+.vscode/

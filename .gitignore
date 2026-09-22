@@ -2,11 +2,23 @@
 *.pt
 *.pth
 *.safetensors
+*.pdf
+*.md
+*.docx
 
 # 忽略数据集和训练日志
 
-
+logs/
+Data/
+experiment_logs/
 output/
+experiment_models/
+experiment_models_random_init/
+experiment_runs/
+hub_visualizations/
+MambaOut-main/
+models/
+visualizations/
 
 # 忽略 Python 缓存
 __pycache__/

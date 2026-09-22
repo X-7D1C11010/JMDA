@@ -40,7 +40,7 @@ def set_requires_grad(model, requires_grad=False):
 
 
 def build_target_labeled_indices(dataset, ratio, seed):
-    """Build a fixed, stratified target-label subset for one repeated run."""
+    """Build a fixed class-balanced target-label subset for one repeated run."""
     ratio = float(max(0.0, min(1.0, ratio)))
     if ratio <= 0.0 or len(dataset) == 0:
         return set()
@@ -52,15 +52,29 @@ def build_target_labeled_indices(dataset, ratio, seed):
     for idx, label in enumerate(dataset.labels):
         by_class[int(label)].append(idx)
 
-    selected = set()
-    for indices in by_class.values():
-        selected.add(rng.choice(indices))
-
-    target_count = max(len(selected), int(round(len(dataset) * ratio)))
+    target_count = max(len(by_class), int(round(len(dataset) * ratio)))
     target_count = min(target_count, len(dataset))
-    remaining = [idx for idx in range(len(dataset)) if idx not in selected]
-    rng.shuffle(remaining)
-    selected.update(remaining[:max(0, target_count - len(selected))])
+
+    pools = {}
+    for label, indices in by_class.items():
+        pools[label] = list(indices)
+        rng.shuffle(pools[label])
+
+    # Round-robin allocation keeps the controlled target subset balanced. The
+    # previous one-per-class plus global random fill overrepresented classes
+    # with many rain samples and caused large run-to-run variance.
+    selected = set()
+    class_order = sorted(pools)
+    while len(selected) < target_count:
+        added = False
+        for label in class_order:
+            if len(selected) >= target_count:
+                break
+            if pools[label]:
+                selected.add(pools[label].pop())
+                added = True
+        if not added:
+            break
     return selected
 
 
@@ -409,10 +423,13 @@ def run_single_iteration(args, seed, logger):
             ais_augment=False,
         )
     else:
-        ir_transform_profile = (
-            'small_target' if MODALITY == 'ir' and args.ir_small_target_profile
-            else 'default'
-        )
+        ir_transform_profile = args.ir_transform_profile
+        if (
+            MODALITY == 'ir'
+            and args.ir_small_target_profile
+            and ir_transform_profile == 'default'
+        ):
+            ir_transform_profile = 'small_target'
         src_train_ds = SingleModalityDataset(
             SOURCE_ROOT,
             modality=MODALITY,
@@ -480,8 +497,14 @@ def run_single_iteration(args, seed, logger):
             f"(ratio={target_label_ratio:.2f}, weight={target_cls_weight:.2f})."
         )
         if target_labeled_indices is not None:
+            from collections import Counter
+            labeled_distribution = Counter(
+                int(tgt_train_ds.labels[index])
+                for index in target_labeled_indices
+            )
             logger.info(
-                f"Fixed labeled target subset: {len(target_labeled_indices)}/{len(tgt_train_ds)} samples."
+                f"Fixed labeled target subset: {len(target_labeled_indices)}/{len(tgt_train_ds)} samples; "
+                f"per_class={dict(sorted(labeled_distribution.items()))}."
             )
     val_loader = DataLoader(tgt_val_ds, batch_size=BATCH_SIZE, shuffle=False,
                            drop_last=False, num_workers=0)
@@ -493,8 +516,11 @@ def run_single_iteration(args, seed, logger):
             if "layer2" in name or "layer3" in name or "layer4" in name or "proj" in name:
                 param.requires_grad = True
     elif MODALITY == 'ir':
-        feature_extractor = IRFeatureExtractor(output_dim=FEATURE_DIM).to(DEVICE)
-        set_requires_grad(feature_extractor, True)
+        feature_extractor = IRFeatureExtractor(
+            output_dim=FEATURE_DIM,
+            architecture=args.ir_architecture,
+        ).to(DEVICE)
+        set_requires_grad(feature_extractor, not args.freeze_ir_backbone)
     else:
         sample_data = src_train_ds[0]['data']
         ais_input_dim = sample_data.shape[0] if len(sample_data.shape) == 1 else sample_data.shape[-1]
@@ -505,10 +531,20 @@ def run_single_iteration(args, seed, logger):
         ).to(DEVICE)
         set_requires_grad(feature_extractor, True)
 
-    classifier = Classifier(input_dim=FEATURE_DIM, num_classes=len(global_map)).to(DEVICE)
+    classifier = (
+        nn.Linear(FEATURE_DIM, len(global_map))
+        if args.linear_classifier
+        else Classifier(input_dim=FEATURE_DIM, num_classes=len(global_map))
+    ).to(DEVICE)
 
     if args.use_domain_adaptation:
-        generator = NeuralOptimalTransportGenerator(feature_dim=FEATURE_DIM).to(DEVICE)
+        generator = NeuralOptimalTransportGenerator(
+            feature_dim=FEATURE_DIM,
+            transport_mode=args.transport_mode,
+            epsilon=args.ot_epsilon,
+            sinkhorn_iterations=args.ot_sinkhorn_iterations,
+            correction_scale=args.ot_correction_scale,
+        ).to(DEVICE)
         discriminator = DomainDiscriminator(feature_dim=FEATURE_DIM).to(DEVICE)
     else:
         generator = None
@@ -516,17 +552,13 @@ def run_single_iteration(args, seed, logger):
 
     feature_params = [p for p in feature_extractor.parameters() if p.requires_grad]
 
+    optimizer_params = []
+    if feature_params:
+        optimizer_params.append({'params': feature_params, 'lr': args.lr_feature})
+    other_params = list(classifier.parameters())
     if args.use_domain_adaptation:
-        optimizer_params = [
-            {'params': feature_params, 'lr': args.lr_feature},
-            {'params': list(generator.parameters()) + list(classifier.parameters()),
-             'lr': args.lr_other}
-        ]
-    else:
-        optimizer_params = [
-            {'params': feature_params, 'lr': args.lr_feature},
-            {'params': classifier.parameters(), 'lr': args.lr_other}
-        ]
+        other_params = list(generator.parameters()) + other_params
+    optimizer_params.append({'params': other_params, 'lr': args.lr_other})
 
     optimizer = optim.AdamW(optimizer_params, weight_decay=args.weight_decay)
 
@@ -544,6 +576,9 @@ def run_single_iteration(args, seed, logger):
 
     for epoch in range(EPOCHS):
         feature_extractor.train()
+        if MODALITY == 'ir' and args.freeze_ir_backbone:
+            # Frozen BatchNorm statistics must not drift between epochs.
+            feature_extractor.eval()
         classifier.train()
         if args.use_domain_adaptation:
             generator.train()
@@ -552,6 +587,8 @@ def run_single_iteration(args, seed, logger):
         loss_accum = 0.0
         loss_cls_accum = 0.0
         loss_adv_accum = 0.0
+        loss_ot_reg_accum = 0.0
+        marginal_residual_accum = 0.0
         train_correct = 0
         train_total = 0
         steps = 0
@@ -568,7 +605,11 @@ def run_single_iteration(args, seed, logger):
             feat_tgt = feature_extractor(t_input)
 
             if args.use_domain_adaptation:
-                feat_mid = generator(feat_src, feat_tgt)
+                feat_mid, transport_details = generator(
+                    feat_src,
+                    feat_tgt,
+                    return_details=True,
+                )
 
                 if steps % 2 == 0:
                     optimizer_d.zero_grad()
@@ -619,14 +660,24 @@ def run_single_iteration(args, seed, logger):
                 if target_labeled_count > 0 and target_cls_weight > 0.0:
                     loss_cls_total = loss_cls_total + target_cls_weight * loss_cls_tgt
 
-                alpha = min(2.0 / (1.0 + np.exp(-10 * epoch / EPOCHS)) - 1.0, 1.0)
+                # Optimize the generator/encoder against a fixed discriminator.
+                # No gradient reversal is used here: minimizing KL(p || uniform)
+                # directly makes the generated intermediate domain ambiguous.
+                set_requires_grad(discriminator, False)
                 loss_adv = compute_generator_loss(
-                    discriminator(feat_mid, use_grl=True, alpha=alpha),
+                    discriminator(feat_mid),
                     'kl_uniform'
                 )
+                loss_ot_reg = transport_details['correction_regularization']
 
-                loss_total = loss_cls_total + args.adv_loss_weight * loss_adv
+                loss_total = (
+                    loss_cls_total
+                    + args.adv_loss_weight * loss_adv
+                    + args.ot_correction_reg_weight * loss_ot_reg
+                )
                 loss_adv_accum += loss_adv.item()
+                loss_ot_reg_accum += loss_ot_reg.item()
+                marginal_residual_accum += transport_details['marginal_residual'].item()
 
             else:
                 optimizer.zero_grad()
@@ -666,6 +717,8 @@ def run_single_iteration(args, seed, logger):
             if args.use_domain_adaptation:
                 torch.nn.utils.clip_grad_norm_(generator.parameters(), max_norm=1.0)
             optimizer.step()
+            if args.use_domain_adaptation:
+                set_requires_grad(discriminator, True)
 
             loss_accum += loss_total.item()
             loss_cls_accum += loss_cls_total.item()
@@ -697,10 +750,14 @@ def run_single_iteration(args, seed, logger):
         avg_loss = loss_accum / steps if steps > 0 else 0.0
         avg_loss_cls = loss_cls_accum / steps if steps > 0 else 0.0
         avg_loss_adv = loss_adv_accum / steps if steps > 0 else 0.0
+        avg_loss_ot_reg = loss_ot_reg_accum / steps if steps > 0 else 0.0
+        avg_marginal_residual = marginal_residual_accum / steps if steps > 0 else 0.0
 
         if args.use_domain_adaptation:
             log_msg = (f"Epoch [{epoch + 1}/{EPOCHS}] | "
-                      f"Loss: {avg_loss:.4f} (Cls: {avg_loss_cls:.4f}, Adv: {avg_loss_adv:.4f}) | "
+                      f"Loss: {avg_loss:.4f} (Cls: {avg_loss_cls:.4f}, "
+                      f"Adv: {avg_loss_adv:.4f}, OT-Reg: {avg_loss_ot_reg:.4f}) | "
+                      f"Marginal residual: {avg_marginal_residual:.3e} | "
                       f"Train Acc: {train_acc:.4f} | "
                       f"Val Acc: {val_acc:.4f} | "
                       f"Val P/R/F1 (Macro): {val_metrics['precision_macro']:.4f}/"
@@ -785,6 +842,12 @@ def run_single_experiment(args):
     if MODALITY != 'ais':
         logger.info(f"源域: {SOURCE_ROOT}")
         logger.info(f"目标域: {TARGET_ROOT}")
+        if MODALITY == 'ir':
+            logger.info(
+                f"IR architecture/profile: {args.ir_architecture}/"
+                f"{args.ir_transform_profile}; frozen={args.freeze_ir_backbone}; "
+                f"linear_classifier={args.linear_classifier}"
+            )
     else:
         logger.info(f"AIS数据路径: {args.ais_data_path}")
         logger.info(f"AIS架构: {args.ais_architecture}")
@@ -799,6 +862,14 @@ def run_single_experiment(args):
         f"目标标签比例: {args.target_label_ratio}"
     )
     logger.info(f"对抗损失权重: {args.adv_loss_weight}")
+    if args.use_domain_adaptation:
+        logger.info(
+            "传输配置: "
+            f"mode={args.transport_mode}, epsilon={args.ot_epsilon}, "
+            f"Sinkhorn迭代={args.ot_sinkhorn_iterations}, "
+            f"修正幅度={args.ot_correction_scale}, "
+            f"修正正则权重={args.ot_correction_reg_weight}"
+        )
     logger.info("=" * 80)
 
     all_iteration_results = []
@@ -867,12 +938,17 @@ def main():
     parser.add_argument('--modality', type=str, default='all',
                        choices=['vis', 'ir', 'ais', 'all'],
                        help='模态类型: vis(可见光), ir(红外), ais(AIS信号), all(全部)')
-    parser.add_argument('--source_root', type=str, default=r"D:\Code\JMDA-Net\Data\晴天",
+    parser.add_argument('--source_root', type=str,
+                       default=os.environ.get('JMDA_SOURCE_ROOT', r"/home/lixiang/lx/Data/晴天"),
                        help='源域数据路径')
-    parser.add_argument('--target_root', type=str, default='all',
+    parser.add_argument('--target_root', type=str,
+                       default=os.environ.get('JMDA_TARGET_ROOT', 'all'),
                        help='目标域数据路径，或填 all 自动遍历 source_root 同级目录下其他天气文件夹')
     parser.add_argument('--ais_data_path', type=str,
-                       default=r"D:\Code\JMDA-Net\Data\AIS\balanced_AIS-dataset_16classes_100persample.mat",
+                       default=os.environ.get(
+                           'JMDA_AIS_DATA_PATH',
+                           r"/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+                       ),
                        help='AIS数据路径')
     parser.add_argument('--batch_size', type=int, default=16, help='批次大小')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
@@ -891,6 +967,21 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--adv_loss_weight', type=float, default=0.08,
                        help='domain adversarial loss weight for single-modality experiments')
+    parser.add_argument(
+        '--transport_mode',
+        type=str,
+        default='sinkhorn',
+        choices=['legacy_row_softmax', 'row_softmax', 'sinkhorn'],
+        help='legacy exact row-Softmax, corrected-cost row-Softmax, or doubly constrained Sinkhorn',
+    )
+    parser.add_argument('--ot_epsilon', type=float, default=0.1,
+                       help='entropic temperature for row-Softmax/Sinkhorn transport')
+    parser.add_argument('--ot_sinkhorn_iterations', type=int, default=50,
+                       help='number of fixed differentiable Sinkhorn iterations')
+    parser.add_argument('--ot_correction_scale', type=float, default=0.1,
+                       help='maximum magnitude of the TransNet cost correction')
+    parser.add_argument('--ot_correction_reg_weight', type=float, default=1e-3,
+                       help='weight of the squared TransNet cost-correction regularizer')
     parser.add_argument('--report_strategy', type=str, default='last_window',
                        choices=['best', 'best_window', 'last', 'last_window'],
                        help='which epoch metrics to report for each iteration')
@@ -901,6 +992,16 @@ def main():
     parser.add_argument('--ais_architecture', type=str, default='mlp',
                        choices=['mlp', 'deep_mlp', 'cnn1d', 'iq_cnn1d'],
                        help='AIS特征提取器架构')
+    parser.add_argument('--ir_architecture', type=str, default='unet',
+                       choices=['unet', 'resnet18_pretrained'],
+                       help='IR feature extractor architecture')
+    parser.add_argument('--freeze_ir_backbone', action='store_true',
+                       help='freeze the IR feature extractor and keep BatchNorm in evaluation mode')
+    parser.add_argument('--linear_classifier', action='store_true',
+                       help='use a single linear classification head')
+    parser.add_argument('--ir_transform_profile', type=str, default='default',
+                       choices=['default', 'small_target', 'pretrained_probe'],
+                       help='IR preprocessing and augmentation profile')
     parser.add_argument('--use_domain_adaptation', action='store_true', default=True,
                        help='是否使用域适应')
     parser.add_argument('--no_domain_adaptation', dest='use_domain_adaptation',

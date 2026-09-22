@@ -380,13 +380,23 @@ def run_single_iteration(args, seed, logger):
 
     if args.use_tensor_module:
         tal_module = TensorBasedAlignmentStable(
-            input_dims=[VIS_DIM, IR_DIM], output_dims=[PROJ_DIM, PROJ_DIM], num_modalities=2
+            input_dims=[VIS_DIM, IR_DIM],
+            output_dims=[PROJ_DIM, PROJ_DIM],
+            num_modalities=2,
+            max_svd_sweeps=args.svd_max_sweeps,
+            svd_tolerance=args.svd_tolerance,
         ).to(DEVICE)
     else:
         tal_module = ChannelConcatenation(expected_dims=[VIS_DIM, IR_DIM]).to(DEVICE)
 
     if args.use_ot_module:
-        generator = NeuralOptimalTransportGenerator(feature_dim=fused_dim).to(DEVICE)
+        generator = NeuralOptimalTransportGenerator(
+            feature_dim=fused_dim,
+            transport_mode=args.transport_mode,
+            epsilon=args.ot_epsilon,
+            sinkhorn_iterations=args.ot_sinkhorn_iterations,
+            correction_scale=args.ot_correction_scale,
+        ).to(DEVICE)
         discriminator = DomainDiscriminator(feature_dim=fused_dim).to(DEVICE)
     else:
         generator = None
@@ -399,12 +409,25 @@ def run_single_iteration(args, seed, logger):
            else "standard source-target adversarial training, no generator")
     )
     logger.info(f"Loss weights: tensor={TENSOR_LOSS_WEIGHT:.2f}, adv={ADV_LOSS_WEIGHT:.2f}")
+    if args.use_ot_module:
+        logger.info(
+            f"Transport: mode={args.transport_mode}, epsilon={args.ot_epsilon:g}, "
+            f"Sinkhorn iterations={args.ot_sinkhorn_iterations}, "
+            f"correction scale={args.ot_correction_scale:g}, "
+            f"correction regularization weight={args.ot_correction_reg_weight:g}"
+        )
+    if args.use_tensor_module:
+        logger.info(
+            f"Tensor projection update: alternating SVD, max_sweeps={args.svd_max_sweeps}, "
+            f"relative singular-value tolerance={args.svd_tolerance:g}"
+        )
 
     classifier = Classifier(input_dim=fused_dim, num_classes=len(global_map)).to(DEVICE)
 
     vis_params = [p for p in net_vis.parameters() if p.requires_grad]
+    # When enabled, TAL owns only closed-form SVD buffers. They must not enter
+    # AdamW; the no-Tensor replacement also intentionally has no parameters.
     rest_params = [p for p in net_ir.parameters() if p.requires_grad] + \
-                  list(tal_module.parameters()) + \
                   list(classifier.parameters())
     if generator is not None:
         rest_params += list(generator.parameters())
@@ -436,6 +459,8 @@ def run_single_iteration(args, seed, logger):
         loss_cls_accum = 0.0
         loss_tal_accum = 0.0
         loss_adv_accum = 0.0
+        loss_ot_reg_accum = 0.0
+        marginal_residual_accum = 0.0
         train_correct = 0
         train_total = 0
         steps = 0
@@ -456,15 +481,30 @@ def run_single_iteration(args, seed, logger):
             # Feature fusion ablation:
             # - with Tensor: project each modality through TAL.
             # - w/o Tensor: keep native modality features and concatenate channels.
-            (p_s_vis, p_s_ir), (p_t_vis, p_t_ir), loss_tal = tal_module(
-                [f_s_vis, f_s_ir],
-                [f_t_vis, f_t_ir],
-            )
+            if args.use_tensor_module:
+                (p_s_vis, p_s_ir), (p_t_vis, p_t_ir), loss_tal = tal_module(
+                    [f_s_vis, f_s_ir],
+                    [f_t_vis, f_t_ir],
+                    update_projections=True,
+                )
+            else:
+                (p_s_vis, p_s_ir), (p_t_vis, p_t_ir), loss_tal = tal_module(
+                    [f_s_vis, f_s_ir],
+                    [f_t_vis, f_t_ir],
+                )
 
             feat_src = torch.cat([p_s_vis, p_s_ir], dim=1)
             feat_tgt = torch.cat([p_t_vis, p_t_ir], dim=1)
 
-            feat_mid = generator(feat_src, feat_tgt) if args.use_ot_module else None
+            if args.use_ot_module:
+                feat_mid, transport_details = generator(
+                    feat_src,
+                    feat_tgt,
+                    return_details=True,
+                )
+            else:
+                feat_mid = None
+                transport_details = None
 
             if steps % DISCRIMINATOR_UPDATE_INTERVAL == 0:
                 optimizer_d.zero_grad()
@@ -515,37 +555,39 @@ def run_single_iteration(args, seed, logger):
             set_requires_grad(discriminator, False)
             if args.use_ot_module:
                 loss_adv = compute_generator_loss(
-                    discriminator(feat_mid, use_grl=True, alpha=alpha),
+                    discriminator(feat_mid, use_grl=False),
                     'kl_uniform'
                 )
+                loss_ot_reg = transport_details['correction_regularization']
             else:
                 loss_adv = compute_binary_domain_loss(
                     discriminator(feat_src, use_grl=True, alpha=alpha),
                     discriminator(feat_tgt, use_grl=True, alpha=alpha)
                 )
+                loss_ot_reg = feat_src.new_zeros(())
 
             loss_total = (
                 loss_cls_total
                 + TENSOR_LOSS_WEIGHT * loss_tal
                 + ADV_LOSS_WEIGHT * loss_adv
+                + args.ot_correction_reg_weight * loss_ot_reg
             )
 
             loss_total.backward()
             set_requires_grad(discriminator, True)
             torch.nn.utils.clip_grad_norm_(net_vis.parameters(), max_norm=1.0)
             torch.nn.utils.clip_grad_norm_(net_ir.parameters(), max_norm=1.0)
-            torch.nn.utils.clip_grad_norm_(tal_module.parameters(), max_norm=1.0)
             if generator is not None:
                 torch.nn.utils.clip_grad_norm_(generator.parameters(), max_norm=1.0)
             torch.nn.utils.clip_grad_norm_(classifier.parameters(), max_norm=1.0)
             optimizer_g.step()
-            if args.use_tensor_module:
-                tal_module.apply_orthogonal_projection()
-
             loss_accum += loss_total.item()
             loss_cls_accum += loss_cls_total.item()
             loss_tal_accum += loss_tal.item()
             loss_adv_accum += loss_adv.item()
+            loss_ot_reg_accum += loss_ot_reg.item()
+            if transport_details is not None:
+                marginal_residual_accum += transport_details['marginal_residual'].item()
 
             train_logits = pred_tgt if args.use_target_labels else pred_src
             train_labels = t_label if args.use_target_labels else s_label
@@ -565,9 +607,13 @@ def run_single_iteration(args, seed, logger):
         avg_loss_cls = loss_cls_accum / steps if steps > 0 else 0.0
         avg_loss_tal = loss_tal_accum / steps if steps > 0 else 0.0
         avg_loss_adv = loss_adv_accum / steps if steps > 0 else 0.0
+        avg_loss_ot_reg = loss_ot_reg_accum / steps if steps > 0 else 0.0
+        avg_marginal_residual = marginal_residual_accum / steps if steps > 0 else 0.0
 
         log_msg = (f"Epoch [{epoch + 1}/{EPOCHS}] | "
-                   f"Loss: {avg_loss:.4f} (Cls: {avg_loss_cls:.4f}, TAL: {avg_loss_tal:.4f}, Adv: {avg_loss_adv:.4f}) | "
+                   f"Loss: {avg_loss:.4f} (Cls: {avg_loss_cls:.4f}, TAL: {avg_loss_tal:.4f}, "
+                   f"Adv: {avg_loss_adv:.4f}, OT-Reg: {avg_loss_ot_reg:.6f}) | "
+                   f"Marginal residual: {avg_marginal_residual:.2e} | "
                    f"Train Acc: {train_acc:.4f} | "
                    f"Val Acc: {val_acc:.4f} | "
                    f"Val P/R/F1 (Macro): {val_metrics['precision_macro']:.4f}/"
@@ -708,9 +754,11 @@ def run_ablation_experiment(args):
 
 def main():
     parser = argparse.ArgumentParser(description='模块消融实验')
-    parser.add_argument('--source_root', type=str, default=r"/home/lixiang/lx/Data/晴天",
+    parser.add_argument('--source_root', type=str,
+                       default=os.environ.get('JMDA_SOURCE_ROOT', r"/home/lixiang/lx/Data/晴天"),
                        help='源域数据路径')
-    parser.add_argument('--target_root', type=str, default='all',
+    parser.add_argument('--target_root', type=str,
+                       default=os.environ.get('JMDA_TARGET_ROOT', 'all'),
                        help='目标域数据路径，或填 all 自动遍历 source_root 同级目录下其他天气文件夹')
     parser.add_argument('--batch_size', type=int, default=64, help='批次大小')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
@@ -726,6 +774,21 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=5e-4, help='weight decay')
     parser.add_argument('--adv_loss_weight', type=float, default=0.08, help='domain adversarial loss weight')
     parser.add_argument('--tensor_loss_weight', type=float, default=0.12, help='Tensor alignment loss weight')
+    parser.add_argument('--transport_mode', type=str, default='sinkhorn',
+                       choices=['legacy_row_softmax', 'row_softmax', 'sinkhorn'],
+                       help='transport-plan construction; legacy mode reproduces the original implementation')
+    parser.add_argument('--ot_epsilon', type=float, default=0.1,
+                       help='entropic transport temperature')
+    parser.add_argument('--ot_sinkhorn_iterations', type=int, default=50,
+                       help='number of differentiable Sinkhorn scaling iterations')
+    parser.add_argument('--ot_correction_scale', type=float, default=0.1,
+                       help='maximum magnitude scale of the bounded TransNet cost correction')
+    parser.add_argument('--ot_correction_reg_weight', type=float, default=1e-3,
+                       help='weight for squared neural cost-correction regularization')
+    parser.add_argument('--svd_max_sweeps', type=int, default=3,
+                       help='maximum alternating SVD sweeps per training batch')
+    parser.add_argument('--svd_tolerance', type=float, default=1e-4,
+                       help='relative singular-value convergence tolerance')
     parser.add_argument('--report_strategy', type=str, default='last_window',
                        choices=['best', 'last', 'last_window'],
                        help='which epoch metrics to report for each iteration')
@@ -847,16 +910,26 @@ def main():
         exp_args.lr_other = lr_other
         exp_args.weight_decay = weight_decay
 
+    def is_weather_domain(path):
+        """Accept image weather domains and reject the sibling AIS folder."""
+        return all(
+            os.path.isdir(os.path.join(path, phase))
+            for phase in ('train', 'val')
+        )
+
     if args.target_root == 'all':
         data_root = os.path.dirname(args.source_root)
         src_name = os.path.basename(args.source_root)
         target_roots = []
         if os.path.isdir(data_root):
             for d in sorted(os.listdir(data_root)):
-                if check(d):
-                    full_path = os.path.join(data_root, d)
-                    if os.path.isdir(full_path) and d != src_name:
-                        target_roots.append(full_path)
+                full_path = os.path.join(data_root, d)
+                if (
+                    d != src_name
+                    and os.path.isdir(full_path)
+                    and is_weather_domain(full_path)
+                ):
+                    target_roots.append(full_path)
         if not target_roots:
             raise ValueError(f"未找到可用目标域目录，请检查 source_root 同级目录: {data_root}")
     else:
