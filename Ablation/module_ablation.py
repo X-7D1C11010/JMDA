@@ -753,9 +753,18 @@ def run_ablation_experiment(args):
 
 
 def main():
+    local_data_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', 'Data')
+    )
+    default_data_root = (
+        local_data_root if os.path.isdir(local_data_root)
+        else '/home/lixiang/lx/Data'
+    )
     parser = argparse.ArgumentParser(description='模块消融实验')
     parser.add_argument('--source_root', type=str,
-                       default=os.environ.get('JMDA_SOURCE_ROOT', r"/home/lixiang/lx/Data/晴天"),
+                       default=os.environ.get(
+                           'JMDA_SOURCE_ROOT', os.path.join(default_data_root, '晴天')
+                       ),
                        help='源域数据路径')
     parser.add_argument('--target_root', type=str,
                        default=os.environ.get('JMDA_TARGET_ROOT', 'all'),

@@ -170,7 +170,14 @@ def main():
     # ================= 数据加载 =================
     # Server-ready defaults. Environment variables keep the entry point
     # portable without requiring source edits for each target weather.
-    DATA_ROOT = os.environ.get("JMDA_DATA_ROOT", "/home/lixiang/lx/Data")
+    local_data_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "Data")
+    )
+    default_data_root = (
+        local_data_root if os.path.isdir(local_data_root)
+        else "/home/lixiang/lx/Data"
+    )
+    DATA_ROOT = os.environ.get("JMDA_DATA_ROOT", default_data_root)
     SOURCE_ROOT = os.environ.get(
         "JMDA_SOURCE_ROOT", os.path.join(DATA_ROOT, "晴天")
     )

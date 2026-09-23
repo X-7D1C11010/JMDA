@@ -934,12 +934,21 @@ def run_single_experiment(args):
 
 
 def main():
+    local_data_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', '..', 'Data')
+    )
+    default_data_root = (
+        local_data_root if os.path.isdir(local_data_root)
+        else '/home/lixiang/lx/Data'
+    )
     parser = argparse.ArgumentParser(description='单模态消融实验')
     parser.add_argument('--modality', type=str, default='all',
                        choices=['vis', 'ir', 'ais', 'all'],
                        help='模态类型: vis(可见光), ir(红外), ais(AIS信号), all(全部)')
     parser.add_argument('--source_root', type=str,
-                       default=os.environ.get('JMDA_SOURCE_ROOT', r"/home/lixiang/lx/Data/晴天"),
+                       default=os.environ.get(
+                           'JMDA_SOURCE_ROOT', os.path.join(default_data_root, '晴天')
+                       ),
                        help='源域数据路径')
     parser.add_argument('--target_root', type=str,
                        default=os.environ.get('JMDA_TARGET_ROOT', 'all'),
@@ -947,7 +956,11 @@ def main():
     parser.add_argument('--ais_data_path', type=str,
                        default=os.environ.get(
                            'JMDA_AIS_DATA_PATH',
-                           r"/home/lixiang/lx/Data/AIS/balanced_AIS-dataset_16classes_100persample.mat",
+                           os.path.join(
+                               default_data_root,
+                               'AIS',
+                               'balanced_AIS-dataset_16classes_100persample.mat',
+                           ),
                        ),
                        help='AIS数据路径')
     parser.add_argument('--batch_size', type=int, default=16, help='批次大小')

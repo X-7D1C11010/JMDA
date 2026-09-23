@@ -146,6 +146,14 @@ class NeuralOptimalTransportGenerator(nn.Module):
 
         geometric_cost = self.cost_net(source_features, target_features)
         transnet_logits = self.transmission_net(geometric_cost)
+        # Squared distances grow with feature dimension. Normalize their batch
+        # scale in the revised modes so epsilon has a stable meaning across
+        # feature widths and training stages. Detaching the scale prevents the
+        # network from manipulating the normalization denominator.
+        geometric_cost_scale = geometric_cost.detach().mean().clamp_min(
+            self.numerical_eps
+        )
+        normalized_geometric_cost = geometric_cost / geometric_cost_scale
         source_marginal = geometric_cost.new_full(
             (source_count,), 1.0 / source_count
         )
@@ -165,7 +173,7 @@ class NeuralOptimalTransportGenerator(nn.Module):
             # Revised neural cost: a bounded correction prevents TransNet from
             # arbitrarily replacing the geometric metric.
             cost_correction = self.correction_scale * torch.tanh(transnet_logits)
-            corrected_cost = geometric_cost + cost_correction
+            corrected_cost = normalized_geometric_cost + cost_correction
             log_kernel = F.log_softmax(-corrected_cost / self.epsilon, dim=1)
 
             if self.transport_mode == "sinkhorn":
@@ -201,6 +209,8 @@ class NeuralOptimalTransportGenerator(nn.Module):
             "conditional_plan": conditional_plan,
             "softmax_kernel": log_kernel.exp(),
             "geometric_cost": geometric_cost,
+            "geometric_cost_scale": geometric_cost_scale,
+            "normalized_geometric_cost": normalized_geometric_cost,
             "corrected_cost": corrected_cost,
             "cost_correction": cost_correction,
             "transport_cost": transport_cost,
