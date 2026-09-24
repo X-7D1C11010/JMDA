@@ -208,6 +208,8 @@ class NeuralOptimalTransportGenerator(nn.Module):
             "mass_plan": mass_plan,
             "conditional_plan": conditional_plan,
             "softmax_kernel": log_kernel.exp(),
+            "source_marginal": source_marginal,
+            "target_marginal": target_marginal,
             "geometric_cost": geometric_cost,
             "geometric_cost_scale": geometric_cost_scale,
             "normalized_geometric_cost": normalized_geometric_cost,

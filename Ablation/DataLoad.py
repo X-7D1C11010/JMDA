@@ -43,7 +43,8 @@ def get_basic_transforms(phase='train', val_augment=False):
 # 建议使用上一轮那个带 FileNotFoundError 检查的版本
 class MultiModalDomainDataset(Dataset):
     def __init__(self, root_dir, domain_type='source', phase='train', img_size=224, weather=None,
-                 global_label_map=None, val_augment=False):
+                 global_label_map=None, val_augment=False,
+                 deterministic_transform=False):
         self.weather = weather if weather else os.path.basename(root_dir)
         self.domain_type = domain_type
         self.phase = phase
@@ -51,6 +52,7 @@ class MultiModalDomainDataset(Dataset):
         self.samples = []
         self.domain_label = 0 if domain_type == 'source' else 1
         self.val_augment = val_augment
+        self.deterministic_transform = deterministic_transform
 
         # 兼容 train 和 val 都在同一级目录的情况
         # 逻辑：如果 root_dir/phase 存在，就用这个；否则直接用 root_dir (针对某些特殊结构)
@@ -121,7 +123,9 @@ class MultiModalDomainDataset(Dataset):
 
         self.num_classes = len(self.label_map)
         self.get_label_map = lambda: self.label_map
-        self.transform = get_basic_transforms(phase, self.val_augment)
+        transform_phase = 'val' if self.deterministic_transform else phase
+        transform_val_augment = False if self.deterministic_transform else self.val_augment
+        self.transform = get_basic_transforms(transform_phase, transform_val_augment)
 
     def __len__(self):
         return len(self.samples)

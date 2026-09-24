@@ -15,6 +15,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, confusion_m
 # 导入自定义模块
 from DataLoad import MultiModalDomainDataset
 from Tensor import TensorBasedAlignmentStable
+from epoch_svd import format_svd_update, update_epoch_projections
 from Discriminator import DomainDiscriminator, compute_discriminator_loss, compute_generator_loss
 from Generator import NeuralOptimalTransportGenerator
 from Models import VisualFeatureExtractor, IRFeatureExtractor, Classifier
@@ -155,7 +156,7 @@ def main():
     # 维度
     VIS_DIM = 512
     IR_DIM = 512
-    PROJ_DIM = 128
+    PROJ_DIM = 64
     FUSED_DIM = PROJ_DIM * 2
     SVD_MAX_SWEEPS = 3
     SVD_TOLERANCE = 1e-4
@@ -194,8 +195,17 @@ def main():
     tgt_train_ds = MultiModalDomainDataset(TARGET_ROOT, domain_type='target', phase='train',
                                            global_label_map=global_map)
 
+    src_svd_ds = MultiModalDomainDataset(
+        SOURCE_ROOT, domain_type='source', phase='train',
+        global_label_map=global_map, deterministic_transform=True,
+    )
+    tgt_svd_ds = MultiModalDomainDataset(
+        TARGET_ROOT, domain_type='target', phase='train',
+        global_label_map=global_map, deterministic_transform=True,
+    )
+
     # 3. 目标域验证集（启用数据增强）
-    tgt_val_ds = MultiModalDomainDataset(TARGET_ROOT, domain_type='target', phase='val', global_label_map=global_map, val_augment=True)
+    tgt_val_ds = MultiModalDomainDataset(TARGET_ROOT, domain_type='target', phase='val', global_label_map=global_map, val_augment=False)
 
     print("正在检查数据集一致性...")
     print(f"  源域类别: {list(src_train_ds.label_map.keys())[:5]}...")
@@ -389,6 +399,22 @@ def main():
         for epoch in range(EPOCHS):
             start_time = time.time()
 
+            svd_info = update_epoch_projections(
+                tal_module=tal_module,
+                encoders=[net_vis, net_ir],
+                modality_keys=['vis', 'ir'],
+                source_dataset=src_svd_ds,
+                target_dataset=tgt_svd_ds,
+                batch_size=BATCH_SIZE,
+                device=DEVICE,
+                seed=seed * 1000 + epoch,
+                class_paired=True,
+            )
+            logger.info(f"Epoch [{epoch + 1}/{EPOCHS}] | {format_svd_update(svd_info)}")
+            epoch_projection_update_count = int(
+                tal_module.projection_update_count.item()
+            )
+
             net_vis.train()
             net_ir.train()
             tal_module.train()
@@ -402,6 +428,9 @@ def main():
             loss_adv_accum = 0.0
             loss_ot_reg_accum = 0.0
             marginal_residual_accum = 0.0
+            row_marginal_residual_accum = 0.0
+            column_marginal_residual_accum = 0.0
+            ot_objective_accum = 0.0
             train_correct = 0
             train_total = 0
             steps = 0
@@ -427,7 +456,6 @@ def main():
                 (p_s_vis, p_s_ir), (p_t_vis, p_t_ir), loss_tal = tal_module(
                     [f_s_vis, f_s_ir],
                     [f_t_vis, f_t_ir],
-                    update_projections=True,
                 )
                 
                 # # 收集对齐后的特征（用于可视化）
@@ -545,11 +573,20 @@ def main():
                 loss_adv_accum += loss_adv.item()
                 loss_ot_reg_accum += loss_ot_reg.item()
                 marginal_residual_accum += transport_details['marginal_residual'].item()
+                row_marginal_residual_accum += transport_details['row_marginal_residual'].item()
+                column_marginal_residual_accum += transport_details['column_marginal_residual'].item()
+                ot_objective_accum += transport_details['regularized_ot_objective'].item()
 
                 # 统计训练准确率 (以目标域为准)
                 _, predicted = torch.max(pred_tgt.data, 1)
                 train_correct += (predicted == t_label).sum().item()
                 train_total += t_label.size(0)
+
+            if int(tal_module.projection_update_count.item()) != epoch_projection_update_count:
+                raise RuntimeError(
+                    "Tensor projections changed inside the mini-batch loop; "
+                    "they must remain fixed for the complete epoch."
+                )
 
             # # --- 特征可视化 ---
             # if COLLECT_FEATURES:
@@ -595,12 +632,17 @@ def main():
             avg_loss_adv = loss_adv_accum / steps if steps > 0 else 0.0
             avg_loss_ot_reg = loss_ot_reg_accum / steps if steps > 0 else 0.0
             avg_marginal_residual = marginal_residual_accum / steps if steps > 0 else 0.0
+            avg_row_residual = row_marginal_residual_accum / steps if steps > 0 else 0.0
+            avg_column_residual = column_marginal_residual_accum / steps if steps > 0 else 0.0
+            avg_ot_objective = ot_objective_accum / steps if steps > 0 else 0.0
 
             # 构建日志消息
             log_msg = (f"Epoch [{epoch + 1}/{EPOCHS}] | "
                        f"Loss: {avg_loss:.4f} (Cls: {avg_loss_cls:.4f}, TAL: {avg_loss_tal:.4f}, "
                        f"Adv: {avg_loss_adv:.4f}, OT-Reg: {avg_loss_ot_reg:.6f}) | "
-                       f"Marginal residual: {avg_marginal_residual:.2e} | "
+                       f"OT inner objective: {avg_ot_objective:.4f} | "
+                       f"Marginal residual row/col/max: {avg_row_residual:.2e}/"
+                       f"{avg_column_residual:.2e}/{avg_marginal_residual:.2e} | "
                        f"Train Acc: {train_acc:.4f} | "
                        f"Val Acc: {val_acc:.4f} | "
                        f"Val Precision (Macro): {val_metrics['precision_macro_present']:.4f} | "

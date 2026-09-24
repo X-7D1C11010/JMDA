@@ -16,6 +16,7 @@ from DataLoad import MultiModalDomainDataset
 from main import PairedClassSampler
 from Models import VisualFeatureExtractor, IRFeatureExtractor, Classifier
 from Tensor import TensorBasedAlignmentStable
+from epoch_svd import format_svd_update, update_epoch_projections
 from Generator import NeuralOptimalTransportGenerator
 from Discriminator import (
     DomainDiscriminator,
@@ -328,6 +329,26 @@ def run_single_iteration(args, seed, logger):
     tgt_train_ds = MultiModalDomainDataset(TARGET_ROOT, domain_type='target', phase='train',
                                            global_label_map=global_map)
 
+    src_svd_ds = None
+    tgt_svd_ds = None
+    if args.use_tensor_module:
+        # SVD statistics use the same training samples without stochastic crop
+        # or flip. Validation samples are never involved in projection updates.
+        src_svd_ds = MultiModalDomainDataset(
+            SOURCE_ROOT,
+            domain_type='source',
+            phase='train',
+            global_label_map=global_map,
+            deterministic_transform=True,
+        )
+        tgt_svd_ds = MultiModalDomainDataset(
+            TARGET_ROOT,
+            domain_type='target',
+            phase='train',
+            global_label_map=global_map,
+            deterministic_transform=True,
+        )
+
     tgt_val_ds = MultiModalDomainDataset(TARGET_ROOT, domain_type='target', phase='val',
                                          global_label_map=global_map, val_augment=False)
 
@@ -357,7 +378,7 @@ def run_single_iteration(args, seed, logger):
 
     VIS_DIM = 512
     IR_DIM = 512
-    PROJ_DIM = 128
+    PROJ_DIM = args.projection_dim
     TENSOR_LOSS_WEIGHT = args.tensor_loss_weight if args.use_tensor_module else 0.0
     ADV_LOSS_WEIGHT = args.adv_loss_weight
     DISCRIMINATOR_UPDATE_INTERVAL = 2
@@ -418,8 +439,10 @@ def run_single_iteration(args, seed, logger):
         )
     if args.use_tensor_module:
         logger.info(
-            f"Tensor projection update: alternating SVD, max_sweeps={args.svd_max_sweeps}, "
-            f"relative singular-value tolerance={args.svd_tolerance:g}"
+            f"Tensor projection update: once per epoch from the complete "
+            f"target-training pairing bank; projection_dim={PROJ_DIM}, "
+            f"max_sweeps={args.svd_max_sweeps}, relative singular-value "
+            f"tolerance={args.svd_tolerance:g}"
         )
 
     classifier = Classifier(input_dim=fused_dim, num_classes=len(global_map)).to(DEVICE)
@@ -447,6 +470,25 @@ def run_single_iteration(args, seed, logger):
     metric_history = []
 
     for epoch in range(EPOCHS):
+        if args.use_tensor_module:
+            svd_info = update_epoch_projections(
+                tal_module=tal_module,
+                encoders=[net_vis, net_ir],
+                modality_keys=['vis', 'ir'],
+                source_dataset=src_svd_ds,
+                target_dataset=tgt_svd_ds,
+                batch_size=args.svd_stat_batch_size,
+                device=DEVICE,
+                seed=seed * 1000 + epoch,
+                class_paired=args.use_target_labels,
+            )
+            logger.info(f"Epoch [{epoch + 1}/{EPOCHS}] | {format_svd_update(svd_info)}")
+            epoch_projection_update_count = int(
+                tal_module.projection_update_count.item()
+            )
+        else:
+            epoch_projection_update_count = None
+
         net_vis.train()
         net_ir.train()
         tal_module.train()
@@ -461,6 +503,9 @@ def run_single_iteration(args, seed, logger):
         loss_adv_accum = 0.0
         loss_ot_reg_accum = 0.0
         marginal_residual_accum = 0.0
+        row_marginal_residual_accum = 0.0
+        column_marginal_residual_accum = 0.0
+        ot_objective_accum = 0.0
         train_correct = 0
         train_total = 0
         steps = 0
@@ -485,7 +530,6 @@ def run_single_iteration(args, seed, logger):
                 (p_s_vis, p_s_ir), (p_t_vis, p_t_ir), loss_tal = tal_module(
                     [f_s_vis, f_s_ir],
                     [f_t_vis, f_t_ir],
-                    update_projections=True,
                 )
             else:
                 (p_s_vis, p_s_ir), (p_t_vis, p_t_ir), loss_tal = tal_module(
@@ -588,12 +632,29 @@ def run_single_iteration(args, seed, logger):
             loss_ot_reg_accum += loss_ot_reg.item()
             if transport_details is not None:
                 marginal_residual_accum += transport_details['marginal_residual'].item()
+                row_marginal_residual_accum += transport_details[
+                    'row_marginal_residual'
+                ].item()
+                column_marginal_residual_accum += transport_details[
+                    'column_marginal_residual'
+                ].item()
+                ot_objective_accum += transport_details[
+                    'regularized_ot_objective'
+                ].item()
 
             train_logits = pred_tgt if args.use_target_labels else pred_src
             train_labels = t_label if args.use_target_labels else s_label
             _, predicted = torch.max(train_logits.data, 1)
             train_correct += (predicted == train_labels).sum().item()
             train_total += train_labels.size(0)
+
+        if args.use_tensor_module:
+            current_update_count = int(tal_module.projection_update_count.item())
+            if current_update_count != epoch_projection_update_count:
+                raise RuntimeError(
+                    "Tensor projections changed inside the mini-batch training "
+                    "loop; projections must remain fixed for the whole epoch."
+                )
 
         val_metrics = evaluate(net_vis, net_ir, tal_module, classifier, 
                               val_loader, DEVICE, global_map, args.use_tensor_module)
@@ -609,11 +670,27 @@ def run_single_iteration(args, seed, logger):
         avg_loss_adv = loss_adv_accum / steps if steps > 0 else 0.0
         avg_loss_ot_reg = loss_ot_reg_accum / steps if steps > 0 else 0.0
         avg_marginal_residual = marginal_residual_accum / steps if steps > 0 else 0.0
+        avg_row_residual = row_marginal_residual_accum / steps if steps > 0 else 0.0
+        avg_column_residual = column_marginal_residual_accum / steps if steps > 0 else 0.0
+        avg_ot_objective = ot_objective_accum / steps if steps > 0 else 0.0
+
+        ot_diagnostic = ""
+        if args.use_ot_module:
+            objective_name = (
+                "OT inner objective"
+                if args.transport_mode == 'sinkhorn'
+                else "Transport objective diagnostic"
+            )
+            ot_diagnostic = (
+                f"{objective_name}: {avg_ot_objective:.4f} | "
+                f"Marginal residual row/col/max: {avg_row_residual:.2e}/"
+                f"{avg_column_residual:.2e}/{avg_marginal_residual:.2e} | "
+            )
 
         log_msg = (f"Epoch [{epoch + 1}/{EPOCHS}] | "
                    f"Loss: {avg_loss:.4f} (Cls: {avg_loss_cls:.4f}, TAL: {avg_loss_tal:.4f}, "
                    f"Adv: {avg_loss_adv:.4f}, OT-Reg: {avg_loss_ot_reg:.6f}) | "
-                   f"Marginal residual: {avg_marginal_residual:.2e} | "
+                   f"{ot_diagnostic}"
                    f"Train Acc: {train_acc:.4f} | "
                    f"Val Acc: {val_acc:.4f} | "
                    f"Val P/R/F1 (Macro): {val_metrics['precision_macro']:.4f}/"
@@ -685,8 +762,18 @@ def run_ablation_experiment(args):
     logger.info(f"使用OT模块: {'是' if args.use_ot_module else '否'}")
     logger.info(f"特征融合方式: {'Tensor对齐' if args.use_tensor_module else '通道拼接'}")
     logger.info(f"域对齐方式: {'最优传输' if args.use_ot_module else '常规对抗'}")
-    logger.info(f"目标标签比例/权重: {args.target_label_ratio}/{args.target_cls_weight}")
-    logger.info(f"Tensor/Adv损失权重: {args.tensor_loss_weight}/{args.adv_loss_weight}")
+    effective_target_ratio = 1.0 if args.use_target_labels else args.target_label_ratio
+    effective_target_weight = 1.0 if args.use_target_labels else args.target_cls_weight
+    logger.info(
+        f"目标标签比例/权重: {effective_target_ratio}/{effective_target_weight}"
+    )
+    effective_tensor_weight = args.tensor_loss_weight if args.use_tensor_module else 0.0
+    logger.info(f"Tensor/Adv损失权重: {effective_tensor_weight}/{args.adv_loss_weight}")
+    if args.use_tensor_module:
+        logger.info(
+            f"Tensor投影维度/更新: {args.projection_dim}/每epoch一次; "
+            f"SVD统计批次={args.svd_stat_batch_size}"
+        )
     logger.info(f"学习率: feature={args.lr_feature}, other={args.lr_other}, weight_decay={args.weight_decay}")
     logger.info(f"报告策略: {args.report_strategy}, 窗口: {args.report_window}")
     logger.info("=" * 80)
@@ -769,7 +856,7 @@ def main():
     parser.add_argument('--target_root', type=str,
                        default=os.environ.get('JMDA_TARGET_ROOT', 'all'),
                        help='目标域数据路径，或填 all 自动遍历 source_root 同级目录下其他天气文件夹')
-    parser.add_argument('--batch_size', type=int, default=64, help='批次大小')
+    parser.add_argument('--batch_size', type=int, default=32, help='批次大小')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数')
     parser.add_argument('--num_iterations', type=int, default=5, help='迭代次数')
     parser.add_argument('--use_target_labels', action='store_true',
@@ -783,6 +870,8 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=5e-4, help='weight decay')
     parser.add_argument('--adv_loss_weight', type=float, default=0.08, help='domain adversarial loss weight')
     parser.add_argument('--tensor_loss_weight', type=float, default=0.12, help='Tensor alignment loss weight')
+    parser.add_argument('--projection_dim', type=int, default=64,
+                       help='rank retained by each epoch-level modal SVD projection')
     parser.add_argument('--transport_mode', type=str, default='sinkhorn',
                        choices=['legacy_row_softmax', 'row_softmax', 'sinkhorn'],
                        help='transport-plan construction; legacy mode reproduces the original implementation')
@@ -795,9 +884,11 @@ def main():
     parser.add_argument('--ot_correction_reg_weight', type=float, default=1e-3,
                        help='weight for squared neural cost-correction regularization')
     parser.add_argument('--svd_max_sweeps', type=int, default=3,
-                       help='maximum alternating SVD sweeps per training batch')
+                       help='maximum alternating modal SVD sweeps per epoch update')
     parser.add_argument('--svd_tolerance', type=float, default=1e-4,
                        help='relative singular-value convergence tolerance')
+    parser.add_argument('--svd_stat_batch_size', type=int, default=32,
+                       help='inference batch size used to build the epoch SVD feature bank')
     parser.add_argument('--report_strategy', type=str, default='last_window',
                        choices=['best', 'last', 'last_window'],
                        help='which epoch metrics to report for each iteration')

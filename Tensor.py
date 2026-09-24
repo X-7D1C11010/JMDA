@@ -1,9 +1,10 @@
-"""Tensor alignment with alternating closed-form SVD projection updates.
+"""Tensor alignment with epoch-level closed-form SVD projection updates.
 
-The encoders remain end-to-end trainable. The source/target projection
-matrices are not optimizer parameters: they are updated from the current
-mini-batch by alternating over tensor modes and solving each conditional
-subproblem with an SVD of the source-target cross-covariance matrix.
+The source/target projection matrices are not optimizer parameters.  They are
+updated exactly once at an epoch boundary from a feature bank that represents
+the complete training pairing.  During the subsequent mini-batch updates they
+remain fixed, while Eq. (8) still back-propagates through the fixed projections
+to the modality encoders.
 """
 
 from dataclasses import dataclass
@@ -77,6 +78,9 @@ class TensorBasedAlignmentStable(nn.Module):
         self.svd_tolerance = svd_tolerance
         self.eps = eps
         self.last_update_info: Dict[str, object] = {}
+        self.register_buffer(
+            "projection_update_count", torch.zeros((), dtype=torch.long)
+        )
 
         # Buffers are checkpointed and moved by module.to(device), but are
         # deliberately excluded from gradient-based optimizers.
@@ -162,46 +166,55 @@ class TensorBasedAlignmentStable(nn.Module):
         projected = torch.matmul(moved, matrix)
         return projected.movedim(-1, tensor_axis)
 
-    def _contract_other_modes(
+    def _mode_cross_covariance(
         self,
-        tensor: FactorizedOuterProductTensor,
-        matrices: Sequence[torch.Tensor],
+        source_tensor: FactorizedOuterProductTensor,
+        target_tensor: FactorizedOuterProductTensor,
         current_mode: int,
     ) -> torch.Tensor:
-        """Fix/project every mode except ``current_mode``.
+        """Contract the tensor cross-covariance over all other modes.
 
-        The remaining projected axes are summed out, which is the matrix-basis
-        generalization of Eq. (5)'s contraction by projection vectors. The
-        returned aggregated feature matrix has shape ``[B, d_m]``.
+        For a paired rank-one outer product, contraction of mode ``j`` uses
+        the inner product between its projected source and target factors,
+
+            <x_s^j U_j, x_t^j V_j>.
+
+        Holding every ``j != current_mode`` projection fixed therefore leaves
+        a weighted mode-wise cross-covariance for the SVD update.  Dividing an
+        inner product by its projection width, and normalizing the final
+        weights by their mean magnitude, changes only a global scale and keeps
+        the computation stable for three or more modalities.
         """
-        current_features = tensor.factors[current_mode]
-        contraction_weight = current_features.new_ones(
-            current_features.shape[0], 1
+        source_features = source_tensor.factors[current_mode]
+        target_features = target_tensor.factors[current_mode]
+        if source_features.shape[0] != target_features.shape[0]:
+            raise ValueError("Source/target observation counts must match.")
+
+        contraction_weight = source_features.new_ones(
+            source_features.shape[0], 1
         )
-        for mode, (features, matrix) in enumerate(zip(tensor.factors, matrices)):
+        for mode in range(self.num_modalities):
             if mode == current_mode:
                 continue
-            # Dense equivalence:
-            #   (x_1 o ... o x_M) x_j U_j, followed by contraction of the
-            #   projected axis. Mean differs from sum only by a constant rank
-            #   scale and avoids numerical growth for three or more modalities.
-            projected = features.matmul(matrix)
-            contraction_weight = contraction_weight * projected.mean(
-                dim=1, keepdim=True
+            source_projected = source_tensor.factors[mode].matmul(
+                self.U_matrices[mode]
             )
-        return current_features * contraction_weight
+            target_projected = target_tensor.factors[mode].matmul(
+                self.V_matrices[mode]
+            )
+            paired_inner_product = (
+                source_projected * target_projected
+            ).mean(dim=1, keepdim=True)
+            contraction_weight = contraction_weight * paired_inner_product
 
-    @staticmethod
-    def _cross_covariance(
-        source_features: torch.Tensor,
-        target_features: torch.Tensor,
-    ) -> torch.Tensor:
-        if source_features.shape[0] != target_features.shape[0]:
-            raise ValueError("Contracted source/target observation counts must match.")
+        weight_scale = contraction_weight.abs().mean().clamp_min(self.eps)
+        contraction_weight = contraction_weight / weight_scale
         source_centered = source_features - source_features.mean(dim=0, keepdim=True)
         target_centered = target_features - target_features.mean(dim=0, keepdim=True)
         denominator = max(source_centered.shape[0] - 1, 1)
-        covariance = source_centered.transpose(0, 1).matmul(target_centered) / denominator
+        covariance = source_centered.transpose(0, 1).matmul(
+            contraction_weight * target_centered
+        ) / denominator
         if not torch.isfinite(covariance).all():
             raise FloatingPointError("Non-finite values encountered in SVD cross-covariance.")
         return covariance
@@ -229,19 +242,19 @@ class TensorBasedAlignmentStable(nn.Module):
         previous_singular_values = None
         relative_change = float("inf")
         converged = False
+        effective_ranks = []
 
         for sweep in range(self.max_svd_sweeps):
             current_singular_values = []
+            effective_ranks = []
 
             for mode in range(self.num_modalities):
                 # Other modal projections remain fixed at their latest values.
-                source_aggregated = self._contract_other_modes(
-                    source_tensor, self.U_matrices, mode
+                covariance = self._mode_cross_covariance(
+                    source_tensor,
+                    target_tensor,
+                    mode,
                 )
-                target_aggregated = self._contract_other_modes(
-                    target_tensor, self.V_matrices, mode
-                )
-                covariance = self._cross_covariance(source_aggregated, target_aggregated)
 
                 left, singular_values, right_h = torch.linalg.svd(
                     covariance, full_matrices=False
@@ -258,6 +271,16 @@ class TensorBasedAlignmentStable(nn.Module):
                 retained = singular_values[:rank]
                 getattr(self, f"singular_values_{mode}").copy_(retained)
                 current_singular_values.append(retained.clone())
+                if singular_values.numel() == 0 or singular_values[0] <= self.eps:
+                    effective_rank = 0
+                else:
+                    threshold = (
+                        self.eps
+                        * max(covariance.shape)
+                        * singular_values[0]
+                    )
+                    effective_rank = int((singular_values > threshold).sum().item())
+                effective_ranks.append(effective_rank)
 
             if previous_singular_values is not None:
                 changes = []
@@ -277,7 +300,48 @@ class TensorBasedAlignmentStable(nn.Module):
             "converged": converged,
             "relative_singular_change": relative_change,
             "singular_values": tuple(values.detach().clone() for values in current_singular_values),
+            "effective_ranks": tuple(effective_ranks),
         }
+
+    @torch.no_grad()
+    def update_projections(
+        self,
+        source_modalities: Sequence[torch.Tensor],
+        target_modalities: Sequence[torch.Tensor],
+    ) -> Dict[str, object]:
+        """Update every modal projection once from an epoch feature bank.
+
+        The observations must be paired and cover the intended epoch-level
+        statistics.  This method is deliberately separate from ``forward`` so
+        a training mini-batch cannot silently redefine the feature coordinate
+        system seen by the classifier.
+        """
+        self._validate_modalities(source_modalities, target_modalities)
+        sample_count = source_modalities[0].shape[0]
+        maximum_sample_rank = max(sample_count - 1, 0)
+        requested_rank = max(self.output_dims)
+        if requested_rank > maximum_sample_rank:
+            raise ValueError(
+                "The requested SVD projection rank is unsupported by the "
+                f"epoch feature bank: projection_dim={requested_rank}, "
+                f"paired_samples={sample_count}, maximum centered rank="
+                f"{maximum_sample_rank}. Reduce projection_dim or provide "
+                "more paired training observations."
+            )
+
+        source_tensor = self.create_multimodal_tensor(source_modalities)
+        target_tensor = self.create_multimodal_tensor(target_modalities)
+        update_info = self._alternating_svd_update(source_tensor, target_tensor)
+        self.projection_update_count.add_(1)
+        update_info.update(
+            {
+                "sample_count": sample_count,
+                "maximum_sample_rank": maximum_sample_rank,
+                "update_count": int(self.projection_update_count.item()),
+            }
+        )
+        self.last_update_info = update_info
+        return update_info
 
     def _mean_cosine_similarity(
         self,
@@ -298,20 +362,21 @@ class TensorBasedAlignmentStable(nn.Module):
         target_modalities: List[torch.Tensor],
         update_projections: bool = False,
     ) -> Tuple[List[torch.Tensor], List[torch.Tensor], torch.Tensor]:
-        """Build domain tensors, optionally update SVD bases, and align them.
-
-        Training code passes ``update_projections=True``. Evaluation uses the
-        last training update and leaves it at the default False.
-        """
+        """Project a mini-batch with fixed bases and compute Eqs. (7)-(8)."""
         self._validate_modalities(source_modalities, target_modalities)
+
+        if update_projections:
+            raise RuntimeError(
+                "Per-mini-batch SVD updates are disabled. Call "
+                "tal_module.update_projections(...) once at the epoch boundary "
+                "with the complete paired feature bank, then call forward with "
+                "update_projections=False."
+            )
 
         # Paper-ordered step: each domain first constructs its own high-order
         # multimodal tensor using sample-wise outer products.
         source_tensor = self.create_multimodal_tensor(source_modalities)
         target_tensor = self.create_multimodal_tensor(target_modalities)
-
-        if update_projections:
-            self.last_update_info = self._alternating_svd_update(source_tensor, target_tensor)
 
         projected_source = [
             feature.matmul(projection)
