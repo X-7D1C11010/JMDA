@@ -203,8 +203,8 @@ def parse_args():
     parser.add_argument(
         "--report_strategy",
         choices=["best", "best_window", "last", "last_window"],
-        default="last_window",
-        help="Metric reporting strategy passed to child scripts.",
+        default="best",
+        help="Metric reporting strategy; best selects the highest-validation-accuracy epoch in every run.",
     )
     parser.add_argument(
         "--report_window",

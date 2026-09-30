@@ -186,8 +186,13 @@ def sampled_target_classification_loss(
     return criterion(logits[selected], labels[selected]), n_labeled
 
 
-def select_report_metrics(metric_history, strategy='last_window', window=10):
-    """Select stable validation metrics for one run without chasing a single peak."""
+def select_report_metrics(metric_history, strategy='best', window=10):
+    """Select one coherent metric record for a repeated training run.
+
+    ``best`` selects the epoch with the highest validation accuracy and keeps
+    precision/recall/F1 from that same epoch.  Metrics are never maximized
+    independently, which would combine incompatible checkpoints.
+    """
     if not metric_history:
         return None
     if strategy == 'best':
@@ -196,7 +201,18 @@ def select_report_metrics(metric_history, strategy='last_window', window=10):
         return metric_history[-1]
 
     window = max(1, int(window))
-    selected = metric_history[-window:]
+    if strategy == 'best_window':
+        window = min(window, len(metric_history))
+        candidates = [
+            metric_history[start:start + window]
+            for start in range(len(metric_history) - window + 1)
+        ]
+        selected = max(
+            candidates,
+            key=lambda values: float(np.mean([m['accuracy'] for m in values])),
+        )
+    else:
+        selected = metric_history[-window:]
     report = {}
     for key in selected[-1].keys():
         values = [m[key] for m in selected if isinstance(m.get(key), (int, float, np.floating))]
@@ -465,8 +481,9 @@ def run_single_iteration(args, seed, logger):
     scheduler = ReduceLROnPlateau(optimizer_g, mode='max', factor=0.5, patience=10, min_lr=1e-6)
     criterion_cls = LabelSmoothingCrossEntropy(eps=0.1)
 
-    best_val_acc = 0.0
+    best_val_acc = -float('inf')
     best_metrics = None
+    best_epoch = None
     metric_history = []
 
     for epoch in range(EPOCHS):
@@ -704,6 +721,7 @@ def run_single_iteration(args, seed, logger):
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_metrics = val_metrics
+            best_epoch = epoch + 1
             logger.info(f"  >>> New Best Val Acc: {best_val_acc:.4f}")
 
     report_metrics = select_report_metrics(
@@ -711,9 +729,15 @@ def run_single_iteration(args, seed, logger):
         strategy=args.report_strategy,
         window=args.report_window,
     )
+    selected_epoch_text = (
+        f", selected_epoch={best_epoch}"
+        if args.report_strategy == 'best'
+        else ""
+    )
     logger.info(
         f"Report strategy: {args.report_strategy}, window={args.report_window}, "
         f"reported_acc={report_metrics['accuracy']:.4f}, best_acc={best_val_acc:.4f}"
+        f"{selected_epoch_text}"
     )
     return report_metrics
 
@@ -889,9 +913,9 @@ def main():
                        help='relative singular-value convergence tolerance')
     parser.add_argument('--svd_stat_batch_size', type=int, default=32,
                        help='inference batch size used to build the epoch SVD feature bank')
-    parser.add_argument('--report_strategy', type=str, default='last_window',
-                       choices=['best', 'last', 'last_window'],
-                       help='which epoch metrics to report for each iteration')
+    parser.add_argument('--report_strategy', type=str, default='best',
+                       choices=['best', 'best_window', 'last', 'last_window'],
+                       help='best selects the highest-validation-accuracy epoch in each iteration')
     parser.add_argument('--report_window', type=int, default=10,
                        help='number of final epochs averaged when report_strategy=last_window')
     parser.add_argument('--auto_ablation_hparams', action='store_true', default=True,

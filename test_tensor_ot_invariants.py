@@ -4,6 +4,7 @@ import torch
 
 from Generator import NeuralOptimalTransportGenerator
 from Tensor import TensorBasedAlignmentStable
+from Ablation.module_ablation import select_report_metrics
 from epoch_svd import build_epoch_pairs
 
 
@@ -30,6 +31,36 @@ class EpochPairingTests(unittest.TestCase):
                 for source_index, target_index in pairs
             )
         )
+
+
+class ResultReportingTests(unittest.TestCase):
+    def test_best_strategy_keeps_metrics_from_one_checkpoint(self):
+        history = [
+            {
+                "accuracy": 0.4,
+                "precision_macro": 0.9,
+                "recall_macro": 0.8,
+                "f1_macro": 0.7,
+            },
+            {
+                "accuracy": 0.8,
+                "precision_macro": 0.3,
+                "recall_macro": 0.4,
+                "f1_macro": 0.35,
+            },
+            {
+                "accuracy": 0.6,
+                "precision_macro": 0.7,
+                "recall_macro": 0.6,
+                "f1_macro": 0.65,
+            },
+        ]
+
+        selected = select_report_metrics(history, strategy="best")
+
+        self.assertIs(selected, history[1])
+        self.assertEqual(selected["accuracy"], 0.8)
+        self.assertEqual(selected["precision_macro"], 0.3)
 
 
 class TensorEpochUpdateTests(unittest.TestCase):
