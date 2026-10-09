@@ -10,6 +10,7 @@ from Ablation.Models import Classifier
 from Ablation.PairedClassSampler import PairedClassSampler
 from Ablation.module_ablation import (
     BinaryDomainDiscriminator,
+    compute_joint_ot_scale,
     select_report_metrics,
     transport_projected_feature_basis,
 )
@@ -80,6 +81,19 @@ class EpochPairingTests(unittest.TestCase):
 
 
 class ResultReportingTests(unittest.TestCase):
+    def test_joint_ot_warmup_and_ramp_schedule(self):
+        scales = [
+            compute_joint_ot_scale(
+                epoch, warmup_epochs=3, ramp_epochs=2, enabled=True
+            )
+            for epoch in range(6)
+        ]
+        self.assertEqual(scales, [0.0, 0.0, 0.0, 0.5, 1.0, 1.0])
+        self.assertEqual(
+            compute_joint_ot_scale(0, 3, 2, enabled=False),
+            1.0,
+        )
+
     def test_best_strategy_keeps_metrics_from_one_checkpoint(self):
         history = [
             {

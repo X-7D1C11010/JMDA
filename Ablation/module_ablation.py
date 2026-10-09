@@ -57,6 +57,17 @@ def set_requires_grad(model, requires_grad=False):
         param.requires_grad = requires_grad
 
 
+def compute_joint_ot_scale(epoch, warmup_epochs, ramp_epochs, enabled):
+    """Return the OT contribution for the Tensor+OT optimization schedule."""
+    if warmup_epochs < 0 or ramp_epochs < 1:
+        raise ValueError("warmup_epochs must be >= 0 and ramp_epochs must be >= 1.")
+    if not enabled:
+        return 1.0
+    if epoch < warmup_epochs:
+        return 0.0
+    return min((epoch - warmup_epochs + 1) / ramp_epochs, 1.0)
+
+
 def _reset_optimizer_state(optimizer, parameters):
     """Discard Adam moments whose coordinate system was reparameterized."""
     if optimizer is None:
@@ -622,6 +633,12 @@ def run_single_iteration(args, seed, logger):
             f"correction regularization weight={args.ot_correction_reg_weight:g}, "
             f"class conditional={use_class_conditional_ot}"
         )
+        if args.use_tensor_module:
+            logger.info(
+                "Joint optimization schedule: Tensor/SVD warm-up for "
+                f"{args.ot_warmup_epochs} epochs, then OT loss ramp over "
+                f"{args.ot_ramp_epochs} epochs."
+            )
     if args.use_tensor_module:
         logger.info(
             f"Tensor projection update: once per epoch from the complete "
@@ -664,6 +681,13 @@ def run_single_iteration(args, seed, logger):
     metric_history = []
 
     for epoch in range(EPOCHS):
+        joint_ot_scale = compute_joint_ot_scale(
+            epoch=epoch,
+            warmup_epochs=args.ot_warmup_epochs,
+            ramp_epochs=args.ot_ramp_epochs,
+            enabled=(args.use_tensor_module and args.use_ot_module),
+        )
+
         if args.use_tensor_module:
             old_source_projections = [
                 projection.detach().clone()
@@ -766,7 +790,7 @@ def run_single_iteration(args, seed, logger):
             feat_src = torch.cat([p_s_vis, p_s_ir], dim=1)
             feat_tgt = torch.cat([p_t_vis, p_t_ir], dim=1)
 
-            if args.use_ot_module:
+            if args.use_ot_module and joint_ot_scale > 0.0:
                 feat_mid, transport_details = generator(
                     feat_src,
                     feat_tgt,
@@ -778,7 +802,10 @@ def run_single_iteration(args, seed, logger):
                 feat_mid = None
                 transport_details = None
 
-            if steps % DISCRIMINATOR_UPDATE_INTERVAL == 0:
+            if (
+                steps % DISCRIMINATOR_UPDATE_INTERVAL == 0
+                and (not args.use_ot_module or joint_ot_scale > 0.0)
+            ):
                 optimizer_d.zero_grad()
                 if args.use_ot_module:
                     loss_d, _ = compute_discriminator_loss(
@@ -812,10 +839,10 @@ def run_single_iteration(args, seed, logger):
             )
             if target_labeled_count > 0 and target_cls_weight > 0.0:
                 loss_cls_total = loss_cls_total + target_cls_weight * loss_cls_tgt
-            if args.use_ot_module:
+            if args.use_ot_module and feat_mid is not None:
                 pred_mid = classifier(feat_mid)
                 loss_cls_mid = criterion_cls(pred_mid, s_label)
-                loss_cls_total = loss_cls_total + loss_cls_mid
+                loss_cls_total = loss_cls_total + joint_ot_scale * loss_cls_mid
 
             alpha = min(2.0 / (1.0 + np.exp(-10 * epoch / EPOCHS)) - 1.0, 1.0)
 
@@ -826,11 +853,15 @@ def run_single_iteration(args, seed, logger):
             #   applies standard source-target adversarial training.
             set_requires_grad(discriminator, False)
             if args.use_ot_module:
-                loss_adv = compute_generator_loss(
-                    discriminator(feat_mid, use_grl=False),
-                    'kl_uniform'
-                )
-                loss_ot_reg = transport_details['correction_regularization']
+                if feat_mid is not None:
+                    loss_adv = compute_generator_loss(
+                        discriminator(feat_mid, use_grl=False),
+                        'kl_uniform'
+                    )
+                    loss_ot_reg = transport_details['correction_regularization']
+                else:
+                    loss_adv = feat_src.new_zeros(())
+                    loss_ot_reg = feat_src.new_zeros(())
             else:
                 loss_adv = compute_binary_domain_loss(
                     discriminator(feat_src, use_grl=True, alpha=alpha),
@@ -841,8 +872,8 @@ def run_single_iteration(args, seed, logger):
             loss_total = (
                 loss_cls_total
                 + TENSOR_LOSS_WEIGHT * loss_tal
-                + ADV_LOSS_WEIGHT * loss_adv
-                + args.ot_correction_reg_weight * loss_ot_reg
+                + ADV_LOSS_WEIGHT * joint_ot_scale * loss_adv
+                + args.ot_correction_reg_weight * joint_ot_scale * loss_ot_reg
             )
 
             loss_total.backward()
@@ -915,6 +946,7 @@ def run_single_iteration(args, seed, logger):
                 else "Transport objective diagnostic"
             )
             ot_diagnostic = (
+                f"OT scale: {joint_ot_scale:.2f} | "
                 f"{objective_name}: {avg_ot_objective:.4f} | "
                 f"Marginal residual row/col/max: {avg_row_residual:.2e}/"
                 f"{avg_column_residual:.2e}/{avg_marginal_residual:.2e} | "
@@ -1124,6 +1156,10 @@ def main():
                        help='maximum magnitude scale of the bounded TransNet cost correction')
     parser.add_argument('--ot_correction_reg_weight', type=float, default=1e-3,
                        help='weight for squared neural cost-correction regularization')
+    parser.add_argument('--ot_warmup_epochs', type=int, default=10,
+                       help='Tensor-only warm-up epochs before OT is enabled in the full model')
+    parser.add_argument('--ot_ramp_epochs', type=int, default=5,
+                       help='epochs used to ramp joint OT losses from zero to full weight')
     parser.add_argument('--class_conditional_ot', action='store_true', default=True,
                        help='in supervised DA, constrain revised OT support to same-class pairs')
     parser.add_argument('--no_class_conditional_ot', dest='class_conditional_ot',
@@ -1159,6 +1195,10 @@ def main():
                        help='消融模式')
 
     args = parser.parse_args()
+    if args.ot_warmup_epochs < 0:
+        parser.error('--ot_warmup_epochs cannot be negative')
+    if args.ot_ramp_epochs < 1:
+        parser.error('--ot_ramp_epochs must be at least 1')
 
     if args.ablation_mode == 'all':
         # "all" means all ablation settings only. The complete model

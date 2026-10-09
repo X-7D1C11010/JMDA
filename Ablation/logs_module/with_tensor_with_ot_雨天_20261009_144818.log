@@ -1,0 +1,137 @@
+================================================================================
+模块消融实验 - with_tensor_with_ot
+目标域天气: 雨天
+训练开始时间: 2026-10-09 14:48:18
+设备: cuda
+源域: D:\Code\JMDA-Net\Data\晴天
+目标域: D:\Code\JMDA-Net\Data\雨天
+批次大小: 32
+总轮数: 10
+迭代次数: 1
+使用Tensor模块: 是
+使用OT模块: 是
+特征融合方式: Tensor对齐
+域对齐方式: 最优传输
+目标标签比例/权重: 1.0/1.0
+Tensor/Adv损失权重: 0.12/0.08
+Tensor投影维度/更新: 64/每epoch一次; SVD统计批次=32
+学习率: feature=5e-06, other=0.0002, weight_decay=0.0005
+报告策略: best, 窗口: 10
+================================================================================
+
+================================================================================
+迭代 1/1
+随机种子: 42
+================================================================================
+Dataset audit: source_train=760, target_train=96, target_val=26
+Class counts (original labels): source={1: 120, 2: 52, 3: 52, 4: 58, 5: 53, 6: 53, 7: 83, 8: 44, 9: 45, 10: 43, 11: 47, 12: 40, 13: 40, 14: 30}; target_train={1: 7, 5: 32, 6: 12, 7: 6, 9: 20, 11: 19}; target_val={1: 2, 5: 8, 6: 4, 7: 2, 9: 5, 11: 5}
+Exact VIS/IR pairing audit: source={'union_vis_files': 1136, 'union_ir_files': 966, 'matched_pairs_all': 958, 'selected_phase_pairs': 760, 'dropped_unpaired_vis': 178, 'dropped_unpaired_ir': 8}; target_train={'union_vis_files': 122, 'union_ir_files': 122, 'matched_pairs_all': 122, 'selected_phase_pairs': 96, 'dropped_unpaired_vis': 0, 'dropped_unpaired_ir': 0}; target_val={'union_vis_files': 122, 'union_ir_files': 122, 'matched_pairs_all': 122, 'selected_phase_pairs': 26, 'dropped_unpaired_vis': 0, 'dropped_unpaired_ir': 0}
+Training mode: full target-label supervision (class-paired batches).
+Training batches per epoch: 6; batch_size=32
+Feature fusion: Tensor alignment (512+512 -> 64+64); fused_dim=128
+Domain adaptation: Neural OT generator with 3-domain discriminator
+Loss weights: tensor=0.12, adv=0.08
+Transport: mode=sinkhorn, epsilon=0.1, Sinkhorn iterations=50, correction scale=0.1, correction regularization weight=0.001, class conditional=True
+Joint optimization schedule: Tensor/SVD warm-up for 3 epochs, then OT loss ramp over 2 epochs.
+Tensor projection update: once per epoch from the complete target-training pairing bank; projection_dim=64, max_sweeps=10, relative singular-value tolerance=0.001
+Epoch [1/10] | SVD update #1: pairs=192, sweeps=10, converged=True, rel_change=7.526e-04, effective_ranks=(95, 92), class_paired=True, class_balanced=True
+Epoch [1/10] | Loss: 5.2046 (Cls: 5.2033, TAL: 0.0110, Adv: 0.0000, OT-Reg: 0.000000) | OT scale: 0.00 | OT inner objective: 0.0000 | Marginal residual row/col/max: 0.00e+00/0.00e+00/0.00e+00 | Off-class mass: 0.00e+00 | Train Acc: 0.2188 | Val Acc: 0.1538 | Val P/R/F1 (Macro): 0.0644/0.1417/0.0787 | LR feature/other: 4.88988e-06/0.000195595
+  >>> New Best Val Acc: 0.1538
+Epoch [2/10] | SVD update #2: pairs=192, sweeps=4, converged=True, rel_change=6.450e-05, effective_ranks=(95, 59), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.454/0.415, basis_nonorth=9.170e-01
+Epoch [2/10] | Loss: 4.1308 (Cls: 4.1190, TAL: 0.0980, Adv: 0.0000, OT-Reg: 0.000000) | OT scale: 0.00 | OT inner objective: 0.0000 | Marginal residual row/col/max: 0.00e+00/0.00e+00/0.00e+00 | Off-class mass: 0.00e+00 | Train Acc: 0.3125 | Val Acc: 0.2308 | Val P/R/F1 (Macro): 0.0828/0.3000/0.1225 | LR feature/other: 4.57029e-06/0.000182812
+  >>> New Best Val Acc: 0.2308
+Epoch [3/10] | SVD update #3: pairs=192, sweeps=7, converged=True, rel_change=3.846e-04, effective_ranks=(95, 74), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.604/0.592, basis_nonorth=9.237e-01
+Epoch [3/10] | Loss: 3.2553 (Cls: 3.2583, TAL: -0.0246, Adv: 0.0000, OT-Reg: 0.000000) | OT scale: 0.00 | OT inner objective: 0.0000 | Marginal residual row/col/max: 0.00e+00/0.00e+00/0.00e+00 | Off-class mass: 0.00e+00 | Train Acc: 0.5625 | Val Acc: 0.1923 | Val P/R/F1 (Macro): 0.0347/0.1667/0.0575 | LR feature/other: 4.07252e-06/0.000162901
+Epoch [4/10] | SVD update #4: pairs=192, sweeps=10, converged=False, rel_change=1.881e-01, effective_ranks=(95, 71), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.560/0.609, basis_nonorth=6.482e-01
+Epoch [4/10] | Loss: 3.1698 (Cls: 3.1568, TAL: 0.0096, Adv: 0.2979, OT-Reg: 0.000608) | OT scale: 0.50 | OT inner objective: 0.4263 | Marginal residual row/col/max: 1.02e-08/9.62e-09/1.09e-08 | Off-class mass: 0.00e+00 | Train Acc: 0.7188 | Val Acc: 0.2308 | Val P/R/F1 (Macro): 0.0952/0.2083/0.1117 | LR feature/other: 3.44529e-06/0.000137812
+Epoch [5/10] | SVD update #5: pairs=192, sweeps=10, converged=False, rel_change=3.745e-01, effective_ranks=(95, 59), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.528/0.606, basis_nonorth=7.687e-01
+Epoch [5/10] | Loss: 3.6233 (Cls: 3.6108, TAL: -0.0988, Adv: 0.3038, OT-Reg: 0.000684) | OT scale: 1.00 | OT inner objective: 0.4378 | Marginal residual row/col/max: 4.59e-08/3.88e-08/5.46e-08 | Off-class mass: 0.00e+00 | Train Acc: 0.7969 | Val Acc: 0.4615 | Val P/R/F1 (Macro): 0.5595/0.5750/0.4655 | LR feature/other: 2.75e-06/0.00011
+  >>> New Best Val Acc: 0.4615
+Epoch [6/10] | SVD update #6: pairs=192, sweeps=10, converged=False, rel_change=1.851e-03, effective_ranks=(95, 42), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.665/0.657, basis_nonorth=6.665e-01
+Epoch [6/10] | Loss: 2.9723 (Cls: 2.9429, TAL: -0.0066, Adv: 0.3775, OT-Reg: 0.000486) | OT scale: 1.00 | OT inner objective: 0.3897 | Marginal residual row/col/max: 1.12e-08/1.71e-08/1.77e-08 | Off-class mass: 0.00e+00 | Train Acc: 0.8698 | Val Acc: 0.7308 | Val P/R/F1 (Macro): 0.8009/0.8292/0.7655 | LR feature/other: 2.05471e-06/8.21885e-05
+  >>> New Best Val Acc: 0.7308
+Epoch [7/10] | SVD update #7: pairs=192, sweeps=10, converged=False, rel_change=1.151e-03, effective_ranks=(95, 36), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.753/0.750, basis_nonorth=4.902e-01
+Epoch [7/10] | Loss: 2.5918 (Cls: 2.5515, TAL: 0.0083, Adv: 0.4903, OT-Reg: 0.000591) | OT scale: 1.00 | OT inner objective: 0.3787 | Marginal residual row/col/max: 6.29e-05/1.61e-08/6.29e-05 | Off-class mass: 0.00e+00 | Train Acc: 0.9062 | Val Acc: 0.8077 | Val P/R/F1 (Macro): 0.8704/0.8708/0.8389 | LR feature/other: 1.42748e-06/5.70993e-05
+  >>> New Best Val Acc: 0.8077
+Epoch [8/10] | SVD update #8: pairs=192, sweeps=8, converged=True, rel_change=7.089e-04, effective_ranks=(95, 41), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.768/0.764, basis_nonorth=4.525e-01
+Epoch [8/10] | Loss: 2.2679 (Cls: 2.2320, TAL: -0.0315, Adv: 0.4968, OT-Reg: 0.000596) | OT scale: 1.00 | OT inner objective: 0.3603 | Marginal residual row/col/max: 1.46e-08/2.45e-08/2.48e-08 | Off-class mass: 0.00e+00 | Train Acc: 0.9844 | Val Acc: 0.8462 | Val P/R/F1 (Macro): 0.8819/0.9042/0.8712 | LR feature/other: 9.29712e-07/3.71885e-05
+  >>> New Best Val Acc: 0.8462
+Epoch [9/10] | SVD update #9: pairs=192, sweeps=10, converged=False, rel_change=6.682e-02, effective_ranks=(95, 41), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.856/0.826, basis_nonorth=3.305e-01
+Epoch [9/10] | Loss: 2.3322 (Cls: 2.2905, TAL: -0.0358, Adv: 0.5752, OT-Reg: 0.000511) | OT scale: 1.00 | OT inner objective: 0.4082 | Marginal residual row/col/max: 1.30e-07/1.02e-08/1.31e-07 | Off-class mass: 0.00e+00 | Train Acc: 0.9740 | Val Acc: 0.9231 | Val P/R/F1 (Macro): 0.9167/0.9583/0.9206 | LR feature/other: 6.10123e-07/2.44049e-05
+  >>> New Best Val Acc: 0.9231
+Epoch [10/10] | SVD update #10: pairs=192, sweeps=10, converged=True, rel_change=6.657e-04, effective_ranks=(95, 43), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.869/0.861, basis_nonorth=2.917e-01
+Epoch [10/10] | Loss: 2.2193 (Cls: 2.1768, TAL: -0.0645, Adv: 0.6287, OT-Reg: 0.000513) | OT scale: 1.00 | OT inner objective: 0.4140 | Marginal residual row/col/max: 1.68e-08/1.30e-08/1.86e-08 | Off-class mass: 0.00e+00 | Train Acc: 0.9688 | Val Acc: 0.9615 | Val P/R/F1 (Macro): 0.9722/0.9792/0.9737 | LR feature/other: 5e-07/2e-05
+  >>> New Best Val Acc: 0.9615
+Report strategy: best, window=10, reported_acc=0.9615, best_acc=0.9615, selected_epoch=10
+
+迭代 1 报告指标:
+  Accuracy: 0.9615
+  Precision (Macro): 0.9722
+  Recall (Macro): 0.9792
+  F1 (Macro): 0.9737
+  Precision (Micro): 0.9615
+  Recall (Micro): 0.9615
+  F1 (Micro): 0.9615
+  Val class coverage: 6/14 (0.4286), samples=26
+
+================================================================================
+1次迭代统计结果
+================================================================================
+
+accuracy:
+  各迭代值: ['0.9615']
+  均值 (Mean): 0.9615
+  标准差 (Std): 0.0000
+
+precision_macro:
+  各迭代值: ['0.9722']
+  均值 (Mean): 0.9722
+  标准差 (Std): 0.0000
+
+recall_macro:
+  各迭代值: ['0.9792']
+  均值 (Mean): 0.9792
+  标准差 (Std): 0.0000
+
+f1_macro:
+  各迭代值: ['0.9737']
+  均值 (Mean): 0.9737
+  标准差 (Std): 0.0000
+
+precision_micro:
+  各迭代值: ['0.9615']
+  均值 (Mean): 0.9615
+  标准差 (Std): 0.0000
+
+recall_micro:
+  各迭代值: ['0.9615']
+  均值 (Mean): 0.9615
+  标准差 (Std): 0.0000
+
+f1_micro:
+  各迭代值: ['0.9615']
+  均值 (Mean): 0.9615
+  标准差 (Std): 0.0000
+
+val_class_coverage:
+  各迭代值: ['0.4286']
+  均值 (Mean): 0.4286
+  标准差 (Std): 0.0000
+
+val_present_classes:
+  各迭代值: ['6.0000']
+  均值 (Mean): 6.0000
+  标准差 (Std): 0.0000
+
+val_total_classes:
+  各迭代值: ['14.0000']
+  均值 (Mean): 14.0000
+  标准差 (Std): 0.0000
+
+val_samples:
+  各迭代值: ['26.0000']
+  均值 (Mean): 26.0000
+  标准差 (Std): 0.0000
+
+训练结束时间: 2026-10-09 14:58:46
+================================================================================
