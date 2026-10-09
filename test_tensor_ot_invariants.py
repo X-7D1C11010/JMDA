@@ -1,10 +1,19 @@
 import unittest
 
+import numpy as np
 import torch
+from PIL import Image
 
 from Generator import NeuralOptimalTransportGenerator
 from Tensor import TensorBasedAlignmentStable
-from Ablation.module_ablation import select_report_metrics
+from Ablation.Models import Classifier
+from Ablation.PairedClassSampler import PairedClassSampler
+from Ablation.module_ablation import (
+    BinaryDomainDiscriminator,
+    select_report_metrics,
+    transport_projected_feature_basis,
+)
+from Ablation.paired_dataset import PairedModalTransform
 from epoch_svd import build_epoch_pairs
 
 
@@ -14,6 +23,12 @@ class _LabelOnlyDataset:
 
     def __len__(self):
         return len(self.labels)
+
+    def __getitem__(self, index):
+        return {
+            "label": torch.tensor(self.labels[index], dtype=torch.long),
+            "index": torch.tensor(index, dtype=torch.long),
+        }
 
 
 class EpochPairingTests(unittest.TestCase):
@@ -31,6 +46,37 @@ class EpochPairingTests(unittest.TestCase):
                 for source_index, target_index in pairs
             )
         )
+
+    def test_supervised_training_sampler_covers_and_balances_target(self):
+        source = _LabelOnlyDataset([1, 1, 1, 2, 2])
+        target = _LabelOnlyDataset([1, 2, 2, 2])
+        sampler = PairedClassSampler(source, target, batch_size=3)
+
+        observed_target_indices = []
+        observed_target_labels = []
+        for source_batch, target_batch in sampler:
+            self.assertTrue(
+                torch.equal(source_batch["label"], target_batch["label"])
+            )
+            observed_target_indices.extend(target_batch["sample_index"].tolist())
+            observed_target_labels.extend(target_batch["label"].tolist())
+
+        self.assertEqual(set(observed_target_indices), set(range(len(target))))
+        self.assertEqual(observed_target_labels.count(1), 3)
+        self.assertEqual(observed_target_labels.count(2), 3)
+
+    def test_paired_transform_uses_identical_random_geometry(self):
+        grid = np.arange(256 * 256, dtype=np.uint8).reshape(256, 256)
+        image = Image.fromarray(grid, mode="L").convert("RGB")
+        transform = PairedModalTransform(phase="train")
+        torch.manual_seed(123)
+
+        vis, ir = transform(image, image)
+        vis_raw = vis * torch.tensor([0.229, 0.224, 0.225])[:, None, None]
+        vis_raw = vis_raw + torch.tensor([0.485, 0.456, 0.406])[:, None, None]
+        ir_raw = ir * 0.5 + 0.5
+
+        self.assertTrue(torch.allclose(vis_raw, ir_raw, atol=1e-6))
 
 
 class ResultReportingTests(unittest.TestCase):
@@ -64,6 +110,105 @@ class ResultReportingTests(unittest.TestCase):
 
 
 class TensorEpochUpdateTests(unittest.TestCase):
+    def test_downstream_basis_transport_preserves_pure_rotation(self):
+        torch.manual_seed(3)
+        modal_rank = 3
+        feature_dim = 2 * modal_rank
+        old_source = [
+            torch.linalg.qr(torch.randn(7, modal_rank)).Q,
+            torch.linalg.qr(torch.randn(8, modal_rank)).Q,
+        ]
+        old_target = [matrix.clone() for matrix in old_source]
+        rotations = [
+            torch.linalg.qr(torch.randn(modal_rank, modal_rank)).Q
+            for _ in range(2)
+        ]
+        new_source = [
+            projection.matmul(rotation)
+            for projection, rotation in zip(old_source, rotations)
+        ]
+        new_target = [matrix.clone() for matrix in new_source]
+        basis_map = torch.block_diag(*rotations)
+
+        classifier = Classifier(input_dim=feature_dim, num_classes=4).eval()
+        discriminator = BinaryDomainDiscriminator(feature_dim=feature_dim).eval()
+        generator = NeuralOptimalTransportGenerator(
+            feature_dim=feature_dim,
+            hidden_dim=10,
+            transport_mode="sinkhorn",
+        ).eval()
+        old_features = torch.randn(5, feature_dim)
+        new_features = old_features.matmul(basis_map)
+
+        classifier_expected = classifier(old_features)
+        discriminator_expected = discriminator(old_features)
+        cost_expected = generator.cost_net(old_features, old_features)
+        residual_input = torch.cat(
+            [old_features, old_features, torch.full((5, 1), 0.4)], dim=1
+        )
+        residual_expected = generator.mlp[:3](residual_input).matmul(basis_map)
+
+        diagnostics = transport_projected_feature_basis(
+            classifier,
+            discriminator,
+            generator,
+            old_source,
+            old_target,
+            new_source,
+            new_target,
+        )
+
+        self.assertTrue(
+            torch.allclose(classifier(new_features), classifier_expected, atol=1e-5)
+        )
+        self.assertTrue(
+            torch.allclose(
+                discriminator(new_features), discriminator_expected, atol=1e-5
+            )
+        )
+        self.assertTrue(
+            torch.allclose(
+                generator.cost_net(new_features, new_features),
+                cost_expected,
+                atol=1e-5,
+            )
+        )
+        new_residual_input = torch.cat(
+            [new_features, new_features, torch.full((5, 1), 0.4)], dim=1
+        )
+        self.assertTrue(
+            torch.allclose(
+                generator.mlp[:3](new_residual_input), residual_expected, atol=1e-5
+            )
+        )
+        self.assertAlmostEqual(
+            diagnostics["source_subspace_overlap"], 1.0, places=5
+        )
+        self.assertAlmostEqual(
+            diagnostics["target_subspace_overlap"], 1.0, places=5
+        )
+        self.assertLess(diagnostics["basis_map_non_orthogonality"], 1e-5)
+
+    def test_paired_procrustes_alignment_removes_subspace_rotation(self):
+        torch.manual_seed(5)
+        new_source = torch.linalg.qr(torch.randn(9, 4)).Q
+        new_target = torch.linalg.qr(torch.randn(8, 4)).Q
+        rotation = torch.linalg.qr(torch.randn(4, 4)).Q
+        old_source = new_source.matmul(rotation)
+        old_target = new_target.matmul(rotation)
+
+        aligned_source, aligned_target = (
+            TensorBasedAlignmentStable._align_paired_subspace(
+                new_source,
+                new_target,
+                old_source,
+                old_target,
+            )
+        )
+
+        self.assertTrue(torch.allclose(aligned_source, old_source, atol=1e-5))
+        self.assertTrue(torch.allclose(aligned_target, old_target, atol=1e-5))
+
     def test_epoch_update_is_orthogonal_and_forward_is_read_only(self):
         torch.manual_seed(7)
         module = TensorBasedAlignmentStable(
@@ -188,6 +333,32 @@ class SinkhornTransportTests(unittest.TestCase):
             if parameter.requires_grad
         ]
         self.assertTrue(any(gradient is not None for gradient in transnet_gradients))
+
+    def test_supervised_sinkhorn_has_zero_off_class_mass(self):
+        torch.manual_seed(17)
+        generator = NeuralOptimalTransportGenerator(
+            feature_dim=6,
+            hidden_dim=8,
+            transport_mode="sinkhorn",
+            epsilon=0.1,
+            sinkhorn_iterations=100,
+        )
+        source = torch.randn(4, 6)
+        target = torch.randn(4, 6)
+        labels = torch.tensor([0, 0, 1, 1])
+
+        _, details = generator(
+            source,
+            target,
+            return_details=True,
+            source_labels=labels,
+            target_labels=labels,
+        )
+
+        plan = details["mass_plan"]
+        off_class = labels[:, None].ne(labels[None, :])
+        self.assertEqual(float(plan.masked_select(off_class).sum()), 0.0)
+        self.assertLess(float(details["marginal_residual"]), 2e-4)
 
 
 if __name__ == "__main__":

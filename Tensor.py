@@ -220,15 +220,27 @@ class TensorBasedAlignmentStable(nn.Module):
         return covariance
 
     @staticmethod
-    def _orient_singular_vectors(
+    def _align_paired_subspace(
         new_source: torch.Tensor,
         new_target: torch.Tensor,
         old_source: torch.Tensor,
+        old_target: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Resolve the arbitrary joint sign of each singular-vector pair."""
-        signs = torch.sign((new_source * old_source).sum(dim=0))
-        signs = torch.where(signs == 0, torch.ones_like(signs), signs)
-        return new_source * signs, new_target * signs
+        """Choose the least-changing basis inside the optimal SVD subspace.
+
+        Singular vectors are not unique: signs can flip and nearly repeated
+        singular values can rotate or exchange coordinates between epochs.
+        A shared orthogonal Procrustes rotation of the left/right bases keeps
+        their trace objective and contraction inner products unchanged while
+        presenting a stable coordinate system to the downstream classifier.
+        """
+        cross_basis = (
+            new_source.transpose(0, 1).matmul(old_source)
+            + new_target.transpose(0, 1).matmul(old_target)
+        )
+        left, _, right_h = torch.linalg.svd(cross_basis, full_matrices=False)
+        rotation = left.matmul(right_h)
+        return new_source.matmul(rotation), new_target.matmul(rotation)
 
     @torch.no_grad()
     def _alternating_svd_update(
@@ -262,8 +274,11 @@ class TensorBasedAlignmentStable(nn.Module):
                 rank = self.output_dims[mode]
                 new_source = left[:, :rank]
                 new_target = right_h.transpose(-2, -1)[:, :rank]
-                new_source, new_target = self._orient_singular_vectors(
-                    new_source, new_target, self.U_matrices[mode]
+                new_source, new_target = self._align_paired_subspace(
+                    new_source,
+                    new_target,
+                    self.U_matrices[mode],
+                    self.V_matrices[mode],
                 )
 
                 self.U_matrices[mode].copy_(new_source)

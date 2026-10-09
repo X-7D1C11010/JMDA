@@ -1,6 +1,6 @@
 """Neural entropic optimal transport and legacy row-Softmax ablations."""
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -132,6 +132,8 @@ class NeuralOptimalTransportGenerator(nn.Module):
         self,
         source_features: torch.Tensor,
         target_features: torch.Tensor,
+        source_labels: Optional[torch.Tensor] = None,
+        target_labels: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Return a row-conditional map and differentiable diagnostics."""
         if source_features.ndim != 2 or target_features.ndim != 2:
@@ -161,6 +163,27 @@ class NeuralOptimalTransportGenerator(nn.Module):
             (target_count,), 1.0 / target_count
         )
 
+        class_support = None
+        if source_labels is not None or target_labels is not None:
+            if source_labels is None or target_labels is None:
+                raise ValueError(
+                    "source_labels and target_labels must be provided together."
+                )
+            source_labels = source_labels.reshape(-1)
+            target_labels = target_labels.reshape(-1)
+            if source_labels.numel() != source_count or target_labels.numel() != target_count:
+                raise ValueError("Transport labels must match their batch sizes.")
+            if self.transport_mode != "legacy_row_softmax":
+                if not torch.equal(
+                    torch.sort(source_labels).values,
+                    torch.sort(target_labels).values,
+                ):
+                    raise ValueError(
+                        "Class-conditional uniform-marginal OT requires equal "
+                        "source/target class counts in the paired batch."
+                    )
+                class_support = source_labels[:, None].eq(target_labels[None, :])
+
         if self.transport_mode == "legacy_row_softmax":
             # Exact historical behavior: TransNet logits are treated as the
             # transport logits and row-Softmax is the final conditional map.
@@ -174,7 +197,13 @@ class NeuralOptimalTransportGenerator(nn.Module):
             # arbitrarily replacing the geometric metric.
             cost_correction = self.correction_scale * torch.tanh(transnet_logits)
             corrected_cost = normalized_geometric_cost + cost_correction
-            log_kernel = F.log_softmax(-corrected_cost / self.epsilon, dim=1)
+            transport_logits = -corrected_cost / self.epsilon
+            if class_support is not None:
+                transport_logits = transport_logits.masked_fill(
+                    ~class_support,
+                    -torch.inf,
+                )
+            log_kernel = F.log_softmax(transport_logits, dim=1)
 
             if self.transport_mode == "sinkhorn":
                 mass_plan = self._sinkhorn_from_log_kernel(
@@ -203,6 +232,10 @@ class NeuralOptimalTransportGenerator(nn.Module):
         #   s.t. P 1 = a and P^T 1 = b.
         regularized_ot_objective = transport_cost - self.epsilon * entropy
         correction_regularization = cost_correction.square().mean()
+        if class_support is None:
+            off_class_mass = mass_plan.new_zeros(())
+        else:
+            off_class_mass = mass_plan.masked_select(~class_support).sum()
 
         details = {
             "mass_plan": mass_plan,
@@ -222,6 +255,10 @@ class NeuralOptimalTransportGenerator(nn.Module):
             "column_marginal_residual": column_residual,
             "marginal_residual": marginal_residual,
             "correction_regularization": correction_regularization,
+            "off_class_mass": off_class_mass,
+            "class_conditional": mass_plan.new_tensor(
+                float(class_support is not None)
+            ),
         }
         self.last_transport_info = {
             "marginal_residual": float(marginal_residual.detach()),
@@ -233,6 +270,7 @@ class NeuralOptimalTransportGenerator(nn.Module):
             "row_marginal_residual": float(row_residual.detach()),
             "column_marginal_residual": float(column_residual.detach()),
             "correction_regularization": float(correction_regularization.detach()),
+            "off_class_mass": float(off_class_mass.detach()),
         }
         return conditional_plan, details
 
@@ -241,9 +279,14 @@ class NeuralOptimalTransportGenerator(nn.Module):
         source_features: torch.Tensor,
         target_features: torch.Tensor,
         return_details: bool = False,
+        source_labels: Optional[torch.Tensor] = None,
+        target_labels: Optional[torch.Tensor] = None,
     ):
         conditional_plan, details = self.compute_transport(
-            source_features, target_features
+            source_features,
+            target_features,
+            source_labels=source_labels,
+            target_labels=target_labels,
         )
 
         # Barycentric target representation. conditional_plan has row sum 1

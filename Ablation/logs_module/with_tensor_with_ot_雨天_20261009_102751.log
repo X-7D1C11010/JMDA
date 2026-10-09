@@ -1,0 +1,43 @@
+================================================================================
+模块消融实验 - with_tensor_with_ot
+目标域天气: 雨天
+训练开始时间: 2026-10-09 10:27:51
+设备: cuda
+源域: D:\Code\JMDA-Net\Data\晴天
+目标域: D:\Code\JMDA-Net\Data\雨天
+批次大小: 32
+总轮数: 10
+迭代次数: 1
+使用Tensor模块: 是
+使用OT模块: 是
+特征融合方式: Tensor对齐
+域对齐方式: 最优传输
+目标标签比例/权重: 1.0/1.0
+Tensor/Adv损失权重: 0.12/0.08
+Tensor投影维度/更新: 16/每epoch一次; SVD统计批次=32
+学习率: feature=5e-06, other=0.0002, weight_decay=0.0005
+报告策略: best, 窗口: 10
+================================================================================
+
+================================================================================
+迭代 1/1
+随机种子: 42
+================================================================================
+Dataset audit: source_train=760, target_train=96, target_val=26
+Class counts (original labels): source={1: 120, 2: 52, 3: 52, 4: 58, 5: 53, 6: 53, 7: 83, 8: 44, 9: 45, 10: 43, 11: 47, 12: 40, 13: 40, 14: 30}; target_train={1: 7, 5: 32, 6: 12, 7: 6, 9: 20, 11: 19}; target_val={1: 2, 5: 8, 6: 4, 7: 2, 9: 5, 11: 5}
+Exact VIS/IR pairing audit: source={'union_vis_files': 1136, 'union_ir_files': 966, 'matched_pairs_all': 958, 'selected_phase_pairs': 760, 'dropped_unpaired_vis': 178, 'dropped_unpaired_ir': 8}; target_train={'union_vis_files': 122, 'union_ir_files': 122, 'matched_pairs_all': 122, 'selected_phase_pairs': 96, 'dropped_unpaired_vis': 0, 'dropped_unpaired_ir': 0}; target_val={'union_vis_files': 122, 'union_ir_files': 122, 'matched_pairs_all': 122, 'selected_phase_pairs': 26, 'dropped_unpaired_vis': 0, 'dropped_unpaired_ir': 0}
+Training mode: full target-label supervision (class-paired batches).
+Training batches per epoch: 6; batch_size=32
+Feature fusion: Tensor alignment (512+512 -> 16+16); fused_dim=32
+Domain adaptation: Neural OT generator with 3-domain discriminator
+Loss weights: tensor=0.12, adv=0.08
+Transport: mode=sinkhorn, epsilon=0.1, Sinkhorn iterations=50, correction scale=0.1, correction regularization weight=0.001, class conditional=True
+Tensor projection update: once per epoch from the complete target-training pairing bank; projection_dim=16, max_sweeps=5, relative singular-value tolerance=0.001
+Epoch [1/10] | SVD update #1: pairs=192, sweeps=3, converged=True, rel_change=3.964e-05, effective_ranks=(95, 90), class_paired=True, class_balanced=True
+Epoch [1/10] | Loss: 6.6265 (Cls: 6.6061, TAL: -0.0115, Adv: 0.2725, OT-Reg: 0.001590) | OT inner objective: 0.4346 | Marginal residual row/col/max: 1.09e-08/1.21e-08/1.33e-08 | Off-class mass: 0.00e+00 | Train Acc: 0.2292 | Val Acc: 0.4231 | Val P/R/F1 (Macro): 0.4365/0.5667/0.4193 | LR feature/other: 4.88988e-06/0.000195595
+  >>> New Best Val Acc: 0.4231
+Epoch [2/10] | SVD update #2: pairs=192, sweeps=4, converged=True, rel_change=6.466e-05, effective_ranks=(95, 63), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.261/0.296, basis_nonorth=9.166e-01
+Epoch [2/10] | Loss: 5.9989 (Cls: 6.0024, TAL: -0.1640, Adv: 0.2026, OT-Reg: 0.001829) | OT inner objective: 0.4582 | Marginal residual row/col/max: 2.11e-08/1.12e-08/2.30e-08 | Off-class mass: 0.00e+00 | Train Acc: 0.3542 | Val Acc: 0.1923 | Val P/R/F1 (Macro): 0.0600/0.2167/0.0939 | LR feature/other: 4.57029e-06/0.000182812
+Epoch [3/10] | SVD update #3: pairs=192, sweeps=5, converged=False, rel_change=2.088e-01, effective_ranks=(95, 40), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.367/0.407, basis_nonorth=8.020e-01
+Epoch [3/10] | Loss: 5.2494 (Cls: 5.2279, TAL: 0.0279, Adv: 0.2266, OT-Reg: 0.001512) | OT inner objective: 0.3551 | Marginal residual row/col/max: 2.89e-04/2.20e-08/2.89e-04 | Off-class mass: 0.00e+00 | Train Acc: 0.4010 | Val Acc: 0.1923 | Val P/R/F1 (Macro): 0.1053/0.2833/0.1359 | LR feature/other: 4.07252e-06/0.000162901
+Epoch [4/10] | SVD update #4: pairs=192, sweeps=5, converged=False, rel_change=5.602e-01, effective_ranks=(95, 30), class_paired=True, class_balanced=True, basis_overlap_src/tgt=0.430/0.435, basis_nonorth=8.450e-01

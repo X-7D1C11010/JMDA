@@ -1,0 +1,35 @@
+================================================================================
+模块消融实验 - without_tensor_without_ot
+目标域天气: 雨天
+训练开始时间: 2026-10-09 10:04:20
+设备: cuda
+源域: D:\Code\JMDA-Net\Data\晴天
+目标域: D:\Code\JMDA-Net\Data\雨天
+批次大小: 32
+总轮数: 20
+迭代次数: 1
+使用Tensor模块: 否
+使用OT模块: 否
+特征融合方式: 通道拼接
+域对齐方式: 常规对抗
+目标标签比例/权重: 1.0/1.0
+Tensor/Adv损失权重: 0.0/0.08
+学习率: feature=5e-06, other=0.0002, weight_decay=0.0005
+报告策略: best, 窗口: 10
+================================================================================
+
+================================================================================
+迭代 1/1
+随机种子: 42
+================================================================================
+Dataset audit: source_train=760, target_train=96, target_val=26
+Class counts (original labels): source={1: 120, 2: 52, 3: 52, 4: 58, 5: 53, 6: 53, 7: 83, 8: 44, 9: 45, 10: 43, 11: 47, 12: 40, 13: 40, 14: 30}; target_train={1: 7, 5: 32, 6: 12, 7: 6, 9: 20, 11: 19}; target_val={1: 2, 5: 8, 6: 4, 7: 2, 9: 5, 11: 5}
+Training mode: full target-label supervision (class-paired batches).
+Training batches per epoch: 6; batch_size=32
+Feature fusion: Channel concatenation (512+512); fused_dim=1024
+Domain adaptation: standard source-target adversarial training, no generator
+Loss weights: tensor=0.00, adv=0.08
+Epoch [1/20] | Loss: 4.7715 (Cls: 4.7000, TAL: 0.0000, Adv: 0.8938, OT-Reg: 0.000000) | Train Acc: 0.2656 | Val Acc: 0.1538 | Val P/R/F1 (Macro): 0.0370/0.1333/0.0580 | LR feature/other: 4.9723e-06/0.000198892
+  >>> New Best Val Acc: 0.1538
+Epoch [2/20] | Loss: 3.0363 (Cls: 2.9702, TAL: 0.0000, Adv: 0.8254, OT-Reg: 0.000000) | Train Acc: 0.6146 | Val Acc: 0.1923 | Val P/R/F1 (Macro): 0.0417/0.1667/0.0667 | LR feature/other: 4.88988e-06/0.000195595
+  >>> New Best Val Acc: 0.1923

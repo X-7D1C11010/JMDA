@@ -1,0 +1,121 @@
+================================================================================
+模块消融实验 - without_tensor_without_ot
+目标域天气: 雨天
+训练开始时间: 2026-10-09 10:10:20
+设备: cuda
+源域: D:\Code\JMDA-Net\Data\晴天
+目标域: D:\Code\JMDA-Net\Data\雨天
+批次大小: 32
+总轮数: 10
+迭代次数: 1
+使用Tensor模块: 否
+使用OT模块: 否
+特征融合方式: 通道拼接
+域对齐方式: 常规对抗
+目标标签比例/权重: 1.0/1.0
+Tensor/Adv损失权重: 0.0/0.08
+学习率: feature=5e-06, other=0.0002, weight_decay=0.0005
+报告策略: best, 窗口: 10
+================================================================================
+
+================================================================================
+迭代 1/1
+随机种子: 42
+================================================================================
+Dataset audit: source_train=760, target_train=96, target_val=26
+Class counts (original labels): source={1: 120, 2: 52, 3: 52, 4: 58, 5: 53, 6: 53, 7: 83, 8: 44, 9: 45, 10: 43, 11: 47, 12: 40, 13: 40, 14: 30}; target_train={1: 7, 5: 32, 6: 12, 7: 6, 9: 20, 11: 19}; target_val={1: 2, 5: 8, 6: 4, 7: 2, 9: 5, 11: 5}
+Exact VIS/IR pairing audit: source={'union_vis_files': 1136, 'union_ir_files': 966, 'matched_pairs_all': 958, 'selected_phase_pairs': 760, 'dropped_unpaired_vis': 178, 'dropped_unpaired_ir': 8}; target_train={'union_vis_files': 122, 'union_ir_files': 122, 'matched_pairs_all': 122, 'selected_phase_pairs': 96, 'dropped_unpaired_vis': 0, 'dropped_unpaired_ir': 0}; target_val={'union_vis_files': 122, 'union_ir_files': 122, 'matched_pairs_all': 122, 'selected_phase_pairs': 26, 'dropped_unpaired_vis': 0, 'dropped_unpaired_ir': 0}
+Training mode: full target-label supervision (class-paired batches).
+Training batches per epoch: 6; batch_size=32
+Feature fusion: Channel concatenation (512+512); fused_dim=1024
+Domain adaptation: standard source-target adversarial training, no generator
+Loss weights: tensor=0.00, adv=0.08
+Epoch [1/10] | Loss: 4.6857 (Cls: 4.6136, TAL: 0.0000, Adv: 0.9009, OT-Reg: 0.000000) | Train Acc: 0.3021 | Val Acc: 0.1154 | Val P/R/F1 (Macro): 0.0357/0.1000/0.0526 | LR feature/other: 4.88988e-06/0.000195595
+  >>> New Best Val Acc: 0.1154
+Epoch [2/10] | Loss: 3.0304 (Cls: 2.9635, TAL: 0.0000, Adv: 0.8363, OT-Reg: 0.000000) | Train Acc: 0.5781 | Val Acc: 0.1923 | Val P/R/F1 (Macro): 0.0347/0.1667/0.0575 | LR feature/other: 4.57029e-06/0.000182812
+  >>> New Best Val Acc: 0.1923
+Epoch [3/10] | Loss: 2.4282 (Cls: 2.3607, TAL: 0.0000, Adv: 0.8441, OT-Reg: 0.000000) | Train Acc: 0.7917 | Val Acc: 0.3462 | Val P/R/F1 (Macro): 0.2639/0.3125/0.2242 | LR feature/other: 4.07252e-06/0.000162901
+  >>> New Best Val Acc: 0.3462
+Epoch [4/10] | Loss: 2.1898 (Cls: 2.1298, TAL: 0.0000, Adv: 0.7501, OT-Reg: 0.000000) | Train Acc: 0.8438 | Val Acc: 0.5769 | Val P/R/F1 (Macro): 0.5913/0.5458/0.4675 | LR feature/other: 3.44529e-06/0.000137812
+  >>> New Best Val Acc: 0.5769
+Epoch [5/10] | Loss: 2.0611 (Cls: 2.0021, TAL: 0.0000, Adv: 0.7373, OT-Reg: 0.000000) | Train Acc: 0.9271 | Val Acc: 0.6538 | Val P/R/F1 (Macro): 0.6121/0.6208/0.5588 | LR feature/other: 2.75e-06/0.00011
+  >>> New Best Val Acc: 0.6538
+Epoch [6/10] | Loss: 1.8813 (Cls: 1.8207, TAL: 0.0000, Adv: 0.7573, OT-Reg: 0.000000) | Train Acc: 0.9062 | Val Acc: 0.5769 | Val P/R/F1 (Macro): 0.4190/0.5375/0.4315 | LR feature/other: 2.05471e-06/8.21885e-05
+Epoch [7/10] | Loss: 1.7499 (Cls: 1.6968, TAL: 0.0000, Adv: 0.6637, OT-Reg: 0.000000) | Train Acc: 0.9531 | Val Acc: 0.6538 | Val P/R/F1 (Macro): 0.6171/0.6083/0.5564 | LR feature/other: 1.42748e-06/5.70993e-05
+Epoch [8/10] | Loss: 1.6910 (Cls: 1.6331, TAL: 0.0000, Adv: 0.7244, OT-Reg: 0.000000) | Train Acc: 0.9740 | Val Acc: 0.6923 | Val P/R/F1 (Macro): 0.6329/0.6417/0.5833 | LR feature/other: 9.29712e-07/3.71885e-05
+  >>> New Best Val Acc: 0.6923
+Epoch [9/10] | Loss: 1.6643 (Cls: 1.6087, TAL: 0.0000, Adv: 0.6959, OT-Reg: 0.000000) | Train Acc: 0.9844 | Val Acc: 0.6923 | Val P/R/F1 (Macro): 0.6329/0.6417/0.5833 | LR feature/other: 6.10123e-07/2.44049e-05
+Epoch [10/10] | Loss: 1.6347 (Cls: 1.5825, TAL: 0.0000, Adv: 0.6525, OT-Reg: 0.000000) | Train Acc: 0.9740 | Val Acc: 0.6538 | Val P/R/F1 (Macro): 0.6329/0.6083/0.5536 | LR feature/other: 5e-07/2e-05
+Report strategy: best, window=10, reported_acc=0.6923, best_acc=0.6923, selected_epoch=8
+
+迭代 1 报告指标:
+  Accuracy: 0.6923
+  Precision (Macro): 0.6329
+  Recall (Macro): 0.6417
+  F1 (Macro): 0.5833
+  Precision (Micro): 0.6923
+  Recall (Micro): 0.6923
+  F1 (Micro): 0.6923
+  Val class coverage: 6/14 (0.4286), samples=26
+
+================================================================================
+1次迭代统计结果
+================================================================================
+
+accuracy:
+  各迭代值: ['0.6923']
+  均值 (Mean): 0.6923
+  标准差 (Std): 0.0000
+
+precision_macro:
+  各迭代值: ['0.6329']
+  均值 (Mean): 0.6329
+  标准差 (Std): 0.0000
+
+recall_macro:
+  各迭代值: ['0.6417']
+  均值 (Mean): 0.6417
+  标准差 (Std): 0.0000
+
+f1_macro:
+  各迭代值: ['0.5833']
+  均值 (Mean): 0.5833
+  标准差 (Std): 0.0000
+
+precision_micro:
+  各迭代值: ['0.6923']
+  均值 (Mean): 0.6923
+  标准差 (Std): 0.0000
+
+recall_micro:
+  各迭代值: ['0.6923']
+  均值 (Mean): 0.6923
+  标准差 (Std): 0.0000
+
+f1_micro:
+  各迭代值: ['0.6923']
+  均值 (Mean): 0.6923
+  标准差 (Std): 0.0000
+
+val_class_coverage:
+  各迭代值: ['0.4286']
+  均值 (Mean): 0.4286
+  标准差 (Std): 0.0000
+
+val_present_classes:
+  各迭代值: ['6.0000']
+  均值 (Mean): 6.0000
+  标准差 (Std): 0.0000
+
+val_total_classes:
+  各迭代值: ['14.0000']
+  均值 (Mean): 14.0000
+  标准差 (Std): 0.0000
+
+val_samples:
+  各迭代值: ['26.0000']
+  均值 (Mean): 26.0000
+  标准差 (Std): 0.0000
+
+训练结束时间: 2026-10-09 10:17:51
+================================================================================

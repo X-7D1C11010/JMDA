@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import LambdaLR
 import numpy as np
 import random
 from datetime import datetime
@@ -11,9 +11,19 @@ import logging
 from sklearn.metrics import precision_score, recall_score, f1_score
 import argparse
 import torch.nn.functional as F
+from collections import Counter
 
-from DataLoad import MultiModalDomainDataset
-from main import PairedClassSampler
+try:
+    from .paired_dataset import (
+        PairedMultiModalDomainDataset as MultiModalDomainDataset,
+    )
+    from .PairedClassSampler import PairedClassSampler
+except ImportError:
+    # Direct execution: python Ablation/module_ablation.py
+    from paired_dataset import (
+        PairedMultiModalDomainDataset as MultiModalDomainDataset,
+    )
+    from PairedClassSampler import PairedClassSampler
 from Models import VisualFeatureExtractor, IRFeatureExtractor, Classifier
 from Tensor import TensorBasedAlignmentStable
 from epoch_svd import format_svd_update, update_epoch_projections
@@ -45,6 +55,136 @@ class LabelSmoothingCrossEntropy(nn.Module):
 def set_requires_grad(model, requires_grad=False):
     for param in model.parameters():
         param.requires_grad = requires_grad
+
+
+def _reset_optimizer_state(optimizer, parameters):
+    """Discard Adam moments whose coordinate system was reparameterized."""
+    if optimizer is None:
+        return
+    for parameter in parameters:
+        optimizer.state.pop(parameter, None)
+
+
+@torch.no_grad()
+def transport_projected_feature_basis(
+    classifier,
+    discriminator,
+    generator,
+    old_source_projections,
+    old_target_projections,
+    new_source_projections,
+    new_target_projections,
+    optimizer_g=None,
+    optimizer_d=None,
+):
+    """Keep learned downstream functions consistent after an SVD basis update.
+
+    If a modal basis changes from P_old to P_new, projected row features
+    satisfy z_old ~= z_new (P_new^T P_old). PyTorch stores a Linear weight
+    transposed relative to row features, so its input weight is
+    right-multiplied by P_old^T P_new. Source and target share every
+    downstream network; consequently we use their least-squares average.
+
+    Linear consumers are preserved exactly for a pure shared basis rotation.
+    A genuine subspace change cannot be inverted, but this is its
+    minimum-squared-error transport and prevents an epoch-boundary SVD update
+    from arbitrarily resetting the classifier, discriminator, and neural-OT
+    coordinate systems. The residual MLP's final pointwise Tanh makes its
+    vector-output transport an approximation outside the near-linear regime.
+    """
+    projection_groups = (
+        old_source_projections,
+        old_target_projections,
+        new_source_projections,
+        new_target_projections,
+    )
+    if len({len(group) for group in projection_groups}) != 1:
+        raise ValueError("Old/new source/target projection counts must match.")
+
+    blocks = []
+    source_overlaps = []
+    target_overlaps = []
+    for old_source, old_target, new_source, new_target in zip(*projection_groups):
+        if old_source.shape != new_source.shape or old_target.shape != new_target.shape:
+            raise ValueError("Old/new projection shapes must match.")
+        source_map = old_source.transpose(0, 1).matmul(new_source)
+        target_map = old_target.transpose(0, 1).matmul(new_target)
+        blocks.append(0.5 * (source_map + target_map))
+        rank = max(source_map.shape[0], 1)
+        source_overlaps.append(
+            float(source_map.square().sum().div(rank).clamp(0.0, 1.0))
+        )
+        target_overlaps.append(
+            float(target_map.square().sum().div(rank).clamp(0.0, 1.0))
+        )
+
+    basis_map = torch.block_diag(*blocks)
+    feature_dim = basis_map.shape[0]
+    transformed_parameters = []
+
+    def transport_linear_input(linear):
+        if not isinstance(linear, nn.Linear) or linear.in_features != feature_dim:
+            raise ValueError("Projected-feature consumer has an incompatible input width.")
+        linear.weight.copy_(linear.weight.matmul(basis_map))
+        transformed_parameters.append(linear.weight)
+
+    transport_linear_input(classifier.fc[0])
+    transport_linear_input(discriminator.discriminator[0])
+
+    if generator is not None:
+        transport_linear_input(generator.cost_net.proj[0])
+
+        residual_input = generator.mlp[0]
+        if residual_input.in_features != 2 * feature_dim + 1:
+            raise ValueError("Neural-OT residual input width is incompatible.")
+        residual_input.weight[:, :feature_dim].copy_(
+            residual_input.weight[:, :feature_dim].matmul(basis_map)
+        )
+        residual_input.weight[:, feature_dim:2 * feature_dim].copy_(
+            residual_input.weight[:, feature_dim:2 * feature_dim].matmul(basis_map)
+        )
+        transformed_parameters.append(residual_input.weight)
+
+        residual_output = generator.mlp[2]
+        if residual_output.out_features != feature_dim:
+            raise ValueError("Neural-OT residual output width is incompatible.")
+        residual_output.weight.copy_(
+            basis_map.transpose(0, 1).matmul(residual_output.weight)
+        )
+        transformed_parameters.append(residual_output.weight)
+        if residual_output.bias is not None:
+            residual_output.bias.copy_(
+                basis_map.transpose(0, 1).matmul(residual_output.bias)
+            )
+            transformed_parameters.append(residual_output.bias)
+
+    discriminator_parameters = set(discriminator.parameters())
+    _reset_optimizer_state(
+        optimizer_g,
+        [
+            parameter
+            for parameter in transformed_parameters
+            if parameter not in discriminator_parameters
+        ],
+    )
+    _reset_optimizer_state(
+        optimizer_d,
+        [
+            parameter
+            for parameter in transformed_parameters
+            if parameter in discriminator_parameters
+        ],
+    )
+
+    identity = torch.eye(feature_dim, device=basis_map.device, dtype=basis_map.dtype)
+    non_orthogonality = torch.linalg.matrix_norm(
+        basis_map.transpose(0, 1).matmul(basis_map) - identity
+    ) / max(feature_dim ** 0.5, 1.0)
+    return {
+        "source_subspace_overlap": float(np.mean(source_overlaps)),
+        "target_subspace_overlap": float(np.mean(target_overlaps)),
+        "basis_map_non_orthogonality": float(non_orthogonality),
+    }
 
 
 class ChannelConcatenation(nn.Module):
@@ -368,6 +508,24 @@ def run_single_iteration(args, seed, logger):
     tgt_val_ds = MultiModalDomainDataset(TARGET_ROOT, domain_type='target', phase='val',
                                          global_label_map=global_map, val_augment=False)
 
+    logger.info(
+        "Dataset audit: "
+        f"source_train={len(src_train_ds)}, target_train={len(tgt_train_ds)}, "
+        f"target_val={len(tgt_val_ds)}"
+    )
+    logger.info(
+        "Class counts (original labels): "
+        f"source={dict(sorted(Counter(src_train_ds.labels).items()))}; "
+        f"target_train={dict(sorted(Counter(tgt_train_ds.labels).items()))}; "
+        f"target_val={dict(sorted(Counter(tgt_val_ds.labels).items()))}"
+    )
+    logger.info(
+        "Exact VIS/IR pairing audit: "
+        f"source={src_train_ds.pairing_stats}; "
+        f"target_train={tgt_train_ds.pairing_stats}; "
+        f"target_val={tgt_val_ds.pairing_stats}"
+    )
+
     target_label_ratio = 1.0 if args.use_target_labels else args.target_label_ratio
     target_cls_weight = 1.0 if args.use_target_labels else args.target_cls_weight
     target_label_ratio = max(0.0, min(1.0, target_label_ratio))
@@ -389,6 +547,10 @@ def run_single_iteration(args, seed, logger):
             logger.info(
                 f"Fixed labeled target subset: {len(target_labeled_indices)}/{len(tgt_train_ds)} samples."
             )
+    logger.info(
+        f"Training batches per epoch: {len(paired_loader)}; "
+        f"batch_size={BATCH_SIZE}"
+    )
     val_loader = DataLoader(tgt_val_ds, batch_size=BATCH_SIZE, shuffle=False, 
                            drop_last=False, num_workers=0)
 
@@ -398,6 +560,12 @@ def run_single_iteration(args, seed, logger):
     TENSOR_LOSS_WEIGHT = args.tensor_loss_weight if args.use_tensor_module else 0.0
     ADV_LOSS_WEIGHT = args.adv_loss_weight
     DISCRIMINATOR_UPDATE_INTERVAL = 2
+    use_class_conditional_ot = (
+        args.use_ot_module
+        and args.use_target_labels
+        and args.class_conditional_ot
+        and args.transport_mode != 'legacy_row_softmax'
+    )
 
     if args.use_tensor_module:
         fused_dim = PROJ_DIM * 2
@@ -451,7 +619,8 @@ def run_single_iteration(args, seed, logger):
             f"Transport: mode={args.transport_mode}, epsilon={args.ot_epsilon:g}, "
             f"Sinkhorn iterations={args.ot_sinkhorn_iterations}, "
             f"correction scale={args.ot_correction_scale:g}, "
-            f"correction regularization weight={args.ot_correction_reg_weight:g}"
+            f"correction regularization weight={args.ot_correction_reg_weight:g}, "
+            f"class conditional={use_class_conditional_ot}"
         )
     if args.use_tensor_module:
         logger.info(
@@ -478,7 +647,15 @@ def run_single_iteration(args, seed, logger):
 
     optimizer_d = optim.AdamW(discriminator.parameters(), lr=args.lr_other, weight_decay=args.weight_decay)
 
-    scheduler = ReduceLROnPlateau(optimizer_g, mode='max', factor=0.5, patience=10, min_lr=1e-6)
+    # Validation sets contain only 26--120 observations.  Driving the learning
+    # rate from their noisy epoch accuracy repeatedly collapsed both parameter
+    # groups to 1e-6.  A deterministic cosine multiplier preserves the intended
+    # feature/other LR ratio throughout training.
+    def cosine_lr_multiplier(epoch_index):
+        progress = min(max(epoch_index / max(EPOCHS, 1), 0.0), 1.0)
+        return 0.1 + 0.9 * 0.5 * (1.0 + np.cos(np.pi * progress))
+
+    scheduler = LambdaLR(optimizer_g, lr_lambda=cosine_lr_multiplier)
     criterion_cls = LabelSmoothingCrossEntropy(eps=0.1)
 
     best_val_acc = -float('inf')
@@ -488,6 +665,14 @@ def run_single_iteration(args, seed, logger):
 
     for epoch in range(EPOCHS):
         if args.use_tensor_module:
+            old_source_projections = [
+                projection.detach().clone()
+                for projection in tal_module.U_matrices
+            ]
+            old_target_projections = [
+                projection.detach().clone()
+                for projection in tal_module.V_matrices
+            ]
             svd_info = update_epoch_projections(
                 tal_module=tal_module,
                 encoders=[net_vis, net_ir],
@@ -496,9 +681,32 @@ def run_single_iteration(args, seed, logger):
                 target_dataset=tgt_svd_ds,
                 batch_size=args.svd_stat_batch_size,
                 device=DEVICE,
-                seed=seed * 1000 + epoch,
+                # Cross-domain observations are class-corresponding rather
+                # than instance-corresponding. Keep the within-class pairing
+                # fixed for one repeated run so an epoch update reflects
+                # encoder/covariance change, not a newly randomized matching.
+                seed=seed * 1000,
                 class_paired=args.use_target_labels,
+                balance_classes=(
+                    args.use_target_labels and args.balance_svd_classes
+                ),
             )
+            # Epoch 1 has no learned downstream function to preserve. From
+            # epoch 2 onward, move every projected-feature consumer into the
+            # new SVD coordinates before its next optimizer step.
+            if epoch > 0:
+                basis_info = transport_projected_feature_basis(
+                    classifier=classifier,
+                    discriminator=discriminator,
+                    generator=generator,
+                    old_source_projections=old_source_projections,
+                    old_target_projections=old_target_projections,
+                    new_source_projections=tal_module.U_matrices,
+                    new_target_projections=tal_module.V_matrices,
+                    optimizer_g=optimizer_g,
+                    optimizer_d=optimizer_d,
+                )
+                svd_info.update(basis_info)
             logger.info(f"Epoch [{epoch + 1}/{EPOCHS}] | {format_svd_update(svd_info)}")
             epoch_projection_update_count = int(
                 tal_module.projection_update_count.item()
@@ -523,6 +731,7 @@ def run_single_iteration(args, seed, logger):
         row_marginal_residual_accum = 0.0
         column_marginal_residual_accum = 0.0
         ot_objective_accum = 0.0
+        off_class_mass_accum = 0.0
         train_correct = 0
         train_total = 0
         steps = 0
@@ -562,6 +771,8 @@ def run_single_iteration(args, seed, logger):
                     feat_src,
                     feat_tgt,
                     return_details=True,
+                    source_labels=s_label if use_class_conditional_ot else None,
+                    target_labels=t_label if use_class_conditional_ot else None,
                 )
             else:
                 feat_mid = None
@@ -658,6 +869,9 @@ def run_single_iteration(args, seed, logger):
                 ot_objective_accum += transport_details[
                     'regularized_ot_objective'
                 ].item()
+                off_class_mass_accum += transport_details[
+                    'off_class_mass'
+                ].item()
 
             train_logits = pred_tgt if args.use_target_labels else pred_src
             train_labels = t_label if args.use_target_labels else s_label
@@ -678,8 +892,9 @@ def run_single_iteration(args, seed, logger):
         train_acc = train_correct / train_total if train_total > 0 else 0
         val_acc = val_metrics['accuracy']
 
-        scheduler.step(val_acc)
-        current_lr = optimizer_g.param_groups[0]['lr']
+        scheduler.step()
+        current_feature_lr = optimizer_g.param_groups[0]['lr']
+        current_other_lr = optimizer_g.param_groups[1]['lr']
 
         avg_loss = loss_accum / steps if steps > 0 else 0.0
         avg_loss_cls = loss_cls_accum / steps if steps > 0 else 0.0
@@ -690,6 +905,7 @@ def run_single_iteration(args, seed, logger):
         avg_row_residual = row_marginal_residual_accum / steps if steps > 0 else 0.0
         avg_column_residual = column_marginal_residual_accum / steps if steps > 0 else 0.0
         avg_ot_objective = ot_objective_accum / steps if steps > 0 else 0.0
+        avg_off_class_mass = off_class_mass_accum / steps if steps > 0 else 0.0
 
         ot_diagnostic = ""
         if args.use_ot_module:
@@ -702,6 +918,7 @@ def run_single_iteration(args, seed, logger):
                 f"{objective_name}: {avg_ot_objective:.4f} | "
                 f"Marginal residual row/col/max: {avg_row_residual:.2e}/"
                 f"{avg_column_residual:.2e}/{avg_marginal_residual:.2e} | "
+                f"Off-class mass: {avg_off_class_mass:.2e} | "
             )
 
         log_msg = (f"Epoch [{epoch + 1}/{EPOCHS}] | "
@@ -713,7 +930,7 @@ def run_single_iteration(args, seed, logger):
                    f"Val P/R/F1 (Macro): {val_metrics['precision_macro']:.4f}/"
                    f"{val_metrics['recall_macro']:.4f}/"
                    f"{val_metrics['f1_macro']:.4f} | "
-                   f"LR: {current_lr:.6f}")
+                   f"LR feature/other: {current_feature_lr:.6g}/{current_other_lr:.6g}")
 
         logger.info(log_msg)
 
@@ -907,12 +1124,20 @@ def main():
                        help='maximum magnitude scale of the bounded TransNet cost correction')
     parser.add_argument('--ot_correction_reg_weight', type=float, default=1e-3,
                        help='weight for squared neural cost-correction regularization')
-    parser.add_argument('--svd_max_sweeps', type=int, default=3,
+    parser.add_argument('--class_conditional_ot', action='store_true', default=True,
+                       help='in supervised DA, constrain revised OT support to same-class pairs')
+    parser.add_argument('--no_class_conditional_ot', dest='class_conditional_ot',
+                       action='store_false', help='disable the supervised same-class OT support constraint')
+    parser.add_argument('--svd_max_sweeps', type=int, default=10,
                        help='maximum alternating modal SVD sweeps per epoch update')
-    parser.add_argument('--svd_tolerance', type=float, default=1e-4,
+    parser.add_argument('--svd_tolerance', type=float, default=1e-3,
                        help='relative singular-value convergence tolerance')
     parser.add_argument('--svd_stat_batch_size', type=int, default=32,
                        help='inference batch size used to build the epoch SVD feature bank')
+    parser.add_argument('--balance_svd_classes', action='store_true', default=True,
+                       help='class-balance supervised epoch-level SVD statistics')
+    parser.add_argument('--no_balance_svd_classes', dest='balance_svd_classes',
+                       action='store_false', help='use each target sample once without SVD class balancing')
     parser.add_argument('--report_strategy', type=str, default='best',
                        choices=['best', 'best_window', 'last', 'last_window'],
                        help='best selects the highest-validation-accuracy epoch in each iteration')

@@ -20,6 +20,7 @@ def build_epoch_pairs(
     target_dataset,
     seed: int,
     class_paired: bool,
+    balance_classes: bool = False,
 ) -> List[Tuple[int, int]]:
     """Return deterministic pairs while covering each target sample once.
 
@@ -52,11 +53,21 @@ def build_epoch_pairs(
         )
 
     pairs: List[Tuple[int, int]] = []
+    samples_per_class = (
+        max(len(indices) for indices in target_by_class.values())
+        if balance_classes
+        else None
+    )
     for class_label in sorted(target_classes):
         source_indices = list(source_by_class[class_label])
         target_indices = list(target_by_class[class_label])
         rng.shuffle(source_indices)
         rng.shuffle(target_indices)
+        if samples_per_class is not None:
+            repeats, remainder = divmod(samples_per_class, len(target_indices))
+            target_indices = (
+                target_indices * repeats + target_indices[:remainder]
+            )
         pairs.extend(
             (
                 source_indices[position % len(source_indices)],
@@ -82,6 +93,7 @@ def update_epoch_projections(
     device: torch.device,
     seed: int,
     class_paired: bool = True,
+    balance_classes: bool = False,
 ):
     """Extract a complete feature bank and perform one projection update."""
     if len(encoders) != len(modality_keys):
@@ -98,6 +110,7 @@ def update_epoch_projections(
         target_dataset,
         seed=seed,
         class_paired=class_paired,
+        balance_classes=balance_classes,
     )
     previous_training_states = [encoder.training for encoder in encoders]
     for encoder in encoders:
@@ -129,6 +142,7 @@ def update_epoch_projections(
     target_bank = [torch.cat(chunks, dim=0) for chunks in target_features]
     update_info = tal_module.update_projections(source_bank, target_bank)
     update_info["class_paired"] = bool(class_paired)
+    update_info["class_balanced"] = bool(class_paired and balance_classes)
     return update_info
 
 
@@ -136,12 +150,22 @@ def format_svd_update(update_info: Dict[str, object]) -> str:
     """Create a compact, reproducible projection-update log line."""
     relative_change = float(update_info["relative_singular_change"])
     change_text = "inf" if relative_change == float("inf") else f"{relative_change:.3e}"
+    basis_text = ""
+    if "source_subspace_overlap" in update_info:
+        basis_text = (
+            f", basis_overlap_src/tgt="
+            f"{update_info['source_subspace_overlap']:.3f}/"
+            f"{update_info['target_subspace_overlap']:.3f}, "
+            f"basis_nonorth={update_info['basis_map_non_orthogonality']:.3e}"
+        )
     return (
         f"SVD update #{update_info['update_count']}: "
         f"pairs={update_info['sample_count']}, sweeps={update_info['sweeps']}, "
         f"converged={update_info['converged']}, rel_change={change_text}, "
         f"effective_ranks={update_info['effective_ranks']}, "
-        f"class_paired={update_info['class_paired']}"
+        f"class_paired={update_info['class_paired']}, "
+        f"class_balanced={update_info.get('class_balanced', False)}"
+        f"{basis_text}"
     )
 
 
