@@ -19,6 +19,7 @@ hub_visualizations/
 MambaOut-main/
 models/
 visualizations/
+JMDA_Net_VDS2Raw_Codex/
 
 # 忽略 Python 缓存
 __pycache__/
