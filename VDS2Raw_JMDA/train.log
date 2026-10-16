@@ -1,0 +1,297 @@
+nohup: 忽略输入
+{
+  "status": "PASS",
+  "dataset_root": "/home/lixiang/lx/VDS2Raw/threeclass_ready",
+  "manifest": "/home/lixiang/lx/VDS2Raw/threeclass_ready/dataset_manifest.csv",
+  "manifest_sha256": "27cfbd153c60f8ce1d2175f28a96eea8869cf5f2003d7b1554212731cd7bc3b2",
+  "sample_count": 271,
+  "partition_counts": {
+    "source_train": 116,
+    "target_train": 94,
+    "target_val": 28,
+    "target_test": 33
+  },
+  "class_counts_by_partition": {
+    "source_train": {
+      "Cargo": 16,
+      "Fishing": 41,
+      "Sailing & Pleasure": 59
+    },
+    "target_train": {
+      "Cargo": 46,
+      "Fishing": 33,
+      "Sailing & Pleasure": 15
+    },
+    "target_val": {
+      "Cargo": 16,
+      "Fishing": 7,
+      "Sailing & Pleasure": 5
+    },
+    "target_test": {
+      "Cargo": 17,
+      "Fishing": 11,
+      "Sailing & Pleasure": 5
+    }
+  },
+  "scene_overlap_counts": {
+    "source_train__target_train": 0,
+    "source_train__target_val": 0,
+    "source_train__target_test": 0,
+    "target_train__target_val": 0,
+    "target_train__target_test": 0,
+    "target_val__target_test": 0
+  },
+  "mmsi_overlap_counts": {
+    "source_train__target_train": 0,
+    "source_train__target_val": 0,
+    "source_train__target_test": 0,
+    "target_train__target_val": 0,
+    "target_train__target_test": 0,
+    "target_val__target_test": 0
+  },
+  "missing_npz": 0,
+  "npz_schema_mismatches": 0,
+  "errors": []
+}
+{
+  "fit_partitions": [
+    "source_train",
+    "target_train"
+  ],
+  "band_order": [
+    "B4",
+    "B3",
+    "B2",
+    "B8"
+  ],
+  "mean": [
+    104.39230862463329,
+    151.73395519450384,
+    202.7514057398107,
+    82.96544128006232
+  ],
+  "std": [
+    23.398250185963867,
+    23.12236905687315,
+    24.547907772900214,
+    33.527578645498586
+  ],
+  "valid_pixel_count": [
+    1930656,
+    1930656,
+    1930656,
+    1930656
+  ],
+  "all_zero_padding_pixels": 4704,
+  "all_zero_padding_fraction": 0.0024305555555555556,
+  "padding_policy": "exclude from fit; restore normalized values to zero"
+}
+2026-10-09 20:56:17 | VDS2Raw supervised domain adaptation
+2026-10-09 20:56:17 | ablation=full seed=42 device=cuda pretrained=True tensor=True ot=True
+2026-10-09 20:56:17 | partitions source_train=116 target_train=94 target_val=28 target_test=33
+2026-10-09 20:56:17 | modalities RGB=3x96x96 NIR=1x96x96 AIS=13+13mask; fused_dim=192
+2026-10-09 20:56:17 | target_train coverage=94 samples/epoch, batches=6, class balancing=disabled
+2026-10-09 20:56:19 | epoch 1/100 | SVD update #1: pairs=94, sweeps=10, converged=False, rel_change=3.806e-01, effective_ranks=(63, 64, 38), class_paired=True, class_balanced=False
+2026-10-09 20:56:19 | epoch 1/100 | loss=1.2967 cls=1.3184 tensor=-0.1805 adv=0.0000 src_acc=0.3511 tgt_train_acc=0.4255 val_acc=0.5714 val_f1=0.2481 ot_scale=0.00
+2026-10-09 20:56:20 | new best checkpoint: epoch=1 val_accuracy=0.5714 val_f1=0.2481
+2026-10-09 20:56:21 | epoch 2/100 | SVD update #2: pairs=94, sweeps=10, converged=False, rel_change=5.243e-01, effective_ranks=(64, 62, 37), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.560/0.553, basis_nonorth=5.330e-02
+2026-10-09 20:56:21 | epoch 2/100 | loss=0.9660 cls=0.9904 tensor=-0.2039 adv=0.0000 src_acc=0.5426 tgt_train_acc=0.5000 val_acc=1.0000 val_f1=1.0000 ot_scale=0.00
+2026-10-09 20:56:22 | new best checkpoint: epoch=2 val_accuracy=1.0000 val_f1=1.0000
+2026-10-09 20:56:23 | epoch 3/100 | SVD update #3: pairs=94, sweeps=10, converged=False, rel_change=5.410e-03, effective_ranks=(66, 63, 37), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.734/0.720, basis_nonorth=4.895e-02
+2026-10-09 20:56:23 | epoch 3/100 | loss=0.7802 cls=0.8077 tensor=-0.2290 adv=0.0000 src_acc=0.7021 tgt_train_acc=0.6915 val_acc=0.9643 val_f1=0.9441 ot_scale=0.00
+2026-10-09 20:56:25 | epoch 4/100 | SVD update #4: pairs=94, sweeps=10, converged=False, rel_change=1.736e-02, effective_ranks=(66, 62, 37), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.842/0.844, basis_nonorth=2.677e-02
+2026-10-09 20:56:25 | epoch 4/100 | loss=0.5938 cls=0.6235 tensor=-0.2476 adv=0.0000 src_acc=0.8191 tgt_train_acc=0.8298 val_acc=0.9286 val_f1=0.9113 ot_scale=0.00
+2026-10-09 20:56:27 | epoch 5/100 | SVD update #5: pairs=94, sweeps=10, converged=False, rel_change=7.056e-02, effective_ranks=(67, 62, 36), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.867/0.834, basis_nonorth=3.103e-02
+2026-10-09 20:56:27 | epoch 5/100 | loss=0.5262 cls=0.5584 tensor=-0.2686 adv=0.0000 src_acc=0.8936 tgt_train_acc=0.8298 val_acc=0.9643 val_f1=0.9670 ot_scale=0.00
+2026-10-09 20:56:28 | epoch 6/100 | SVD update #6: pairs=94, sweeps=10, converged=False, rel_change=3.970e-03, effective_ranks=(66, 61, 35), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.881/0.837, basis_nonorth=3.241e-02
+2026-10-09 20:56:28 | epoch 6/100 | loss=0.5148 cls=0.5537 tensor=-0.3238 adv=0.0000 src_acc=0.8936 tgt_train_acc=0.8617 val_acc=0.9643 val_f1=0.9441 ot_scale=0.00
+2026-10-09 20:56:30 | epoch 7/100 | SVD update #7: pairs=94, sweeps=10, converged=True, rel_change=2.556e-04, effective_ranks=(66, 61, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.891/0.905, basis_nonorth=2.045e-02
+2026-10-09 20:56:30 | epoch 7/100 | loss=0.4512 cls=0.4945 tensor=-0.3612 adv=0.0000 src_acc=0.8723 tgt_train_acc=0.9043 val_acc=0.9286 val_f1=0.9113 ot_scale=0.00
+2026-10-09 20:56:32 | epoch 8/100 | SVD update #8: pairs=94, sweeps=10, converged=False, rel_change=3.867e-03, effective_ranks=(67, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.892/0.909, basis_nonorth=2.318e-02
+2026-10-09 20:56:32 | epoch 8/100 | loss=0.4719 cls=0.5161 tensor=-0.3686 adv=0.0000 src_acc=0.8617 tgt_train_acc=0.8936 val_acc=0.9643 val_f1=0.9441 ot_scale=0.00
+2026-10-09 20:56:34 | epoch 9/100 | SVD update #9: pairs=94, sweeps=10, converged=False, rel_change=3.867e-03, effective_ranks=(68, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.893/0.913, basis_nonorth=1.995e-02
+2026-10-09 20:56:34 | epoch 9/100 | loss=0.4468 cls=0.4905 tensor=-0.3640 adv=0.0000 src_acc=0.8830 tgt_train_acc=0.9681 val_acc=0.9286 val_f1=0.9113 ot_scale=0.00
+2026-10-09 20:56:35 | epoch 10/100 | SVD update #10: pairs=94, sweeps=10, converged=False, rel_change=2.358e-02, effective_ranks=(67, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.894/0.917, basis_nonorth=2.520e-02
+2026-10-09 20:56:36 | epoch 10/100 | loss=0.4567 cls=0.5038 tensor=-0.3927 adv=0.0000 src_acc=0.9255 tgt_train_acc=0.9255 val_acc=0.9643 val_f1=0.9670 ot_scale=0.00
+2026-10-09 20:56:37 | epoch 11/100 | SVD update #11: pairs=94, sweeps=6, converged=True, rel_change=6.063e-04, effective_ranks=(68, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.902/0.917, basis_nonorth=2.194e-02
+2026-10-09 20:56:37 | epoch 11/100 | loss=0.3664 cls=0.4153 tensor=-0.4305 adv=0.1744 src_acc=0.9574 tgt_train_acc=0.9362 val_acc=0.9643 val_f1=0.9441 ot_scale=0.20
+2026-10-09 20:56:39 | epoch 12/100 | SVD update #12: pairs=94, sweeps=9, converged=True, rel_change=5.110e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.875/0.898, basis_nonorth=2.160e-02
+2026-10-09 20:56:39 | epoch 12/100 | loss=0.3716 cls=0.4136 tensor=-0.4059 adv=0.2102 src_acc=0.9255 tgt_train_acc=0.9894 val_acc=0.9286 val_f1=0.9113 ot_scale=0.40
+2026-10-09 20:56:40 | epoch 13/100 | SVD update #13: pairs=94, sweeps=10, converged=False, rel_change=1.374e-02, effective_ranks=(69, 61, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.904/0.925, basis_nonorth=1.930e-02
+2026-10-09 20:56:41 | epoch 13/100 | loss=0.3689 cls=0.4069 tensor=-0.4217 adv=0.2612 src_acc=0.9574 tgt_train_acc=0.9362 val_acc=0.9286 val_f1=0.9113 ot_scale=0.60
+2026-10-09 20:56:42 | epoch 14/100 | SVD update #14: pairs=94, sweeps=7, converged=True, rel_change=5.293e-04, effective_ranks=(69, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.900/0.922, basis_nonorth=2.089e-02
+2026-10-09 20:56:42 | epoch 14/100 | loss=0.3617 cls=0.3994 tensor=-0.4547 adv=0.2641 src_acc=0.9149 tgt_train_acc=0.9681 val_acc=0.9643 val_f1=0.9441 ot_scale=0.80
+2026-10-09 20:56:44 | epoch 15/100 | SVD update #15: pairs=94, sweeps=10, converged=True, rel_change=7.949e-04, effective_ranks=(69, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.907/0.936, basis_nonorth=1.971e-02
+2026-10-09 20:56:44 | epoch 15/100 | loss=0.3807 cls=0.4128 tensor=-0.4705 adv=0.3040 src_acc=0.9255 tgt_train_acc=0.9574 val_acc=0.9643 val_f1=0.9441 ot_scale=1.00
+2026-10-09 20:56:45 | epoch 16/100 | SVD update #16: pairs=94, sweeps=10, converged=False, rel_change=3.867e-03, effective_ranks=(70, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.913/0.945, basis_nonorth=1.790e-02
+2026-10-09 20:56:46 | epoch 16/100 | loss=0.3588 cls=0.3853 tensor=-0.4659 adv=0.3671 src_acc=0.9468 tgt_train_acc=0.9681 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:56:46 | epoch 17/100 | SVD update #17: pairs=94, sweeps=3, converged=True, rel_change=7.382e-04, effective_ranks=(70, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.942, basis_nonorth=1.820e-02
+2026-10-09 20:56:47 | epoch 17/100 | loss=0.3439 cls=0.3707 tensor=-0.4877 adv=0.3966 src_acc=0.9468 tgt_train_acc=0.9574 val_acc=0.9643 val_f1=0.9441 ot_scale=1.00
+2026-10-09 20:56:47 | epoch 18/100 | SVD update #18: pairs=94, sweeps=4, converged=True, rel_change=2.336e-04, effective_ranks=(69, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.915/0.944, basis_nonorth=1.781e-02
+2026-10-09 20:56:48 | epoch 18/100 | loss=0.3283 cls=0.3559 tensor=-0.5038 adv=0.4102 src_acc=0.9787 tgt_train_acc=0.9574 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:56:49 | epoch 19/100 | SVD update #19: pairs=94, sweeps=10, converged=False, rel_change=7.326e-03, effective_ranks=(69, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.916/0.944, basis_nonorth=1.793e-02
+2026-10-09 20:56:50 | epoch 19/100 | loss=0.3327 cls=0.3578 tensor=-0.5108 adv=0.4521 src_acc=0.9574 tgt_train_acc=0.9787 val_acc=1.0000 val_f1=1.0000 ot_scale=1.00
+2026-10-09 20:56:50 | epoch 20/100 | SVD update #20: pairs=94, sweeps=4, converged=True, rel_change=3.976e-04, effective_ranks=(69, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.915/0.942, basis_nonorth=1.834e-02
+2026-10-09 20:56:51 | epoch 20/100 | loss=0.3450 cls=0.3715 tensor=-0.5278 adv=0.4603 src_acc=0.9574 tgt_train_acc=0.9787 val_acc=0.9643 val_f1=0.9441 ot_scale=1.00
+2026-10-09 20:56:52 | epoch 21/100 | SVD update #21: pairs=94, sweeps=6, converged=True, rel_change=1.305e-04, effective_ranks=(69, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.946, basis_nonorth=1.940e-02
+2026-10-09 20:56:52 | epoch 21/100 | loss=0.3246 cls=0.3502 tensor=-0.5110 adv=0.4459 src_acc=0.9468 tgt_train_acc=1.0000 val_acc=1.0000 val_f1=1.0000 ot_scale=1.00
+2026-10-09 20:56:53 | epoch 22/100 | SVD update #22: pairs=94, sweeps=4, converged=True, rel_change=8.759e-04, effective_ranks=(70, 62, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.911/0.945, basis_nonorth=1.802e-02
+2026-10-09 20:56:53 | epoch 22/100 | loss=0.3170 cls=0.3403 tensor=-0.5208 adv=0.4896 src_acc=0.9787 tgt_train_acc=0.9787 val_acc=0.9643 val_f1=0.9441 ot_scale=1.00
+2026-10-09 20:56:54 | epoch 23/100 | SVD update #23: pairs=94, sweeps=4, converged=True, rel_change=1.274e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.910/0.941, basis_nonorth=1.839e-02
+2026-10-09 20:56:54 | epoch 23/100 | loss=0.3318 cls=0.3556 tensor=-0.5271 adv=0.4939 src_acc=0.9468 tgt_train_acc=0.9894 val_acc=0.9643 val_f1=0.9441 ot_scale=1.00
+2026-10-09 20:56:56 | epoch 24/100 | SVD update #24: pairs=94, sweeps=8, converged=True, rel_change=9.671e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.913/0.951, basis_nonorth=1.782e-02
+2026-10-09 20:56:56 | epoch 24/100 | loss=0.3058 cls=0.3312 tensor=-0.5272 adv=0.4737 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=1.0000 val_f1=1.0000 ot_scale=1.00
+2026-10-09 20:56:57 | epoch 25/100 | SVD update #25: pairs=94, sweeps=5, converged=True, rel_change=6.011e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.917/0.953, basis_nonorth=1.804e-02
+2026-10-09 20:56:57 | epoch 25/100 | loss=0.3009 cls=0.3290 tensor=-0.5509 adv=0.4750 src_acc=0.9787 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9441 ot_scale=1.00
+2026-10-09 20:56:58 | epoch 26/100 | SVD update #26: pairs=94, sweeps=5, converged=True, rel_change=4.541e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.916/0.954, basis_nonorth=1.771e-02
+2026-10-09 20:56:58 | epoch 26/100 | loss=0.3035 cls=0.3300 tensor=-0.5435 adv=0.4835 src_acc=0.9681 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:00 | epoch 27/100 | SVD update #27: pairs=94, sweeps=10, converged=False, rel_change=1.198e-03, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.951, basis_nonorth=1.857e-02
+2026-10-09 20:57:00 | epoch 27/100 | loss=0.3065 cls=0.3314 tensor=-0.5536 adv=0.5194 src_acc=0.9787 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:01 | epoch 28/100 | SVD update #28: pairs=94, sweeps=5, converged=True, rel_change=6.902e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.951, basis_nonorth=1.830e-02
+2026-10-09 20:57:02 | epoch 28/100 | loss=0.3087 cls=0.3360 tensor=-0.5640 adv=0.5055 src_acc=0.9787 tgt_train_acc=0.9894 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:03 | epoch 29/100 | SVD update #29: pairs=94, sweeps=6, converged=True, rel_change=2.702e-04, effective_ranks=(68, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.952, basis_nonorth=1.768e-02
+2026-10-09 20:57:03 | epoch 29/100 | loss=0.3071 cls=0.3324 tensor=-0.5641 adv=0.5294 src_acc=0.9787 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:04 | epoch 30/100 | SVD update #30: pairs=94, sweeps=6, converged=True, rel_change=6.835e-05, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.917/0.953, basis_nonorth=1.894e-02
+2026-10-09 20:57:04 | epoch 30/100 | loss=0.2928 cls=0.3173 tensor=-0.5721 adv=0.5520 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:05 | epoch 31/100 | SVD update #31: pairs=94, sweeps=4, converged=True, rel_change=1.082e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.910/0.947, basis_nonorth=1.788e-02
+2026-10-09 20:57:05 | epoch 31/100 | loss=0.2959 cls=0.3208 tensor=-0.5693 adv=0.5426 src_acc=0.9787 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:06 | epoch 32/100 | SVD update #32: pairs=94, sweeps=4, converged=True, rel_change=1.531e-04, effective_ranks=(68, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.949, basis_nonorth=1.851e-02
+2026-10-09 20:57:07 | epoch 32/100 | loss=0.2968 cls=0.3248 tensor=-0.5803 adv=0.5196 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:08 | epoch 33/100 | SVD update #33: pairs=94, sweeps=7, converged=True, rel_change=8.731e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.916/0.955, basis_nonorth=1.749e-02
+2026-10-09 20:57:08 | epoch 33/100 | loss=0.2918 cls=0.3214 tensor=-0.5897 adv=0.5152 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:09 | epoch 34/100 | SVD update #34: pairs=94, sweeps=3, converged=True, rel_change=1.958e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.915/0.946, basis_nonorth=1.856e-02
+2026-10-09 20:57:09 | epoch 34/100 | loss=0.2893 cls=0.3149 tensor=-0.5863 adv=0.5600 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:10 | epoch 35/100 | SVD update #35: pairs=94, sweeps=3, converged=True, rel_change=1.911e-04, effective_ranks=(68, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.946, basis_nonorth=1.836e-02
+2026-10-09 20:57:10 | epoch 35/100 | loss=0.2889 cls=0.3135 tensor=-0.5782 adv=0.5597 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:11 | epoch 36/100 | SVD update #36: pairs=94, sweeps=3, converged=True, rel_change=6.672e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.948, basis_nonorth=1.816e-02
+2026-10-09 20:57:11 | epoch 36/100 | loss=0.2839 cls=0.3094 tensor=-0.5965 adv=0.5771 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:12 | epoch 37/100 | SVD update #37: pairs=94, sweeps=4, converged=True, rel_change=2.750e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.946, basis_nonorth=1.811e-02
+2026-10-09 20:57:13 | epoch 37/100 | loss=0.2906 cls=0.3126 tensor=-0.5795 adv=0.5949 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:13 | epoch 38/100 | SVD update #38: pairs=94, sweeps=3, converged=True, rel_change=3.152e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.920/0.953, basis_nonorth=1.810e-02
+2026-10-09 20:57:14 | epoch 38/100 | loss=0.2869 cls=0.3091 tensor=-0.5828 adv=0.5967 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:14 | epoch 39/100 | SVD update #39: pairs=94, sweeps=3, converged=True, rel_change=3.502e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.954, basis_nonorth=1.811e-02
+2026-10-09 20:57:15 | epoch 39/100 | loss=0.2948 cls=0.3179 tensor=-0.5822 adv=0.5852 src_acc=0.9681 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:15 | epoch 40/100 | SVD update #40: pairs=94, sweeps=3, converged=True, rel_change=6.549e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.913/0.954, basis_nonorth=1.789e-02
+2026-10-09 20:57:16 | epoch 40/100 | loss=0.2912 cls=0.3109 tensor=-0.5849 adv=0.6310 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:17 | epoch 41/100 | SVD update #41: pairs=94, sweeps=5, converged=True, rel_change=6.348e-04, effective_ranks=(68, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.921/0.963, basis_nonorth=1.698e-02
+2026-10-09 20:57:17 | epoch 41/100 | loss=0.2915 cls=0.3133 tensor=-0.5821 adv=0.6006 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:18 | epoch 42/100 | SVD update #42: pairs=94, sweeps=3, converged=True, rel_change=8.377e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.959, basis_nonorth=1.730e-02
+2026-10-09 20:57:18 | epoch 42/100 | loss=0.2993 cls=0.3170 tensor=-0.5679 adv=0.6312 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:19 | epoch 43/100 | SVD update #43: pairs=94, sweeps=3, converged=True, rel_change=9.271e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.899/0.936, basis_nonorth=1.815e-02
+2026-10-09 20:57:19 | epoch 43/100 | loss=0.2916 cls=0.3073 tensor=-0.5696 adv=0.6579 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:20 | epoch 44/100 | SVD update #44: pairs=94, sweeps=3, converged=True, rel_change=9.512e-05, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.954, basis_nonorth=1.806e-02
+2026-10-09 20:57:20 | epoch 44/100 | loss=0.2919 cls=0.3088 tensor=-0.5725 adv=0.6469 src_acc=1.0000 tgt_train_acc=0.9894 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:21 | epoch 45/100 | SVD update #45: pairs=94, sweeps=5, converged=True, rel_change=4.590e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.915/0.952, basis_nonorth=1.720e-02
+2026-10-09 20:57:21 | epoch 45/100 | loss=0.2919 cls=0.3094 tensor=-0.5846 adv=0.6579 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:22 | epoch 46/100 | SVD update #46: pairs=94, sweeps=3, converged=True, rel_change=3.190e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.950, basis_nonorth=1.830e-02
+2026-10-09 20:57:23 | epoch 46/100 | loss=0.2915 cls=0.3085 tensor=-0.5943 adv=0.6782 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:24 | epoch 47/100 | SVD update #47: pairs=94, sweeps=5, converged=True, rel_change=5.360e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.917/0.948, basis_nonorth=1.818e-02
+2026-10-09 20:57:24 | epoch 47/100 | loss=0.2901 cls=0.3094 tensor=-0.5894 adv=0.6423 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:25 | epoch 48/100 | SVD update #48: pairs=94, sweeps=3, converged=True, rel_change=5.592e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.952, basis_nonorth=1.775e-02
+2026-10-09 20:57:25 | epoch 48/100 | loss=0.2866 cls=0.3085 tensor=-0.6011 adv=0.6276 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:26 | epoch 49/100 | SVD update #49: pairs=94, sweeps=3, converged=True, rel_change=2.919e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.904/0.933, basis_nonorth=1.838e-02
+2026-10-09 20:57:26 | epoch 49/100 | loss=0.2861 cls=0.3080 tensor=-0.6036 adv=0.6313 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:27 | epoch 50/100 | SVD update #50: pairs=94, sweeps=3, converged=True, rel_change=4.545e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.913/0.942, basis_nonorth=1.795e-02
+2026-10-09 20:57:27 | epoch 50/100 | loss=0.2904 cls=0.3132 tensor=-0.6246 adv=0.6525 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:28 | epoch 51/100 | SVD update #51: pairs=94, sweeps=4, converged=True, rel_change=2.834e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.916/0.948, basis_nonorth=1.784e-02
+2026-10-09 20:57:28 | epoch 51/100 | loss=0.2867 cls=0.3057 tensor=-0.6111 adv=0.6789 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:29 | epoch 52/100 | SVD update #52: pairs=94, sweeps=3, converged=True, rel_change=6.297e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.948, basis_nonorth=1.814e-02
+2026-10-09 20:57:29 | epoch 52/100 | loss=0.2883 cls=0.3057 tensor=-0.6066 adv=0.6926 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:30 | epoch 53/100 | SVD update #53: pairs=94, sweeps=3, converged=True, rel_change=4.633e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.908/0.936, basis_nonorth=1.943e-02
+2026-10-09 20:57:30 | epoch 53/100 | loss=0.2886 cls=0.3065 tensor=-0.6207 adv=0.7075 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:31 | epoch 54/100 | SVD update #54: pairs=94, sweeps=3, converged=True, rel_change=4.834e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.913/0.939, basis_nonorth=1.812e-02
+2026-10-09 20:57:31 | epoch 54/100 | loss=0.2825 cls=0.3058 tensor=-0.6085 adv=0.6212 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:32 | epoch 55/100 | SVD update #55: pairs=94, sweeps=3, converged=True, rel_change=7.778e-05, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.917/0.950, basis_nonorth=1.826e-02
+2026-10-09 20:57:32 | epoch 55/100 | loss=0.2845 cls=0.3073 tensor=-0.6171 adv=0.6413 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:33 | epoch 56/100 | SVD update #56: pairs=94, sweeps=3, converged=True, rel_change=2.481e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.952, basis_nonorth=1.878e-02
+2026-10-09 20:57:34 | epoch 56/100 | loss=0.2814 cls=0.3057 tensor=-0.6092 adv=0.6097 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:34 | epoch 57/100 | SVD update #57: pairs=94, sweeps=4, converged=True, rel_change=6.336e-04, effective_ranks=(70, 64, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.912/0.947, basis_nonorth=1.816e-02
+2026-10-09 20:57:35 | epoch 57/100 | loss=0.2809 cls=0.3038 tensor=-0.6157 adv=0.6375 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:35 | epoch 58/100 | SVD update #58: pairs=94, sweeps=3, converged=True, rel_change=5.215e-05, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.952, basis_nonorth=1.779e-02
+2026-10-09 20:57:36 | epoch 58/100 | loss=0.2792 cls=0.3035 tensor=-0.6192 adv=0.6246 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:36 | epoch 59/100 | SVD update #59: pairs=94, sweeps=3, converged=True, rel_change=6.569e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.922/0.961, basis_nonorth=1.706e-02
+2026-10-09 20:57:37 | epoch 59/100 | loss=0.2842 cls=0.3105 tensor=-0.6299 adv=0.6161 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:38 | epoch 60/100 | SVD update #60: pairs=94, sweeps=4, converged=True, rel_change=2.213e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.959, basis_nonorth=1.742e-02
+2026-10-09 20:57:38 | epoch 60/100 | loss=0.2779 cls=0.3057 tensor=-0.6272 adv=0.5924 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:39 | epoch 61/100 | SVD update #61: pairs=94, sweeps=3, converged=True, rel_change=9.146e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.915/0.955, basis_nonorth=1.770e-02
+2026-10-09 20:57:39 | epoch 61/100 | loss=0.2809 cls=0.3072 tensor=-0.6216 adv=0.6043 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:39 | epoch 62/100 | SVD update #62: pairs=94, sweeps=3, converged=True, rel_change=8.472e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.920/0.956, basis_nonorth=1.728e-02
+2026-10-09 20:57:40 | epoch 62/100 | loss=0.2787 cls=0.3042 tensor=-0.6279 adv=0.6220 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:40 | epoch 63/100 | SVD update #63: pairs=94, sweeps=3, converged=True, rel_change=7.717e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.953, basis_nonorth=1.784e-02
+2026-10-09 20:57:41 | epoch 63/100 | loss=0.2809 cls=0.3068 tensor=-0.6046 adv=0.5841 src_acc=1.0000 tgt_train_acc=0.9894 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:41 | epoch 64/100 | SVD update #64: pairs=94, sweeps=3, converged=True, rel_change=5.776e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.957, basis_nonorth=1.786e-02
+2026-10-09 20:57:42 | epoch 64/100 | loss=0.2766 cls=0.3019 tensor=-0.6283 adv=0.6250 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:42 | epoch 65/100 | SVD update #65: pairs=94, sweeps=3, converged=True, rel_change=5.290e-05, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.921/0.960, basis_nonorth=1.779e-02
+2026-10-09 20:57:43 | epoch 65/100 | loss=0.2785 cls=0.3032 tensor=-0.6302 adv=0.6366 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:43 | epoch 66/100 | SVD update #66: pairs=94, sweeps=3, converged=True, rel_change=2.032e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.923/0.959, basis_nonorth=1.773e-02
+2026-10-09 20:57:44 | epoch 66/100 | loss=0.2805 cls=0.3061 tensor=-0.6221 adv=0.6132 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:44 | epoch 67/100 | SVD update #67: pairs=94, sweeps=3, converged=True, rel_change=2.634e-04, effective_ranks=(68, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.921/0.955, basis_nonorth=1.795e-02
+2026-10-09 20:57:45 | epoch 67/100 | loss=0.2806 cls=0.3062 tensor=-0.6238 adv=0.6160 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:45 | epoch 68/100 | SVD update #68: pairs=94, sweeps=3, converged=True, rel_change=6.045e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.923/0.958, basis_nonorth=1.808e-02
+2026-10-09 20:57:46 | epoch 68/100 | loss=0.2738 cls=0.3032 tensor=-0.6337 adv=0.5824 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:46 | epoch 69/100 | SVD update #69: pairs=94, sweeps=3, converged=True, rel_change=3.546e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.922/0.957, basis_nonorth=1.849e-02
+2026-10-09 20:57:47 | epoch 69/100 | loss=0.2773 cls=0.3053 tensor=-0.6335 adv=0.6004 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:47 | epoch 70/100 | SVD update #70: pairs=94, sweeps=2, converged=True, rel_change=6.989e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.921/0.958, basis_nonorth=1.776e-02
+2026-10-09 20:57:47 | epoch 70/100 | loss=0.2747 cls=0.3032 tensor=-0.6276 adv=0.5860 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:48 | epoch 71/100 | SVD update #71: pairs=94, sweeps=2, converged=True, rel_change=9.443e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.920/0.949, basis_nonorth=1.748e-02
+2026-10-09 20:57:48 | epoch 71/100 | loss=0.2749 cls=0.3025 tensor=-0.6377 adv=0.6121 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:49 | epoch 72/100 | SVD update #72: pairs=94, sweeps=4, converged=True, rel_change=4.127e-05, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.920/0.950, basis_nonorth=1.819e-02
+2026-10-09 20:57:49 | epoch 72/100 | loss=0.2731 cls=0.3053 tensor=-0.6378 adv=0.5533 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:50 | epoch 73/100 | SVD update #73: pairs=94, sweeps=3, converged=True, rel_change=4.200e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.955, basis_nonorth=1.748e-02
+2026-10-09 20:57:50 | epoch 73/100 | loss=0.2772 cls=0.3030 tensor=-0.6473 adv=0.6486 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:51 | epoch 74/100 | SVD update #74: pairs=94, sweeps=3, converged=True, rel_change=1.502e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.917/0.956, basis_nonorth=1.788e-02
+2026-10-09 20:57:51 | epoch 74/100 | loss=0.2759 cls=0.3082 tensor=-0.6443 adv=0.5622 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:52 | epoch 75/100 | SVD update #75: pairs=94, sweeps=2, converged=True, rel_change=6.360e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.921/0.952, basis_nonorth=1.878e-02
+2026-10-09 20:57:53 | epoch 75/100 | loss=0.2759 cls=0.3045 tensor=-0.6511 adv=0.6191 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:53 | epoch 76/100 | SVD update #76: pairs=94, sweeps=4, converged=True, rel_change=6.492e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.908/0.937, basis_nonorth=2.001e-02
+2026-10-09 20:57:54 | epoch 76/100 | loss=0.2739 cls=0.3057 tensor=-0.6381 adv=0.5599 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:54 | epoch 77/100 | SVD update #77: pairs=94, sweeps=3, converged=True, rel_change=1.499e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.952, basis_nonorth=1.847e-02
+2026-10-09 20:57:55 | epoch 77/100 | loss=0.2762 cls=0.3050 tensor=-0.6400 adv=0.5994 src_acc=1.0000 tgt_train_acc=0.9894 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:57:55 | epoch 78/100 | SVD update #78: pairs=94, sweeps=3, converged=True, rel_change=6.810e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.921/0.956, basis_nonorth=1.786e-02
+2026-10-09 20:57:56 | epoch 78/100 | loss=0.2768 cls=0.3029 tensor=-0.6403 adv=0.6340 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:57:56 | epoch 79/100 | SVD update #79: pairs=94, sweeps=2, converged=True, rel_change=8.330e-04, effective_ranks=(70, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.925/0.955, basis_nonorth=1.801e-02
+2026-10-09 20:57:57 | epoch 79/100 | loss=0.2769 cls=0.3069 tensor=-0.6471 adv=0.5964 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:57 | epoch 80/100 | SVD update #80: pairs=94, sweeps=2, converged=True, rel_change=9.414e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.923/0.961, basis_nonorth=1.801e-02
+2026-10-09 20:57:57 | epoch 80/100 | loss=0.2731 cls=0.3021 tensor=-0.6484 adv=0.6092 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:57:58 | epoch 81/100 | SVD update #81: pairs=94, sweeps=2, converged=True, rel_change=9.459e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.955, basis_nonorth=1.796e-02
+2026-10-09 20:57:58 | epoch 81/100 | loss=0.2744 cls=0.3015 tensor=-0.6369 adv=0.6169 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:57:59 | epoch 82/100 | SVD update #82: pairs=94, sweeps=2, converged=True, rel_change=5.837e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.953, basis_nonorth=1.707e-02
+2026-10-09 20:57:59 | epoch 82/100 | loss=0.2776 cls=0.3018 tensor=-0.6439 adv=0.6631 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9589 ot_scale=1.00
+2026-10-09 20:58:00 | epoch 83/100 | SVD update #83: pairs=94, sweeps=4, converged=True, rel_change=2.897e-05, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.951, basis_nonorth=1.847e-02
+2026-10-09 20:58:00 | epoch 83/100 | loss=0.2818 cls=0.3066 tensor=-0.6454 adv=0.6579 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:01 | epoch 84/100 | SVD update #84: pairs=94, sweeps=3, converged=True, rel_change=9.774e-05, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.948, basis_nonorth=1.895e-02
+2026-10-09 20:58:02 | epoch 84/100 | loss=0.2777 cls=0.3021 tensor=-0.6366 adv=0.6493 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:02 | epoch 85/100 | SVD update #85: pairs=94, sweeps=2, converged=True, rel_change=6.272e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.916/0.950, basis_nonorth=1.847e-02
+2026-10-09 20:58:02 | epoch 85/100 | loss=0.2820 cls=0.3083 tensor=-0.6375 adv=0.6268 src_acc=0.9894 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:03 | epoch 86/100 | SVD update #86: pairs=94, sweeps=3, converged=True, rel_change=3.155e-05, effective_ranks=(68, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.944, basis_nonorth=1.774e-02
+2026-10-09 20:58:03 | epoch 86/100 | loss=0.2788 cls=0.3018 tensor=-0.6531 adv=0.6928 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:58:04 | epoch 87/100 | SVD update #87: pairs=94, sweeps=2, converged=True, rel_change=4.932e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.951, basis_nonorth=1.844e-02
+2026-10-09 20:58:04 | epoch 87/100 | loss=0.2797 cls=0.3047 tensor=-0.6384 adv=0.6460 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:58:05 | epoch 88/100 | SVD update #88: pairs=94, sweeps=3, converged=True, rel_change=1.582e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.957, basis_nonorth=1.824e-02
+2026-10-09 20:58:06 | epoch 88/100 | loss=0.2790 cls=0.3021 tensor=-0.6392 adv=0.6695 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:58:07 | epoch 89/100 | SVD update #89: pairs=94, sweeps=4, converged=True, rel_change=6.151e-04, effective_ranks=(69, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.918/0.958, basis_nonorth=1.759e-02
+2026-10-09 20:58:07 | epoch 89/100 | loss=0.2804 cls=0.3028 tensor=-0.6425 adv=0.6836 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:07 | epoch 90/100 | SVD update #90: pairs=94, sweeps=2, converged=True, rel_change=6.129e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.924/0.961, basis_nonorth=1.790e-02
+2026-10-09 20:58:08 | epoch 90/100 | loss=0.2784 cls=0.3046 tensor=-0.6563 adv=0.6568 src_acc=1.0000 tgt_train_acc=0.9894 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:08 | epoch 91/100 | SVD update #91: pairs=94, sweeps=2, converged=True, rel_change=9.775e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.920/0.958, basis_nonorth=1.847e-02
+2026-10-09 20:58:09 | epoch 91/100 | loss=0.2807 cls=0.3031 tensor=-0.6532 adv=0.7005 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:09 | epoch 92/100 | SVD update #92: pairs=94, sweeps=2, converged=True, rel_change=9.206e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.916/0.952, basis_nonorth=1.815e-02
+2026-10-09 20:58:10 | epoch 92/100 | loss=0.2808 cls=0.3023 tensor=-0.6502 adv=0.7067 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:10 | epoch 93/100 | SVD update #93: pairs=94, sweeps=2, converged=True, rel_change=6.462e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.922/0.957, basis_nonorth=1.792e-02
+2026-10-09 20:58:11 | epoch 93/100 | loss=0.2779 cls=0.3017 tensor=-0.6521 adv=0.6802 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9643 val_f1=0.9670 ot_scale=1.00
+2026-10-09 20:58:11 | epoch 94/100 | SVD update #94: pairs=94, sweeps=2, converged=True, rel_change=5.195e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.920/0.952, basis_nonorth=1.847e-02
+2026-10-09 20:58:12 | epoch 94/100 | loss=0.2793 cls=0.2997 tensor=-0.6613 adv=0.7379 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:12 | epoch 95/100 | SVD update #95: pairs=94, sweeps=5, converged=True, rel_change=2.558e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.917/0.953, basis_nonorth=1.783e-02
+2026-10-09 20:58:13 | epoch 95/100 | loss=0.2819 cls=0.3016 tensor=-0.6507 adv=0.7290 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:13 | epoch 96/100 | SVD update #96: pairs=94, sweeps=3, converged=True, rel_change=9.906e-04, effective_ranks=(68, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.919/0.954, basis_nonorth=1.837e-02
+2026-10-09 20:58:14 | epoch 96/100 | loss=0.2822 cls=0.3036 tensor=-0.6458 adv=0.7002 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9113 ot_scale=1.00
+2026-10-09 20:58:14 | epoch 97/100 | SVD update #97: pairs=94, sweeps=2, converged=True, rel_change=9.706e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.914/0.957, basis_nonorth=1.804e-02
+2026-10-09 20:58:15 | epoch 97/100 | loss=0.2826 cls=0.3025 tensor=-0.6408 adv=0.7115 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:16 | epoch 98/100 | SVD update #98: pairs=94, sweeps=2, converged=True, rel_change=7.420e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.915/0.954, basis_nonorth=1.731e-02
+2026-10-09 20:58:16 | epoch 98/100 | loss=0.2782 cls=0.3024 tensor=-0.6469 adv=0.6673 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:17 | epoch 99/100 | SVD update #99: pairs=94, sweeps=3, converged=True, rel_change=1.619e-04, effective_ranks=(70, 63, 33), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.920/0.957, basis_nonorth=1.774e-02
+2026-10-09 20:58:17 | epoch 99/100 | loss=0.2878 cls=0.3083 tensor=-0.6497 adv=0.7181 src_acc=1.0000 tgt_train_acc=0.9894 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:18 | epoch 100/100 | SVD update #100: pairs=94, sweeps=2, converged=True, rel_change=9.676e-04, effective_ranks=(69, 63, 34), class_paired=True, class_balanced=False, basis_overlap_src/tgt=0.922/0.957, basis_nonorth=1.766e-02
+2026-10-09 20:58:18 | epoch 100/100 | loss=0.2755 cls=0.3014 tensor=-0.6531 adv=0.6547 src_acc=1.0000 tgt_train_acc=1.0000 val_acc=0.9286 val_f1=0.9081 ot_scale=1.00
+2026-10-09 20:58:18 | final target_test (best val epoch 2 only): accuracy=0.8485 macro_f1=0.7695
+Training complete. Results: /home/lixiang/lx/JMDA/VDS2Raw_JMDA/runs/vds2raw_20261009_205616_915716
