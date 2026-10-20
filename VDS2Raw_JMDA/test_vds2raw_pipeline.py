@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -22,6 +23,8 @@ from VDS2Raw_JMDA.models import (
     NIRFeatureExtractor,
     RGBFeatureExtractor,
 )
+from VDS2Raw_JMDA.complexity import parameter_report
+from VDS2Raw_JMDA.module_ablation import summarize_numeric_values
 from VDS2Raw_JMDA.paired_sampler import SameClassPairedBatcher
 from VDS2Raw_JMDA.vds2raw_dataset import (
     TRAIN_PARTITIONS,
@@ -90,6 +93,34 @@ class ModelTests(unittest.TestCase):
         self.assertEqual([tuple(value.shape) for value in projected_source], [(10, 3)] * 3)
         self.assertEqual([tuple(value.shape) for value in projected_target], [(10, 3)] * 3)
         self.assertTrue(torch.isfinite(loss))
+
+
+class ReportingTests(unittest.TestCase):
+    def test_multi_seed_statistics_include_mean_and_variance(self):
+        summary = summarize_numeric_values([0.8, 0.9, 1.0])
+        self.assertEqual(summary["count"], 3)
+        self.assertAlmostEqual(summary["mean"], 0.9)
+        self.assertAlmostEqual(summary["variance_population"], 2.0 / 300.0)
+        self.assertAlmostEqual(summary["variance_sample"], 0.01)
+
+    def test_parameter_report_separates_training_only_modules(self):
+        class Modules:
+            rgb = nn.Linear(2, 3)
+            nir = nn.Linear(2, 3)
+            ais = nn.Linear(2, 3)
+            tensor = None
+            classifier = nn.Linear(9, 2)
+            generator = nn.Linear(9, 9)
+            discriminator = nn.Linear(9, 1)
+
+        report = parameter_report(Modules())
+        expected_inference = sum(
+            p.numel()
+            for module in (Modules.rgb, Modules.nir, Modules.ais, Modules.classifier)
+            for p in module.parameters()
+        )
+        self.assertEqual(report["inference_parameters"], expected_inference)
+        self.assertGreater(report["total_parameters"], report["inference_parameters"])
 
 
 @unittest.skipUnless(DATASET_ROOT.is_dir(), "VDS2Raw prepared dataset is not available")

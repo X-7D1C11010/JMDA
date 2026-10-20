@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
@@ -42,6 +43,14 @@ try:  # noqa: E402
         NIRFeatureExtractor,
         RGBFeatureExtractor,
     )
+    from .complexity import (
+        benchmark_inference,
+        environment_report,
+        flatten_complexity,
+        flop_report,
+        parameter_report,
+        synchronize,
+    )
     from .paired_sampler import SameClassPairedBatcher
     from .training_utils import (
         binary_domain_loss,
@@ -59,6 +68,14 @@ except ImportError:
         FEATURE_DIM,
         NIRFeatureExtractor,
         RGBFeatureExtractor,
+    )
+    from complexity import (  # type: ignore
+        benchmark_inference,
+        environment_report,
+        flatten_complexity,
+        flop_report,
+        parameter_report,
+        synchronize,
     )
     from paired_sampler import SameClassPairedBatcher  # type: ignore
     from training_utils import (  # type: ignore
@@ -357,6 +374,41 @@ def _flatten_epoch_record(record: Mapping[str, object]) -> Dict[str, object]:
         for key, value in record.items()
         if isinstance(value, (str, int, float, bool)) or value is None
     }
+
+
+def _validation_metrics_from_record(record: Mapping[str, object]) -> Dict[str, object]:
+    return {
+        "epoch": int(record["epoch"]),
+        "accuracy": float(record["val_accuracy"]),
+        "precision_macro": float(record["val_precision_macro"]),
+        "recall_macro": float(record["val_recall_macro"]),
+        "f1_macro": float(record["val_f1_macro"]),
+        "loss": float(record["val_loss"]),
+    }
+
+
+def _best_validation_metrics_by_name(
+    history: Sequence[Mapping[str, object]],
+) -> Dict[str, object]:
+    """Record the independently highest validation value for every metric."""
+
+    result = {}
+    for name, field in (
+        ("accuracy", "val_accuracy"),
+        ("precision_macro", "val_precision_macro"),
+        ("recall_macro", "val_recall_macro"),
+        ("f1_macro", "val_f1_macro"),
+    ):
+        selected = max(
+            history,
+            key=lambda row: (float(row[field]), -int(row["epoch"])),
+        )
+        result[name] = {
+            "value": float(selected[field]),
+            "epoch": int(selected["epoch"]),
+            "metrics_at_epoch": _validation_metrics_from_record(selected),
+        }
+    return result
 
 
 def _make_optimizers(args, modules: ExperimentModules):
@@ -666,6 +718,7 @@ def run_experiment(
 ) -> Dict[str, object]:
     """Run one seed and evaluate target_test only after validation selection."""
 
+    run_started = time.perf_counter()
     if ablation_name not in ABLATION_SPECS:
         raise ValueError(f"Unknown ablation {ablation_name!r}")
     spec = ABLATION_SPECS[ablation_name]
@@ -678,7 +731,9 @@ def run_experiment(
         raise RuntimeError("CUDA was requested but torch.cuda.is_available() is false")
     seed_everything(seed, deterministic=args.deterministic)
 
-    run_dir = suite_dir / f"{ablation_name}_seed{seed}"
+    ablation_dir = suite_dir / ablation_name
+    ablation_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = ablation_dir / f"seed_{seed}"
     run_dir.mkdir(parents=True, exist_ok=False)
     logger = _make_logger(run_dir)
     config = json.loads(json.dumps(vars(args), default=str))
@@ -715,6 +770,10 @@ def run_experiment(
 
     modules = build_modules(args, spec, device)
     optimizer_g, optimizer_d, scheduler = _make_optimizers(args, modules)
+    parameters = parameter_report(modules)
+    environment = environment_report(device)
+    write_json(run_dir / "parameter_count.json", parameters)
+    write_json(run_dir / "environment.json", environment)
     criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
     best_checkpoint = run_dir / "best.pt"
     last_checkpoint = run_dir / "last.pt"
@@ -750,8 +809,20 @@ def run_experiment(
         batcher.epoch_sample_count,
         len(batcher),
     )
+    logger.info(
+        "parameters total=%d trainable=%d inference=%d",
+        parameters["total_parameters"],
+        parameters["trainable_parameters"],
+        parameters["inference_parameters"],
+    )
+
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+    training_loop_started = time.perf_counter()
 
     for epoch in range(args.epochs):
+        epoch_started = time.perf_counter()
+        svd_started = time.perf_counter()
         if modules.tensor is not None:
             svd_information = _update_tensor_projections(
                 args,
@@ -773,7 +844,10 @@ def run_experiment(
             projection_update_count = int(modules.tensor.projection_update_count.item())
         else:
             projection_update_count = -1
+        synchronize(device)
+        svd_seconds = time.perf_counter() - svd_started
 
+        train_started = time.perf_counter()
         train_metrics = _train_epoch(
             args,
             modules,
@@ -786,12 +860,17 @@ def run_experiment(
             use_tensor=bool(spec["use_tensor"]),
             use_ot=bool(spec["use_ot"]),
         )
+        synchronize(device)
+        train_seconds = time.perf_counter() - train_started
         if modules.tensor is not None:
             current_count = int(modules.tensor.projection_update_count.item())
             if current_count != projection_update_count:
                 raise RuntimeError("Tensor projection changed inside the mini-batch loop")
 
+        validation_started = time.perf_counter()
         val_metrics, _ = evaluate(modules, val_loader, device, criterion)
+        synchronize(device)
+        validation_seconds = time.perf_counter() - validation_started
         scheduler.step()
         record: Dict[str, object] = {
             "epoch": epoch + 1,
@@ -803,12 +882,28 @@ def run_experiment(
             "val_f1_macro": float(val_metrics["f1_macro"]),
             "lr_rgb": optimizer_g.param_groups[0]["lr"],
             "lr_other": optimizer_g.param_groups[1]["lr"],
+            "svd_update_seconds": svd_seconds,
+            "training_seconds": train_seconds,
+            "validation_seconds": validation_seconds,
+            "epoch_compute_seconds": time.perf_counter() - epoch_started,
         }
+        if device.type == "cuda":
+            record.update(
+                {
+                    "gpu_peak_allocated_bytes_so_far": int(
+                        torch.cuda.max_memory_allocated(device)
+                    ),
+                    "gpu_peak_reserved_bytes_so_far": int(
+                        torch.cuda.max_memory_reserved(device)
+                    ),
+                }
+            )
         history.append(record)
         _write_csv(metrics_path, [_flatten_epoch_record(row) for row in history])
         logger.info(
             "epoch %d/%d | loss=%.4f cls=%.4f tensor=%.4f adv=%.4f "
-            "src_acc=%.4f tgt_train_acc=%.4f val_acc=%.4f val_f1=%.4f ot_scale=%.2f",
+            "src_acc=%.4f tgt_train_acc=%.4f val_acc=%.4f val_precision=%.4f "
+            "val_recall=%.4f val_f1=%.4f ot_scale=%.2f epoch_seconds=%.2f",
             epoch + 1,
             args.epochs,
             record["loss"],
@@ -818,8 +913,11 @@ def run_experiment(
             record["source_train_accuracy"],
             record["target_train_accuracy"],
             record["val_accuracy"],
+            record["val_precision_macro"],
+            record["val_recall_macro"],
             record["val_f1_macro"],
             record["ot_scale"],
+            record["epoch_compute_seconds"],
         )
 
         checkpoint = _checkpoint_payload(
@@ -840,6 +938,14 @@ def run_experiment(
             best_key = selection_key
             best_epoch = epoch + 1
             _save_checkpoint(best_checkpoint, checkpoint)
+            write_json(
+                run_dir / "best_validation_checkpoint_metrics.json",
+                {
+                    "selection_rule": "maximum target_val accuracy; macro-F1 tie break",
+                    "best_epoch": best_epoch,
+                    "metrics": dict(val_metrics),
+                },
+            )
             logger.info(
                 "new best checkpoint: epoch=%d val_accuracy=%.4f val_f1=%.4f",
                 best_epoch,
@@ -847,20 +953,93 @@ def run_experiment(
                 best_key[1],
             )
 
+    synchronize(device)
+    training_loop_seconds = time.perf_counter() - training_loop_started
+    if device.type == "cuda":
+        training_gpu_memory = {
+            "peak_allocated_bytes": int(torch.cuda.max_memory_allocated(device)),
+            "peak_reserved_bytes": int(torch.cuda.max_memory_reserved(device)),
+            "measurement_scope": "Resident model/optimizer baseline through all training epochs, validation passes, optimizer-state creation, and checkpoint creation; CUDA allocator values are process-local.",
+        }
+    else:
+        training_gpu_memory = None
+
     selected = _load_model_checkpoint(
         best_checkpoint,
         modules,
         device,
         expected_manifest_sha256=manifest_sha256,
     )
+    best_metrics_by_name = _best_validation_metrics_by_name(history)
+    write_json(
+        run_dir / "best_validation_metrics.json",
+        {
+            "checkpoint_selection": {
+                "selection_rule": "maximum target_val accuracy; macro-F1 tie break",
+                "epoch": best_epoch,
+                "metrics": selected["val_metrics"],
+            },
+            "independent_metric_maxima": best_metrics_by_name,
+        },
+    )
+
+    benchmark_batch = next(iter(val_loader))
+    source_profile_batch, target_profile_batch = next(batcher.iter_epoch(0))
+    flops = flop_report(
+        modules=modules,
+        device=device,
+        source_batch=source_profile_batch,
+        target_batch=target_profile_batch,
+        encode_batch=encode_batch,
+        fuse_training_pair=fuse_training_pair,
+        fuse_target=fuse_target,
+        class_conditional_ot=args.class_conditional_ot,
+    )
+    inference_benchmark = benchmark_inference(
+        modules=modules,
+        batch=benchmark_batch,
+        device=device,
+        encode_batch=encode_batch,
+        fuse_target=fuse_target,
+        warmup_runs=args.inference_warmup_runs,
+        measured_runs=args.inference_benchmark_runs,
+    )
+
+    test_evaluation_seconds = None
     if args.evaluate_test:
+        test_started = time.perf_counter()
         test_metrics, test_rows = evaluate(modules, test_loader, device, criterion)
+        synchronize(device)
+        test_evaluation_seconds = time.perf_counter() - test_started
         _write_csv(run_dir / "target_test_predictions.csv", test_rows)
         write_json(run_dir / "target_test_metrics.json", test_metrics)
         test_evaluations = 1
     else:
         test_metrics = None
         test_evaluations = 0
+
+    epoch_seconds = [float(row["epoch_compute_seconds"]) for row in history]
+    total_run_seconds = time.perf_counter() - run_started
+    complexity = {
+        "parameters": parameters,
+        "flops": flops,
+        "timing": {
+            "training_loop_seconds": training_loop_seconds,
+            "total_run_seconds": total_run_seconds,
+            "epoch_seconds": epoch_seconds,
+            "mean_epoch_seconds": sum(epoch_seconds) / len(epoch_seconds),
+            "min_epoch_seconds": min(epoch_seconds),
+            "max_epoch_seconds": max(epoch_seconds),
+            "target_test_evaluation_seconds": test_evaluation_seconds,
+            "notes": "Wall-clock timings use perf_counter and CUDA synchronization at measured boundaries. Total run includes setup, training, checkpoint reload, FLOP profiling, inference benchmark, and optional target-test evaluation.",
+        },
+        "training_gpu_memory": training_gpu_memory,
+        "inference_benchmark": inference_benchmark,
+        "environment": environment,
+    }
+    write_json(run_dir / "complexity.json", complexity)
+    complexity_flat = flatten_complexity(complexity)
+    _write_csv(run_dir / "complexity.csv", [complexity_flat])
     summary = {
         "ablation_name": ablation_name,
         "seed": seed,
@@ -868,18 +1047,49 @@ def run_experiment(
         "best_epoch": best_epoch,
         "selection_rule": "maximum target_val accuracy; macro-F1 tie break",
         "best_val_metrics": selected["val_metrics"],
+        "best_val_metrics_by_name": best_metrics_by_name,
         "target_test_metrics": test_metrics,
         "target_test_evaluations": test_evaluations,
         "manifest_sha256": manifest_sha256,
         "completed_epochs": args.epochs,
         "partial_training_epoch": args.max_train_batches > 0,
+        "complexity": complexity_flat,
     }
     write_json(run_dir / "summary.json", summary)
+    logger.info(
+        "best validation maxima | accuracy=%.4f(epoch %d) "
+        "precision_macro=%.4f(epoch %d) recall_macro=%.4f(epoch %d) "
+        "f1_macro=%.4f(epoch %d)",
+        best_metrics_by_name["accuracy"]["value"],
+        best_metrics_by_name["accuracy"]["epoch"],
+        best_metrics_by_name["precision_macro"]["value"],
+        best_metrics_by_name["precision_macro"]["epoch"],
+        best_metrics_by_name["recall_macro"]["value"],
+        best_metrics_by_name["recall_macro"]["epoch"],
+        best_metrics_by_name["f1_macro"]["value"],
+        best_metrics_by_name["f1_macro"]["epoch"],
+    )
+    logger.info(
+        "complexity | params=%d trainable=%d inference_gflops/sample=%s "
+        "training_seconds=%.2f inference_samples/s=%.2f",
+        complexity_flat["total_parameters"],
+        complexity_flat["trainable_parameters"],
+        (
+            f'{complexity_flat["inference_gflops_per_sample"]:.6f}'
+            if complexity_flat["inference_gflops_per_sample"] is not None
+            else "unavailable"
+        ),
+        complexity_flat["training_loop_seconds"],
+        complexity_flat["inference_throughput_samples_per_second"],
+    )
     if test_metrics is not None:
         logger.info(
-            "final target_test (best val epoch %d only): accuracy=%.4f macro_f1=%.4f",
+            "final target_test (best val epoch %d only): accuracy=%.4f "
+            "precision_macro=%.4f recall_macro=%.4f f1_macro=%.4f",
             best_epoch,
             test_metrics["accuracy"],
+            test_metrics["precision_macro"],
+            test_metrics["recall_macro"],
             test_metrics["f1_macro"],
         )
     else:

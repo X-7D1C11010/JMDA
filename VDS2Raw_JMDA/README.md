@@ -68,6 +68,11 @@ D:\Anaconda\envs\pytorch\python.exe -B .\VDS2Raw_JMDA\module_ablation.py `
   --ablation_mode all --epochs 100 --seeds 42,43,44,45,46
 ```
 
+`--seeds 42` is one independent iteration. A comma-separated seed list runs
+multiple independent iterations and reports the mean, population/sample
+variance, and population/sample standard deviation for accuracy, macro
+precision, macro recall, and macro F1.
+
 ## Linux server
 
 Set `VDS2RAW_ROOT` to the copied `threeclass_ready` directory, then run the
@@ -82,6 +87,29 @@ python -B VDS2Raw_JMDA/module_ablation.py \
   --ablation_mode all --epochs 100 --seeds 42,43,44,45,46
 ```
 
+One command runs the complete model first and then the three required
+Tensor/OT ablations:
+
+```bash
+CUDA_VISIBLE_DEVICES=1 nohup python -u -B VDS2Raw_JMDA/module_ablation.py \
+  --dataset_root /home/lixiang/lx/VDS2Raw/threeclass_ready \
+  --output_root /home/lixiang/lx/JMDA/VDS2Raw_JMDA/runs \
+  --ablation_mode all \
+  --seeds 42,43,44,45,46 \
+  --epochs 100 \
+  --batch_size 32 \
+  --num_workers 4 \
+  --device cuda \
+  --transport_mode sinkhorn \
+  --projection_dim 64 \
+  --svd_max_sweeps 10 \
+  --svd_tolerance 1e-3 \
+  --svd_stat_batch_size 128 \
+  --ot_warmup_epochs 10 \
+  --ot_ramp_epochs 5 \
+  > /home/lixiang/lx/JMDA/VDS2Raw_JMDA/train.log 2>&1 &
+```
+
 ## Outputs
 
 Each invocation creates one timestamped directory under `VDS2Raw_JMDA/runs`:
@@ -92,5 +120,20 @@ Each invocation creates one timestamped directory under `VDS2Raw_JMDA/runs`:
 - `best.pt` and `last.pt` checkpoints;
 - target-test metrics and per-sample probabilities for non-smoke final runs;
 - per-seed summaries and aggregate mean/population-standard-deviation values.
+- separate `<ablation>/seed_<seed>/` raw-data directories for every run;
+- per-epoch ACC, macro Precision, macro Recall, and macro F1;
+- the validation-selected metric set plus independent maxima and epochs for
+  each of those four metrics;
+- per-seed and per-ablation CSV/JSON summaries with means, population/sample
+  variances, and population/sample standard deviations;
+- parameter counts by component, profiler-supported forward FLOPs, total and
+  per-epoch training time, inference latency/throughput, hardware metadata,
+  and CUDA allocated/reserved peak memory.
+
+FLOPs are estimates from operators supported by
+`torch.profiler(with_flops=True)`. The report deliberately excludes backward,
+optimizer, SVD-update, data-loading, and unsupported elementwise/reduction
+operations. Inference speed is model-only and uses a preloaded target-validation
+batch; it therefore does not include storage or DataLoader latency.
 
 The `runs` directory is ignored by Git but remains available locally.
