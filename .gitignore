@@ -8,6 +8,12 @@
 
 # 忽略数据集和训练日志
 
+*.mp4
+*.png
+*.pptx
+*.vsdx
+*.svg
+
 logs/
 Data/
 experiment_logs/
@@ -20,6 +26,7 @@ MambaOut-main/
 models/
 visualizations/
 JMDA_Net_VDS2Raw_Codex/
+tmp/
 
 # 忽略 Python 缓存
 __pycache__/
