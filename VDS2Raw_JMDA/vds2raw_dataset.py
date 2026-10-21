@@ -12,6 +12,7 @@ from typing import Dict, List, Mapping, Sequence, Union
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 
 
@@ -20,6 +21,8 @@ CLASS_TO_ID = {name: index for index, name in enumerate(CLASS_NAMES)}
 PARTITIONS = ("source_train", "target_train", "target_val", "target_test")
 TRAIN_PARTITIONS = ("source_train", "target_train")
 IMAGE_BAND_ORDER = ("B4", "B3", "B2", "B8")
+MODEL_IMAGE_SIZE = (224, 224)
+TRAIN_RESIZE_SIZE = (256, 256)
 REQUIRED_COLUMNS = {
     "sample_id",
     "partition",
@@ -285,6 +288,7 @@ class VDS2RawDataset(Dataset):
         manifest: VDS2RawManifest,
         partition: str,
         image_stats: Mapping[str, Sequence[float]],
+        augment: bool = False,
     ):
         if partition not in PARTITIONS:
             raise ValueError(f"Unknown partition {partition!r}; expected one of {PARTITIONS}")
@@ -294,6 +298,9 @@ class VDS2RawDataset(Dataset):
             )
         self.manifest = manifest
         self.partition = partition
+        self.augment = bool(augment)
+        if self.augment and partition not in TRAIN_PARTITIONS:
+            raise ValueError("Image augmentation is allowed only for training partitions")
         self.records = list(manifest.by_partition[partition])
         self.labels = [record.label_id for record in self.records]
         self.num_classes = len(CLASS_NAMES)
@@ -324,10 +331,44 @@ class VDS2RawDataset(Dataset):
         nir = (nir_raw - self.nir_mean) / self.nir_std
         rgb[:, padding_mask] = 0.0
         nir[:, padding_mask] = 0.0
+        rgb_tensor = torch.from_numpy(np.ascontiguousarray(rgb))
+        nir_tensor = torch.from_numpy(np.ascontiguousarray(nir))
+
+        def resize(image: torch.Tensor, size) -> torch.Tensor:
+            return F.interpolate(
+                image.unsqueeze(0),
+                size=size,
+                mode="bilinear",
+                align_corners=False,
+                antialias=True,
+            ).squeeze(0)
+
+        if self.augment:
+            # Historical train transform: resize to 256, synchronized random
+            # 224 crop, then synchronized horizontal flip.  The only absolute
+            # directional AIS field is heading represented as sin/cos; an
+            # east-west image flip negates sin(theta) and preserves cos(theta).
+            rgb_tensor = resize(rgb_tensor, TRAIN_RESIZE_SIZE)
+            nir_tensor = resize(nir_tensor, TRAIN_RESIZE_SIZE)
+            max_top = TRAIN_RESIZE_SIZE[0] - MODEL_IMAGE_SIZE[0]
+            max_left = TRAIN_RESIZE_SIZE[1] - MODEL_IMAGE_SIZE[1]
+            top = int(torch.randint(0, max_top + 1, ()).item())
+            left = int(torch.randint(0, max_left + 1, ()).item())
+            height, width = MODEL_IMAGE_SIZE
+            rgb_tensor = rgb_tensor[:, top : top + height, left : left + width]
+            nir_tensor = nir_tensor[:, top : top + height, left : left + width]
+            if bool(torch.rand(()) < 0.5):
+                rgb_tensor = torch.flip(rgb_tensor, dims=(-1,))
+                nir_tensor = torch.flip(nir_tensor, dims=(-1,))
+                if ais_mask[0] > 0:
+                    ais[0] = -ais[0]
+        else:
+            rgb_tensor = resize(rgb_tensor, MODEL_IMAGE_SIZE)
+            nir_tensor = resize(nir_tensor, MODEL_IMAGE_SIZE)
         ais_input = np.concatenate([ais, ais_mask], axis=0)
         return {
-            "rgb": torch.from_numpy(np.ascontiguousarray(rgb)),
-            "nir": torch.from_numpy(np.ascontiguousarray(nir)),
+            "rgb": rgb_tensor,
+            "nir": nir_tensor,
             "ais": torch.from_numpy(np.ascontiguousarray(ais)),
             "ais_mask": torch.from_numpy(np.ascontiguousarray(ais_mask)),
             "ais_input": torch.from_numpy(np.ascontiguousarray(ais_input)),
@@ -352,6 +393,8 @@ __all__ = [
     "PARTITIONS",
     "TRAIN_PARTITIONS",
     "IMAGE_BAND_ORDER",
+    "MODEL_IMAGE_SIZE",
+    "TRAIN_RESIZE_SIZE",
     "VDSRecord",
     "VDS2RawManifest",
     "VDS2RawDataset",

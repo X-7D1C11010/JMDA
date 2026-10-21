@@ -162,20 +162,25 @@ def build_modules(args, spec: Mapping[str, bool], device: torch.device) -> Exper
         pretrained=args.pretrained,
         pretrained_weights_path=args.pretrained_weights,
     )
-    if args.freeze_rgb_early:
-        rgb.freeze_early_stages()
+    if args.freeze_rgb_backbone:
+        rgb.freeze_backbone()
     nir = NIRFeatureExtractor(output_dim=FEATURE_DIM)
     ais = AISFeatureExtractor(output_dim=FEATURE_DIM)
 
     if spec["use_tensor"]:
+        projection_dims = [
+            args.projection_dim,
+            args.nir_projection_dim,
+            args.ais_projection_dim,
+        ]
         tensor = TensorBasedAlignmentStable(
             input_dims=[FEATURE_DIM, FEATURE_DIM, FEATURE_DIM],
-            output_dims=[args.projection_dim] * 3,
+            output_dims=projection_dims,
             num_modalities=3,
             max_svd_sweeps=args.svd_max_sweeps,
             svd_tolerance=args.svd_tolerance,
         )
-        fused_dim = args.projection_dim * 3
+        fused_dim = sum(projection_dims)
     else:
         tensor = None
         fused_dim = FEATURE_DIM * 3
@@ -411,6 +416,45 @@ def _best_validation_metrics_by_name(
     return result
 
 
+def checkpoint_selection_start_epoch(
+    warmup_epochs: int,
+    ramp_epochs: int,
+    use_tensor: bool,
+    use_ot: bool,
+) -> int:
+    """First one-based epoch eligible for final checkpoint selection.
+
+    A Tensor+OT run is not the complete method until the warm-up and ramp are
+    finished.  Other ablations are complete from epoch one.
+    """
+
+    if use_tensor and use_ot:
+        return max(int(warmup_epochs) + int(ramp_epochs), 1)
+    return 1
+
+
+def historical_classification_loss(
+    criterion: nn.Module,
+    source_logits: torch.Tensor,
+    source_labels: torch.Tensor,
+    target_logits: torch.Tensor,
+    target_labels: torch.Tensor,
+    intermediate_logits: Optional[torch.Tensor] = None,
+    intermediate_scale: float = 0.0,
+) -> torch.Tensor:
+    """Historical JMDA supervised objective: sum, never average, its terms."""
+
+    loss = criterion(source_logits, source_labels) + criterion(
+        target_logits, target_labels
+    )
+    if intermediate_logits is not None:
+        loss = loss + float(intermediate_scale) * criterion(
+            intermediate_logits,
+            source_labels,
+        )
+    return loss
+
+
 def _make_optimizers(args, modules: ExperimentModules):
     rgb_parameters = [p for p in modules.rgb.parameters() if p.requires_grad]
     other_parameters = [
@@ -515,7 +559,7 @@ def _update_tensor_projections(
         device=device,
         seed=seed * 1000,
         class_paired=True,
-        balance_classes=False,
+        balance_classes=args.balance_classes,
     )
     if epoch > 0:
         information.update(
@@ -569,8 +613,6 @@ def _train_epoch(
     observation_count = 0
     steps = 0
     ot_steps = 0
-    total_steps = len(batcher)
-
     for source_batch, target_batch in batcher.iter_epoch(epoch):
         if args.max_train_batches > 0 and steps >= args.max_train_batches:
             break
@@ -597,7 +639,8 @@ def _train_epoch(
             )
 
         discriminator_loss = source_features.new_zeros(())
-        if (not use_ot) or intermediate_features is not None:
+        discriminator_step = (steps + 1) % args.discriminator_update_interval == 0
+        if discriminator_step and ((not use_ot) or intermediate_features is not None):
             optimizer_d.zero_grad(set_to_none=True)
             if use_ot:
                 discriminator_loss, _ = compute_discriminator_loss(
@@ -617,21 +660,27 @@ def _train_epoch(
         optimizer_g.zero_grad(set_to_none=True)
         source_logits = modules.classifier(source_features)
         target_logits = modules.classifier(target_features)
-        source_classification = criterion(source_logits, source_labels)
-        target_classification = criterion(target_logits, target_labels)
-        classification_numerator = source_classification + target_classification
-        classification_denominator = 2.0
-
+        intermediate_logits = None
         if intermediate_features is not None:
             intermediate_logits = modules.classifier(intermediate_features)
-            classification_numerator = classification_numerator + (
-                joint_ot_scale * criterion(intermediate_logits, target_labels)
-            )
-            classification_denominator += joint_ot_scale
-        classification_loss = classification_numerator / classification_denominator
+        # Match the historical optimization objective exactly: supervised
+        # source, target, and (when active) transported-sample losses are
+        # summed. Tensor/Adv weights therefore retain their original scale.
+        classification_loss = historical_classification_loss(
+            criterion,
+            source_logits,
+            source_labels,
+            target_logits,
+            target_labels,
+            intermediate_logits,
+            joint_ot_scale,
+        )
 
-        progress = (epoch * total_steps + steps) / max(args.epochs * total_steps, 1)
-        alpha = 2.0 / (1.0 + math.exp(-10.0 * progress)) - 1.0
+        # Preserve the epoch-level GRL schedule used by the old experiment.
+        alpha = min(
+            2.0 / (1.0 + math.exp(-10.0 * epoch / max(args.epochs, 1))) - 1.0,
+            1.0,
+        )
         set_requires_grad(modules.discriminator, False)
         if use_ot:
             if intermediate_features is None:
@@ -722,6 +771,18 @@ def run_experiment(
     if ablation_name not in ABLATION_SPECS:
         raise ValueError(f"Unknown ablation {ablation_name!r}")
     spec = ABLATION_SPECS[ablation_name]
+    selection_start_epoch = checkpoint_selection_start_epoch(
+        args.ot_warmup_epochs,
+        args.ot_ramp_epochs,
+        bool(spec["use_tensor"]),
+        bool(spec["use_ot"]),
+    )
+    if args.epochs < selection_start_epoch:
+        raise ValueError(
+            f"epochs={args.epochs} is shorter than the first eligible Full "
+            f"checkpoint epoch {selection_start_epoch}. Increase --epochs or "
+            "shorten the explicitly requested OT warm-up/ramp."
+        )
     device = torch.device(
         "cuda" if args.device == "auto" and torch.cuda.is_available() else (
             "cpu" if args.device == "auto" else args.device
@@ -744,20 +805,61 @@ def run_experiment(
             "use_tensor": spec["use_tensor"],
             "use_ot": spec["use_ot"],
             "device_resolved": str(device),
+            "checkpoint_selection_start_epoch": selection_start_epoch,
         }
     )
     write_json(run_dir / "config.json", config)
 
-    source_train = VDS2RawDataset(manifest, "source_train", image_stats)
-    target_train = VDS2RawDataset(manifest, "target_train", image_stats)
+    source_train = VDS2RawDataset(
+        manifest,
+        "source_train",
+        image_stats,
+        augment=args.image_augmentation,
+    )
+    target_train = VDS2RawDataset(
+        manifest,
+        "target_train",
+        image_stats,
+        augment=args.image_augmentation,
+    )
     target_val = VDS2RawDataset(manifest, "target_val", image_stats)
     target_test = VDS2RawDataset(manifest, "target_test", image_stats)
-    if spec["use_tensor"] and args.projection_dim > len(target_train) - 1:
-        raise ValueError(
-            f"projection_dim={args.projection_dim} exceeds centered SVD rank "
-            f"{len(target_train) - 1} for the unbalanced target pairing"
+    if spec["use_tensor"]:
+        # As in the historical implementation, epoch-SVD statistics use a
+        # separate deterministic view of the training partitions.
+        source_svd = VDS2RawDataset(
+            manifest,
+            "source_train",
+            image_stats,
+            augment=False,
         )
-    batcher = SameClassPairedBatcher(source_train, target_train, args.batch_size, seed)
+        target_svd = VDS2RawDataset(
+            manifest,
+            "target_train",
+            image_stats,
+            augment=False,
+        )
+    else:
+        source_svd = None
+        target_svd = None
+    batcher = SameClassPairedBatcher(
+        source_train,
+        target_train,
+        args.batch_size,
+        seed,
+        balance_classes=args.balance_classes,
+    )
+    maximum_centered_rank = batcher.epoch_sample_count - 1
+    requested_rank = max(
+        args.projection_dim,
+        args.nir_projection_dim,
+        args.ais_projection_dim,
+    )
+    if spec["use_tensor"] and requested_rank > maximum_centered_rank:
+        raise ValueError(
+            f"maximum projection dimension {requested_rank} exceeds centered "
+            f"SVD rank {maximum_centered_rank} for the configured target pairing"
+        )
     loader_options = {
         "batch_size": args.batch_size,
         "shuffle": False,
@@ -801,14 +903,40 @@ def run_experiment(
         len(target_test),
     )
     logger.info(
-        "modalities RGB=3x96x96 NIR=1x96x96 AIS=13+13mask; fused_dim=%d",
+        "modalities RGB=3x224x224 NIR=1x224x224 (repeated to 3 encoder channels) "
+        "AIS=13+13mask; fused_dim=%d",
         modules.fused_dim,
     )
     logger.info(
-        "target_train coverage=%d samples/epoch, batches=%d, class balancing=disabled",
+        "target_train observations=%d samples/epoch, batches=%d, class balancing=%s",
         batcher.epoch_sample_count,
         len(batcher),
+        args.balance_classes,
     )
+    logger.info(
+        "image transform train=%s; SVD/validation/test=deterministic resize 224",
+        (
+            "resize 256 + synchronized random crop 224 + heading-aware horizontal flip"
+            if args.image_augmentation
+            else "deterministic resize 224"
+        ),
+    )
+    logger.info(
+        "optimization objective=historical summed classification losses; "
+        "discriminator_update_interval=%d; rgb_lr=%g; checkpoint_selection_start_epoch=%d",
+        args.discriminator_update_interval,
+        args.lr_rgb,
+        selection_start_epoch,
+    )
+    if spec["use_tensor"]:
+        logger.info(
+            "Tensor projection dimensions RGB/NIR/AIS=%d/%d/%d; "
+            "SVD class balancing=%s",
+            args.projection_dim,
+            args.nir_projection_dim,
+            args.ais_projection_dim,
+            args.balance_classes,
+        )
     logger.info(
         "parameters total=%d trainable=%d inference=%d",
         parameters["total_parameters"],
@@ -827,8 +955,8 @@ def run_experiment(
             svd_information = _update_tensor_projections(
                 args,
                 modules,
-                source_train,
-                target_train,
+                source_svd,
+                target_svd,
                 device,
                 seed,
                 epoch,
@@ -874,6 +1002,7 @@ def run_experiment(
         scheduler.step()
         record: Dict[str, object] = {
             "epoch": epoch + 1,
+            "checkpoint_selection_eligible": (epoch + 1) >= selection_start_epoch,
             **train_metrics,
             "val_loss": float(val_metrics["loss"]),
             "val_accuracy": float(val_metrics["accuracy"]),
@@ -934,14 +1063,18 @@ def run_experiment(
         )
         _save_checkpoint(last_checkpoint, checkpoint)
         selection_key = (float(val_metrics["accuracy"]), float(val_metrics["f1_macro"]))
-        if selection_key > best_key:
+        if record["checkpoint_selection_eligible"] and selection_key > best_key:
             best_key = selection_key
             best_epoch = epoch + 1
             _save_checkpoint(best_checkpoint, checkpoint)
             write_json(
                 run_dir / "best_validation_checkpoint_metrics.json",
                 {
-                    "selection_rule": "maximum target_val accuracy; macro-F1 tie break",
+                    "selection_rule": (
+                        "maximum target_val accuracy; macro-F1 tie break; "
+                        f"eligible epochs >= {selection_start_epoch}"
+                    ),
+                    "selection_start_epoch": selection_start_epoch,
                     "best_epoch": best_epoch,
                     "metrics": dict(val_metrics),
                 },
@@ -970,12 +1103,19 @@ def run_experiment(
         device,
         expected_manifest_sha256=manifest_sha256,
     )
-    best_metrics_by_name = _best_validation_metrics_by_name(history)
+    eligible_history = [
+        row for row in history if bool(row["checkpoint_selection_eligible"])
+    ]
+    best_metrics_by_name = _best_validation_metrics_by_name(eligible_history)
     write_json(
         run_dir / "best_validation_metrics.json",
         {
             "checkpoint_selection": {
-                "selection_rule": "maximum target_val accuracy; macro-F1 tie break",
+                "selection_rule": (
+                    "maximum target_val accuracy; macro-F1 tie break; "
+                    f"eligible epochs >= {selection_start_epoch}"
+                ),
+                "selection_start_epoch": selection_start_epoch,
                 "epoch": best_epoch,
                 "metrics": selected["val_metrics"],
             },
@@ -1045,7 +1185,11 @@ def run_experiment(
         "seed": seed,
         "run_dir": str(run_dir),
         "best_epoch": best_epoch,
-        "selection_rule": "maximum target_val accuracy; macro-F1 tie break",
+        "selection_rule": (
+            "maximum target_val accuracy; macro-F1 tie break; "
+            f"eligible epochs >= {selection_start_epoch}"
+        ),
+        "checkpoint_selection_start_epoch": selection_start_epoch,
         "best_val_metrics": selected["val_metrics"],
         "best_val_metrics_by_name": best_metrics_by_name,
         "target_test_metrics": test_metrics,
@@ -1109,6 +1253,8 @@ __all__ = [
     "fuse_training_pair",
     "fuse_target",
     "classification_metrics",
+    "checkpoint_selection_start_epoch",
+    "historical_classification_loss",
     "evaluate",
     "run_experiment",
 ]

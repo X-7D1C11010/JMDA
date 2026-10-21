@@ -1,4 +1,4 @@
-"""Supervised cross-domain pairing without class rebalancing."""
+"""Epoch-covering supervised cross-domain pairing with optional balancing."""
 
 from __future__ import annotations
 
@@ -11,15 +11,28 @@ from torch.utils.data import default_collate
 
 
 class SameClassPairedBatcher:
-    """Cover each target sample once and pair it with a same-class source."""
+    """Cover target data and pair every observation with a same-class source.
 
-    def __init__(self, source_dataset, target_dataset, batch_size: int, seed: int):
+    When balancing is enabled, each target class is repeated to the size of
+    the largest target class.  Every original target observation still occurs
+    at least once, matching the historical weather-dataset sampler.
+    """
+
+    def __init__(
+        self,
+        source_dataset,
+        target_dataset,
+        batch_size: int,
+        seed: int,
+        balance_classes: bool = True,
+    ):
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
         self.source_dataset = source_dataset
         self.target_dataset = target_dataset
         self.batch_size = int(batch_size)
         self.seed = int(seed)
+        self.balance_classes = bool(balance_classes)
         self.source_by_class = self._index(source_dataset.labels)
         self.target_by_class = self._index(target_dataset.labels)
         missing = sorted(set(self.target_by_class) - set(self.source_by_class))
@@ -37,7 +50,10 @@ class SameClassPairedBatcher:
 
     @property
     def epoch_sample_count(self) -> int:
-        return len(self.target_dataset)
+        if not self.balance_classes:
+            return len(self.target_dataset)
+        samples_per_class = max(len(indices) for indices in self.target_by_class.values())
+        return samples_per_class * len(self.target_by_class)
 
     def __len__(self) -> int:
         return math.ceil(self.epoch_sample_count / self.batch_size)
@@ -50,7 +66,18 @@ class SameClassPairedBatcher:
         source_offsets = {label: 0 for label in source_pools}
         for pool in source_pools.values():
             rng.shuffle(pool)
-        target_indices = list(range(len(self.target_dataset)))
+        target_indices = []
+        if self.balance_classes:
+            samples_per_class = max(
+                len(indices) for indices in self.target_by_class.values()
+            )
+            for label in sorted(self.target_by_class):
+                pool = list(self.target_by_class[label])
+                rng.shuffle(pool)
+                repeats, remainder = divmod(samples_per_class, len(pool))
+                target_indices.extend(pool * repeats + pool[:remainder])
+        else:
+            target_indices = list(range(len(self.target_dataset)))
         rng.shuffle(target_indices)
         pairs: List[Tuple[int, int]] = []
         for target_index in target_indices:

@@ -12,27 +12,40 @@ VIS/IR data loader or its split rules.
 - Only `source_train + target_train` can update model parameters, Tensor/SVD
   projections, AIS scalers, or image normalization statistics.
 - `target_val` selects the checkpoint by accuracy with macro-F1 as tie break.
+  For the Full model, epochs before the OT warm-up/ramp is complete are not
+  eligible for checkpoint selection.
 - `target_test` is evaluated once after loading that checkpoint. It is never
   used for model selection.
-- Every target training sample occurs exactly once per epoch. A same-class
-  source sample is selected without repeating target samples for balancing.
+- Every target training sample occurs at least once per epoch. Target classes
+  are repeated to the largest target-class count and paired with same-class
+  source observations, matching the historical weather-dataset sampler.
 - RGB is B4/B3/B2, NIR is Sentinel-2 B8, and AIS is the 13-value vector plus
   its 13-value validity mask. MMSI and Ship type are not model inputs.
 
 ## Model
 
-- RGB: ImageNet-pretrained ResNet18 at native 96x96 resolution. The stem and
-  layer1 are frozen by default; layer2--layer4 and the projection are trained.
-- NIR: independent one-channel convolutional encoder.
+- RGB: the historical resize-256/random-crop-224/horizontal-flip train
+  transform followed by the historical
+  ImageNet-pretrained ResNet18 VIS encoder. The complete ResNet feature stack
+  is frozen and only its 512-dimensional projection is trained, matching the
+  old experiment's effective freeze behavior.
+- NIR: the same synchronized image transform, repeated from one B8 channel to three
+  encoder channels, followed by the historical four-stage U-Net-style IR
+  encoder (64/128/256/512 channels).
 - AIS: MLP over the 26-dimensional value/mask input.
 - Each encoder emits 512 features.
-- Tensor mode uses three 64-dimensional epoch-SVD projections and concatenates
-  them into 192 features.
+- Tensor mode uses 64/32/32 dimensional RGB/NIR/AIS epoch-SVD projections and
+  concatenates them into 128 features. Repeated single-band B8 and structured
+  AIS use narrower projections consistent with their lower empirical ranks.
 - The full model applies class-conditional TransNet + Softmax-kernel Sinkhorn
   transport after a Tensor-only warm-up.
+- Source, target, and transported-sample classification losses are summed as
+  in the old objective; the discriminator updates every two mini-batches.
 
-No geometric image augmentation is used because a flip/rotation would make
-the absolute AIS heading inconsistent with the image.
+SVD, validation, and test use deterministic 224x224 resize. During a training
+horizontal flip, `heading_sin` is negated while `heading_cos` is preserved, so
+the structured AIS direction remains consistent with the image. Rotation is
+not used.
 
 ## Windows commands
 
@@ -51,7 +64,7 @@ Run a short complete-epoch test without touching `target_test`:
 
 ```powershell
 D:\Anaconda\envs\pytorch\python.exe -B .\VDS2Raw_JMDA\module_ablation.py `
-  --epochs 5 --seeds 42 --no-evaluate_test
+  --epochs 5 --seeds 42 --ot_warmup_epochs 1 --ot_ramp_epochs 1 --no-evaluate_test
 ```
 
 Run the full model locally:
@@ -102,9 +115,17 @@ CUDA_VISIBLE_DEVICES=1 nohup python -u -B VDS2Raw_JMDA/module_ablation.py \
   --device cuda \
   --transport_mode sinkhorn \
   --projection_dim 64 \
+  --nir_projection_dim 32 \
+  --ais_projection_dim 32 \
   --svd_max_sweeps 10 \
   --svd_tolerance 1e-3 \
   --svd_stat_batch_size 128 \
+  --lr_rgb 5e-6 \
+  --lr_other 2e-4 \
+  --discriminator_update_interval 2 \
+  --freeze_rgb_backbone \
+  --balance_classes \
+  --image_augmentation \
   --ot_warmup_epochs 10 \
   --ot_ramp_epochs 5 \
   > /home/lixiang/lx/JMDA/VDS2Raw_JMDA/train.log 2>&1 &
@@ -119,6 +140,9 @@ Each invocation creates one timestamped directory under `VDS2Raw_JMDA/runs`:
 - raw epoch metrics CSV and UTF-8 log;
 - `best.pt` and `last.pt` checkpoints;
 - target-test metrics and per-sample probabilities for non-smoke final runs;
+- a clearly marked diagnostic best target-test checkpoint across the
+  validation-selected seed checkpoints. This oracle maximum is not an
+  unbiased final metric and must not be used for model selection;
 - per-seed summaries and aggregate mean/population-standard-deviation values.
 - separate `<ablation>/seed_<seed>/` raw-data directories for every run;
 - per-epoch ACC, macro Precision, macro Recall, and macro F1;

@@ -1,4 +1,10 @@
-"""Three modality feature encoders used by the VDS2Raw JMDA-Net entry point."""
+"""Three-modality feature encoders for the VDS2Raw JMDA-Net entry point.
+
+The image encoders deliberately match the historical VIS/IR experiment: a
+ResNet18 VIS/RGB branch and a four-stage U-Net-style IR branch.  VDS2Raw B8 is
+stored as one channel, so the NIR encoder repeats it to the three channels
+expected by the historical IR network without changing the prepared dataset.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +23,7 @@ AIS_INPUT_DIM = 26
 
 
 class RGBFeatureExtractor(nn.Module):
-    """ImageNet-pretrained ResNet18 adapted to native 96x96 RGB crops."""
+    """Historical ImageNet-pretrained ResNet18 VIS encoder at 224x224."""
 
     def __init__(
         self,
@@ -26,7 +32,7 @@ class RGBFeatureExtractor(nn.Module):
         pretrained_weights_path: Optional[Union[str, Path]] = None,
     ):
         super().__init__()
-        self.backbone = models.resnet18(weights=None)
+        resnet = models.resnet18(weights=None)
         if pretrained:
             if pretrained_weights_path:
                 checkpoint_path = Path(pretrained_weights_path).expanduser().resolve()
@@ -43,76 +49,70 @@ class RGBFeatureExtractor(nn.Module):
                 state = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             except TypeError:
                 state = torch.load(checkpoint_path, map_location="cpu")
-            self.backbone.load_state_dict(state)
-        self.backbone.fc = nn.Identity()
+            resnet.load_state_dict(state)
+        # Keep the same module layout as Models.VisualFeatureExtractor.  This
+        # also makes the actual freeze policy explicit: the complete ResNet
+        # feature stack is frozen and only ``proj`` is optimized.
+        self.features = nn.Sequential(*list(resnet.children())[:-1])
         self.proj = nn.Linear(512, output_dim)
-        self._early_stages_frozen = False
 
-    def freeze_early_stages(self) -> None:
-        """Freeze the stem and layer1 while fine-tuning layer2--layer4."""
+    def freeze_backbone(self) -> None:
+        """Reproduce the old experiment's effective VIS freeze policy."""
 
-        for module in (
-            self.backbone.conv1,
-            self.backbone.bn1,
-            self.backbone.layer1,
-        ):
-            for parameter in module.parameters():
-                parameter.requires_grad = False
-        self._early_stages_frozen = True
-        self._keep_frozen_stages_in_eval()
-
-    def _keep_frozen_stages_in_eval(self) -> None:
-        if self._early_stages_frozen:
-            self.backbone.bn1.eval()
-            self.backbone.layer1.eval()
-
-    def train(self, mode: bool = True):
-        super().train(mode)
-        self._keep_frozen_stages_in_eval()
-        return self
+        for parameter in self.features.parameters():
+            parameter.requires_grad = False
+        for parameter in self.proj.parameters():
+            parameter.requires_grad = True
 
     def forward(self, rgb: torch.Tensor) -> torch.Tensor:
-        return self.proj(self.backbone(rgb))
+        features = self.features(rgb).flatten(1)
+        return self.proj(features)
 
 
 def _conv_block(in_channels: int, out_channels: int) -> nn.Sequential:
-    groups = min(8, out_channels)
+    """Historical IR encoder block (Conv-BN-ReLU twice, then pooling)."""
+
     return nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
-        nn.GroupNorm(groups, out_channels),
+        nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+        nn.BatchNorm2d(out_channels),
         nn.ReLU(inplace=True),
-        nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False),
-        nn.GroupNorm(groups, out_channels),
+        nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+        nn.BatchNorm2d(out_channels),
         nn.ReLU(inplace=True),
         nn.MaxPool2d(2),
     )
 
 
 class NIRFeatureExtractor(nn.Module):
-    """Independent one-channel convolutional encoder for Sentinel-2 B8."""
+    """Historical three-channel U-Net-style encoder for Sentinel-2 B8.
+
+    B8 is a scalar spectral band, not thermal RGB.  Repeating the same values
+    over three channels is used solely to reproduce the old IR encoder input
+    contract; it does not invent additional spectral information.
+    """
 
     def __init__(self, output_dim: int = FEATURE_DIM):
         super().__init__()
-        self.encoder = nn.Sequential(
-            _conv_block(1, 32),
-            _conv_block(32, 64),
-            _conv_block(64, 128),
-            _conv_block(128, 256),
-            nn.AdaptiveAvgPool2d((1, 1)),
-        )
-        self.proj = nn.Linear(256, output_dim)
-        self._initialize()
-
-    def _initialize(self) -> None:
-        for module in self.modules():
-            if isinstance(module, nn.Conv2d):
-                nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
-            elif isinstance(module, nn.Linear):
-                nn.init.xavier_uniform_(module.weight)
-                nn.init.zeros_(module.bias)
+        self.enc1 = _conv_block(3, 64)
+        self.enc2 = _conv_block(64, 128)
+        self.enc3 = _conv_block(128, 256)
+        self.enc4 = _conv_block(256, 512)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.proj = nn.Linear(512, output_dim)
 
     def forward(self, nir: torch.Tensor) -> torch.Tensor:
-        features = self.encoder(nir).flatten(1)
+        if nir.ndim != 4 or nir.shape[1] not in (1, 3):
+            raise ValueError(
+                "NIR input must have shape [batch, 1, height, width] or "
+                f"[batch, 3, height, width], got {tuple(nir.shape)}"
+            )
+        if nir.shape[1] == 1:
+            nir = nir.repeat(1, 3, 1, 1)
+        features = self.enc1(nir)
+        features = self.enc2(features)
+        features = self.enc3(features)
+        features = self.enc4(features)
+        features = self.avgpool(features).flatten(1)
         return self.proj(features)
 
 

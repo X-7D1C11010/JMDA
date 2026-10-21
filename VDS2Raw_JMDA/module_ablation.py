@@ -59,6 +59,8 @@ def summarize_numeric_values(values: Sequence[float]) -> Dict[str, object]:
     return {
         "values": numeric,
         "count": len(numeric),
+        "minimum": min(numeric),
+        "maximum": max(numeric),
         "mean": mean,
         "variance_population": population_variance,
         "std_population": population_variance**0.5,
@@ -151,7 +153,41 @@ def _aggregate_runs(runs: Sequence[Mapping[str, object]]) -> Dict[str, object]:
         numeric = [float(value) for value in values if value is not None]
         if numeric:
             complexity[field] = summarize_numeric_values(numeric)
-    return {"metrics": fields, "complexity": complexity}
+
+    # The user requested the highest target-test result among the independent
+    # validation-selected seed checkpoints.  Save it as an explicitly
+    # diagnostic oracle only: it must not replace the mean/variance report or
+    # be used for model/hyperparameter selection.
+    test_runs = [run for run in runs if run["target_test_metrics"] is not None]
+    if test_runs:
+        oracle_run = max(
+            test_runs,
+            key=lambda run: (
+                float(run["target_test_metrics"]["accuracy"]),
+                float(run["target_test_metrics"]["f1_macro"]),
+                -int(run["seed"]),
+            ),
+        )
+        diagnostic_test_oracle = {
+            "warning": (
+                "Highest target_test result across seed checkpoints is an oracle "
+                "diagnostic, not an unbiased final metric and not a selection rule."
+            ),
+            "selection_pool": (
+                "one target_val-selected eligible checkpoint per independent seed"
+            ),
+            "seed": oracle_run["seed"],
+            "best_epoch": oracle_run["best_epoch"],
+            "metrics": oracle_run["target_test_metrics"],
+            "run_dir": oracle_run["run_dir"],
+        }
+    else:
+        diagnostic_test_oracle = None
+    return {
+        "metrics": fields,
+        "complexity": complexity,
+        "diagnostic_target_test_oracle_best_checkpoint": diagnostic_test_oracle,
+    }
 
 
 def write_suite_reports(
@@ -173,6 +209,14 @@ def write_suite_reports(
             ablation_dir / "summary.json",
             {"runs": selected, "aggregate": ablation_aggregate},
         )
+        oracle = ablation_aggregate[
+            "diagnostic_target_test_oracle_best_checkpoint"
+        ]
+        if oracle is not None:
+            write_json(
+                ablation_dir / "diagnostic_target_test_oracle_best_checkpoint.json",
+                oracle,
+            )
         _write_csv(
             ablation_dir / "metrics_by_seed.csv",
             [_metric_run_row(run) for run in selected],
@@ -228,7 +272,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--seeds", type=parse_seeds, default=parse_seeds("42"))
     parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument(
@@ -244,15 +288,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="model-only target forwards used for latency/throughput timing",
     )
     parser.add_argument("--projection_dim", type=int, default=64)
+    parser.add_argument(
+        "--nir_projection_dim",
+        type=int,
+        default=32,
+        help=(
+            "NIR Tensor projection width; repeated single-band B8 has lower "
+            "empirical rank than RGB"
+        ),
+    )
+    parser.add_argument(
+        "--ais_projection_dim",
+        type=int,
+        default=32,
+        help=(
+            "AIS Tensor projection width; 32 stays below the observed "
+            "37--41 dimensional AIS effective rank"
+        ),
+    )
     parser.add_argument("--svd_max_sweeps", type=int, default=10)
     parser.add_argument("--svd_tolerance", type=float, default=1e-3)
-    parser.add_argument("--svd_stat_batch_size", type=int, default=32)
-    parser.add_argument("--lr_rgb", type=float, default=1e-5)
+    parser.add_argument("--svd_stat_batch_size", type=int, default=128)
+    parser.add_argument("--lr_rgb", type=float, default=5e-6)
     parser.add_argument("--lr_other", type=float, default=2e-4)
     parser.add_argument("--weight_decay", type=float, default=5e-4)
     parser.add_argument("--label_smoothing", type=float, default=0.1)
     parser.add_argument("--tensor_loss_weight", type=float, default=0.12)
     parser.add_argument("--adv_loss_weight", type=float, default=0.08)
+    parser.add_argument(
+        "--discriminator_update_interval",
+        type=int,
+        default=2,
+        help="update the domain discriminator every N training batches",
+    )
     parser.add_argument(
         "--transport_mode",
         choices=["row_softmax", "sinkhorn"],
@@ -281,10 +349,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="offline path to the official resnet18-f37072fd.pth file",
     )
     parser.add_argument(
+        "--freeze_rgb_backbone",
         "--freeze_rgb_early",
+        dest="freeze_rgb_backbone",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="freeze ResNet18 stem and layer1",
+        help="freeze the complete ResNet18 feature stack and train only its projection",
+    )
+    parser.add_argument(
+        "--balance_classes",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="repeat each target class to the largest target-class count per epoch",
+    )
+    parser.add_argument(
+        "--image_augmentation",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "historical resize-256/random-crop-224/horizontal-flip transform; "
+            "AIS heading_sin is transformed with the flip"
+        ),
     )
     parser.add_argument(
         "--deterministic",
@@ -317,10 +402,13 @@ def validate_args(parser: argparse.ArgumentParser, args) -> None:
         "epochs",
         "batch_size",
         "projection_dim",
+        "nir_projection_dim",
+        "ais_projection_dim",
         "svd_max_sweeps",
         "svd_stat_batch_size",
         "ot_sinkhorn_iterations",
         "ot_ramp_epochs",
+        "discriminator_update_interval",
         "inference_benchmark_runs",
     )
     for field in positive_integer_fields:
