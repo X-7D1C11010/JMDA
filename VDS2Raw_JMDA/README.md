@@ -39,8 +39,14 @@ VIS/IR data loader or its split rules.
   AIS use narrower projections consistent with their lower empirical ranks.
 - The full model applies class-conditional TransNet + Softmax-kernel Sinkhorn
   transport after a Tensor-only warm-up.
-- Source, target, and transported-sample classification losses are summed as
-  in the old objective; the discriminator updates every two mini-batches.
+- By default, classification supervision contains source CE and, when OT is
+  active, transported-sample CE with source labels. Target CE is disabled.
+  Target labels are still retained for same-class batching, class-balanced
+  epoch-SVD statistics, class-conditional OT, and diagnostic accuracy, so this
+  is label-assisted adaptation rather than strict unsupervised DA. Pass
+  `--target_classification_supervision` to reproduce the historical supervised
+  source+target classification objective. The discriminator updates every two
+  mini-batches.
 
 SVD, validation, and test use deterministic 224x224 resize. During a training
 horizontal flip, `heading_sin` is negated while `heading_cos` is preserved, so

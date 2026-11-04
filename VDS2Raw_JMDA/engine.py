@@ -441,12 +441,19 @@ def historical_classification_loss(
     target_labels: torch.Tensor,
     intermediate_logits: Optional[torch.Tensor] = None,
     intermediate_scale: float = 0.0,
+    include_target_supervision: bool = True,
 ) -> torch.Tensor:
-    """Historical JMDA supervised objective: sum, never average, its terms."""
+    """Sum enabled JMDA classification terms without averaging them.
 
-    loss = criterion(source_logits, source_labels) + criterion(
-        target_logits, target_labels
-    )
+    ``include_target_supervision=False`` removes the target-domain
+    cross-entropy term while deliberately leaving target labels available to
+    the caller for same-class pairing, epoch-SVD statistics, class-conditional
+    OT, and diagnostic metrics.
+    """
+
+    loss = criterion(source_logits, source_labels)
+    if include_target_supervision:
+        loss = loss + criterion(target_logits, target_labels)
     if intermediate_logits is not None:
         loss = loss + float(intermediate_scale) * criterion(
             intermediate_logits,
@@ -663,9 +670,9 @@ def _train_epoch(
         intermediate_logits = None
         if intermediate_features is not None:
             intermediate_logits = modules.classifier(intermediate_features)
-        # Match the historical optimization objective exactly: supervised
-        # source, target, and (when active) transported-sample losses are
-        # summed. Tensor/Adv weights therefore retain their original scale.
+        # Classification terms are summed, never averaged.  The requested
+        # label-assisted setting removes target CE only: target labels remain
+        # available to pairing, SVD, class-conditional OT, and diagnostics.
         classification_loss = historical_classification_loss(
             criterion,
             source_logits,
@@ -674,6 +681,7 @@ def _train_epoch(
             target_labels,
             intermediate_logits,
             joint_ot_scale,
+            include_target_supervision=args.target_classification_supervision,
         )
 
         # Preserve the epoch-level GRL schedule used by the old experiment.
@@ -885,7 +893,7 @@ def run_experiment(
     best_epoch = -1
     manifest_sha256 = str(audit_report["manifest_sha256"])
 
-    logger.info("VDS2Raw supervised domain adaptation")
+    logger.info("VDS2Raw label-assisted domain adaptation")
     logger.info(
         "ablation=%s seed=%d device=%s pretrained=%s tensor=%s ot=%s",
         ablation_name,
@@ -922,8 +930,12 @@ def run_experiment(
         ),
     )
     logger.info(
-        "optimization objective=historical summed classification losses; "
+        "classification supervision source=True target_ce=%s "
+        "transported_source=%s; target labels retained for "
+        "pairing/SVD/class-conditional-OT/metrics; "
         "discriminator_update_interval=%d; rgb_lr=%g; checkpoint_selection_start_epoch=%d",
+        args.target_classification_supervision,
+        spec["use_ot"],
         args.discriminator_update_interval,
         args.lr_rgb,
         selection_start_epoch,

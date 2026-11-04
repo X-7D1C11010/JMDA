@@ -260,7 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
         r"D:\Downloads\VDS2Raw\threeclass_ready",
     )
     parser = argparse.ArgumentParser(
-        description="VDS2Raw v2 three-modal supervised domain adaptation with JMDA-Net"
+        description="VDS2Raw v2 three-modal label-assisted domain adaptation with JMDA-Net"
     )
     parser.add_argument("--dataset_root", default=default_dataset_root)
     parser.add_argument("--output_root", default=str(PACKAGE_DIR / "runs"))
@@ -313,6 +313,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lr_other", type=float, default=2e-4)
     parser.add_argument("--weight_decay", type=float, default=5e-4)
     parser.add_argument("--label_smoothing", type=float, default=0.1)
+    parser.add_argument(
+        "--target_classification_supervision",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "include target_train labels in classification cross-entropy; "
+            "disabled by default, while target labels remain available for "
+            "same-class pairing, SVD, class-conditional OT, and diagnostics"
+        ),
+    )
     parser.add_argument("--tensor_loss_weight", type=float, default=0.12)
     parser.add_argument("--adv_loss_weight", type=float, default=0.08)
     parser.add_argument(

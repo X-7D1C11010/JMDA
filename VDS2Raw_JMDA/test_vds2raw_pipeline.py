@@ -181,6 +181,40 @@ class ReportingTests(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(actual, expected))
 
+    def test_target_classification_supervision_can_be_removed(self):
+        criterion = nn.CrossEntropyLoss()
+        source_labels = torch.tensor([0, 1])
+        target_labels = torch.tensor([1, 0])
+        source = torch.tensor([[2.0, -1.0], [-1.0, 2.0]])
+        target = torch.tensor([[20.0, -20.0], [-20.0, 20.0]])
+        intermediate = torch.tensor([[0.5, 0.0], [0.0, 0.5]])
+        expected = criterion(source, source_labels) + 0.4 * criterion(
+            intermediate, source_labels
+        )
+        actual = historical_classification_loss(
+            criterion,
+            source,
+            source_labels,
+            target,
+            target_labels,
+            intermediate,
+            0.4,
+            include_target_supervision=False,
+        )
+        self.assertTrue(torch.allclose(actual, expected))
+
+        changed_target = historical_classification_loss(
+            criterion,
+            source,
+            source_labels,
+            -target,
+            1 - target_labels,
+            intermediate,
+            0.4,
+            include_target_supervision=False,
+        )
+        self.assertTrue(torch.equal(actual, changed_target))
+
 
 @unittest.skipUnless(DATASET_ROOT.is_dir(), "VDS2Raw prepared dataset is not available")
 class PreparedDatasetTests(unittest.TestCase):
