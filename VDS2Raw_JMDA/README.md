@@ -20,7 +20,9 @@ VIS/IR data loader or its split rules.
   are repeated to the largest target-class count and paired with same-class
   source observations, matching the historical weather-dataset sampler.
 - RGB is B4/B3/B2, NIR is Sentinel-2 B8, and AIS is the 13-value vector plus
-  its 13-value validity mask. MMSI and Ship type are not model inputs.
+  its 13-value validity mask. MMSI and Ship type are not model inputs. The
+  loader always zeros every `nav_*` value and mask, retaining only heading,
+  length, and width so navigation-status label proxies cannot reach the model.
 
 ## Model
 
@@ -42,11 +44,9 @@ VIS/IR data loader or its split rules.
 - By default, classification supervision contains source CE and, when OT is
   active, transported-sample CE with source labels. Target CE is disabled.
   Target labels are still retained for same-class batching, class-balanced
-  epoch-SVD statistics, class-conditional OT, and diagnostic accuracy, so this
-  is label-assisted adaptation rather than strict unsupervised DA. Pass
-  `--target_classification_supervision` to reproduce the historical supervised
-  source+target classification objective. The discriminator updates every two
-  mini-batches.
+  epoch-SVD statistics, class-conditional OT, and diagnostic accuracy. The
+  unsupervised protocol excludes target CE; the supervised protocol includes
+  it. The discriminator updates every two mini-batches.
 
 SVD, validation, and test use deterministic 224x224 resize. During a training
 horizontal flip, `heading_sin` is negated while `heading_cos` is preserved, so
@@ -99,6 +99,11 @@ same entry point. The manifest uses relative NPZ paths, so it is portable.
 Copy the official cached `resnet18-f37072fd.pth` file as well and pass its
 path explicitly. The training entry never downloads weights silently.
 
+Run `run_all_when_gpu_free.sh` once to execute unsupervised Full, followed by
+supervised Full and the three existing supervised Tensor/OT ablations. Before
+each experiment it waits until physical GPU 1 has at least 10 GiB free;
+combined output is written to `train.log`.
+
 ```bash
 export VDS2RAW_ROOT=/data/VDS2Raw/threeclass_ready
 python -B VDS2Raw_JMDA/module_ablation.py \
@@ -127,21 +132,31 @@ CUDA_VISIBLE_DEVICES=1 nohup python -u -B VDS2Raw_JMDA/module_ablation.py \
   --svd_tolerance 1e-3 \
   --svd_stat_batch_size 128 \
   --lr_rgb 5e-6 \
-  --lr_other 2e-4 \
+  --lr_other 1e-4 \
+  --lr_discriminator 5e-5 \
   --discriminator_update_interval 2 \
   --freeze_rgb_backbone \
-  --balance_classes \
   --image_augmentation \
   --ot_warmup_epochs 10 \
   --ot_ramp_epochs 5 \
   > /home/lixiang/lx/JMDA/VDS2Raw_JMDA/train.log 2>&1 &
 ```
 
+In both protocols target labels remain visible to same-class pairing,
+class-balanced epoch-SVD, class-conditional OT, target-train diagnostics, and
+target-val checkpoint selection. They contribute to classification CE only in
+the supervised protocol.
+All AIS navigation-status fields are always removed in the loader, retaining
+only heading, length, and width. This is a leakage safeguard, not an additional
+ablation configuration, and applies to Full and all existing Tensor/OT modes.
+
 ## Outputs
 
 Each invocation creates one timestamped directory under `VDS2Raw_JMDA/runs`:
 
 - immutable dataset audit and train-only image statistics;
+- `protocol_audit.json`, enumerating the fixed target-label visibility,
+  checkpoint-selection rule, and unconditionally removed AIS leakage fields;
 - invocation and per-run configuration;
 - raw epoch metrics CSV and UTF-8 log;
 - `best.pt` and `last.pt` checkpoints;

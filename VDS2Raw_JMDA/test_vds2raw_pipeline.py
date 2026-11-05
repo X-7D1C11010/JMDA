@@ -29,9 +29,14 @@ from VDS2Raw_JMDA.engine import (
     checkpoint_selection_start_epoch,
     historical_classification_loss,
 )
-from VDS2Raw_JMDA.module_ablation import summarize_numeric_values
+from VDS2Raw_JMDA.module_ablation import (
+    build_parser,
+    build_protocol_audit,
+    summarize_numeric_values,
+)
 from VDS2Raw_JMDA.paired_sampler import SameClassPairedBatcher
 from VDS2Raw_JMDA.vds2raw_dataset import (
+    AIS_REMOVED_LABEL_PROXY_FEATURES,
     TRAIN_PARTITIONS,
     VDS2RawDataset,
     VDS2RawManifest,
@@ -89,7 +94,6 @@ class PairingTests(unittest.TestCase):
         pairs = batcher.pairs_for_epoch(0)
         self.assertEqual(sorted(target_index for _, target_index in pairs), list(range(len(target))))
 
-
 class ModelTests(unittest.TestCase):
     def test_three_encoder_shapes(self):
         with torch.no_grad():
@@ -126,6 +130,33 @@ class ModelTests(unittest.TestCase):
 
 
 class ReportingTests(unittest.TestCase):
+    def test_protocol_defaults_and_lower_learning_rates(self):
+        args = build_parser().parse_args([])
+        self.assertEqual(args.training_protocol, "unsupervised")
+        self.assertFalse(hasattr(args, "target_classification_supervision"))
+        self.assertFalse(hasattr(args, "target_alignment_supervision"))
+        self.assertFalse(hasattr(args, "ais_feature_policy"))
+        self.assertEqual(args.lr_other, 1e-4)
+        self.assertEqual(args.lr_discriminator, 5e-5)
+
+    def test_protocol_audit_exposes_label_and_ais_paths(self):
+        args = build_parser().parse_args([])
+        audit = build_protocol_audit(args)
+        self.assertFalse(audit["target_label_access"]["classification_cross_entropy"])
+        self.assertTrue(audit["target_label_access"]["same_class_training_pairing"])
+        self.assertTrue(audit["target_label_access"]["class_paired_epoch_svd"])
+        self.assertTrue(audit["target_label_access"]["class_conditional_ot"])
+        self.assertEqual(audit["checkpoint_selection_resolved"], "target_val")
+        self.assertEqual(
+            audit["ais"]["unconditionally_removed_leakage_features"],
+            list(AIS_REMOVED_LABEL_PROXY_FEATURES),
+        )
+        args.training_protocol = "supervised"
+        supervised = build_protocol_audit(args)
+        self.assertTrue(
+            supervised["target_label_access"]["classification_cross_entropy"]
+        )
+
     def test_multi_seed_statistics_include_mean_and_variance(self):
         summary = summarize_numeric_values([0.8, 0.9, 1.0])
         self.assertEqual(summary["count"], 3)
@@ -251,6 +282,34 @@ class PreparedDatasetTests(unittest.TestCase):
         self.assertEqual(sample["nir"].dtype, torch.float32)
         self.assertTrue(torch.isfinite(sample["rgb"]).all())
         self.assertTrue(torch.isfinite(sample["nir"]).all())
+
+    def test_all_navigation_label_proxy_fields_are_always_removed(self):
+        observed_nonzero_raw = set()
+        for partition in ("source_train", "target_train", "target_val", "target_test"):
+            dataset = VDS2RawDataset(self.manifest, partition, self.stats)
+            for sample_index, record in enumerate(dataset.records):
+                with np.load(self.manifest.resolve_npz(record), allow_pickle=False) as payload:
+                    raw_ais = payload["ais"]
+                    raw_mask = payload["ais_mask"]
+                relevant = {
+                    index
+                    for index in range(4, 13)
+                    if raw_ais[index] != 0.0 or raw_mask[index] != 0.0
+                }
+                if not relevant:
+                    continue
+                sample = dataset[sample_index]
+                for index in relevant:
+                    observed_nonzero_raw.add(index)
+                    self.assertEqual(float(sample["ais"][index]), 0.0)
+                    self.assertEqual(float(sample["ais_mask"][index]), 0.0)
+                    self.assertEqual(float(sample["ais_input"][index]), 0.0)
+                    self.assertEqual(float(sample["ais_input"][13 + index]), 0.0)
+                if observed_nonzero_raw == set(range(4, 13)):
+                    break
+            if observed_nonzero_raw == set(range(4, 13)):
+                break
+        self.assertEqual(observed_nonzero_raw, set(range(4, 13)))
 
     def test_training_augmentation_preserves_heading_magnitude(self):
         dataset = VDS2RawDataset(

@@ -138,10 +138,10 @@ def flop_report(
     class_conditional_ot: bool,
 ) -> Dict[str, object]:
     modules.eval()
-    target_count = int(target_batch["label"].shape[0])
+    target_count = int(target_batch["rgb"].shape[0])
     paired_count = min(
-        int(source_batch["label"].shape[0]),
-        int(target_batch["label"].shape[0]),
+        int(source_batch["rgb"].shape[0]),
+        int(target_batch["rgb"].shape[0]),
     )
 
     def inference_forward():
@@ -159,14 +159,22 @@ def flop_report(
             modules.classifier(source_features)
             modules.classifier(target_features)
             if modules.generator is not None:
-                source_labels = source_batch["label"].to(device)
-                target_labels = target_batch["label"].to(device)
+                source_labels = (
+                    source_batch["label"].to(device)
+                    if class_conditional_ot
+                    else None
+                )
+                target_labels = (
+                    target_batch["label"].to(device)
+                    if class_conditional_ot
+                    else None
+                )
                 intermediate, _ = modules.generator(
                     source_features,
                     target_features,
                     return_details=True,
-                    source_labels=source_labels if class_conditional_ot else None,
-                    target_labels=target_labels if class_conditional_ot else None,
+                    source_labels=source_labels,
+                    target_labels=target_labels,
                 )
                 modules.classifier(intermediate)
                 modules.discriminator(source_features)

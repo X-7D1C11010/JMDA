@@ -20,6 +20,8 @@ if str(REPO_ROOT) not in sys.path:
 try:
     from .engine import ABLATION_SPECS, run_experiment
     from .vds2raw_dataset import (
+        AIS_FEATURE_NAMES,
+        AIS_REMOVED_LABEL_PROXY_FEATURES,
         VDS2RawManifest,
         compute_train_image_stats,
         write_json,
@@ -27,6 +29,8 @@ try:
 except ImportError:
     from engine import ABLATION_SPECS, run_experiment  # type: ignore
     from vds2raw_dataset import (  # type: ignore
+        AIS_FEATURE_NAMES,
+        AIS_REMOVED_LABEL_PROXY_FEATURES,
         VDS2RawManifest,
         compute_train_image_stats,
         write_json,
@@ -69,6 +73,48 @@ def summarize_numeric_values(values: Sequence[float]) -> Dict[str, object]:
     }
 
 
+def build_protocol_audit(args) -> Dict[str, object]:
+    """Describe every target-label and AIS-information path for one invocation."""
+
+    supervised = args.training_protocol == "supervised"
+    target_label_access = {
+        "classification_cross_entropy": supervised,
+        "same_class_training_pairing": True,
+        "class_paired_epoch_svd": True,
+        "class_conditional_ot": True,
+        "class_balanced_target_sampling": bool(args.balance_classes),
+        "target_train_diagnostic_metrics": True,
+        "target_val_checkpoint_selection": True,
+        "target_test_final_evaluation": bool(args.evaluate_test),
+    }
+    removed = set(AIS_REMOVED_LABEL_PROXY_FEATURES)
+    active = [name for name in AIS_FEATURE_NAMES if name not in removed]
+
+    return {
+        "protocol_version": 1,
+        "training_protocol": args.training_protocol,
+        "learning_rates": {
+            "rgb": float(args.lr_rgb),
+            "other_generator_side": float(args.lr_other),
+            "discriminator": float(args.lr_discriminator),
+        },
+        "checkpoint_selection_resolved": "target_val",
+        "target_label_access": target_label_access,
+        "target_classification_labels_visible": supervised,
+        "target_alignment_labels_visible": True,
+        "ais": {
+            "policy": "fixed leakage removal; not an ablation setting",
+            "all_feature_names": list(AIS_FEATURE_NAMES),
+            "active_feature_names": active,
+            "unconditionally_removed_leakage_features": list(
+                AIS_REMOVED_LABEL_PROXY_FEATURES
+            ),
+            "removal_operation": "set value and validity mask to zero in loader",
+        },
+        "warnings": [],
+    }
+
+
 def _write_csv(path: Path, rows: Sequence[Mapping[str, object]]) -> None:
     if not rows:
         return
@@ -84,6 +130,7 @@ def _metric_run_row(run: Mapping[str, object]) -> Dict[str, object]:
     maxima = run["best_val_metrics_by_name"]
     test = run["target_test_metrics"]
     return {
+        "training_protocol": run["training_protocol"],
         "ablation_name": run["ablation_name"],
         "seed": run["seed"],
         "best_epoch": run["best_epoch"],
@@ -109,6 +156,7 @@ def _metric_run_row(run: Mapping[str, object]) -> Dict[str, object]:
 
 def _complexity_run_row(run: Mapping[str, object]) -> Dict[str, object]:
     return {
+        "training_protocol": run["training_protocol"],
         "ablation_name": run["ablation_name"],
         "seed": run["seed"],
         **dict(run["complexity"]),
@@ -260,7 +308,7 @@ def build_parser() -> argparse.ArgumentParser:
         r"D:\Downloads\VDS2Raw\threeclass_ready",
     )
     parser = argparse.ArgumentParser(
-        description="VDS2Raw v2 three-modal label-assisted domain adaptation with JMDA-Net"
+        description="VDS2Raw v2 three-modal domain adaptation with JMDA-Net"
     )
     parser.add_argument("--dataset_root", default=default_dataset_root)
     parser.add_argument("--output_root", default=str(PACKAGE_DIR / "runs"))
@@ -269,6 +317,15 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["all", *ABLATION_SPECS.keys()],
         default="full",
         help="all runs the full model and all three Tensor/OT ablations",
+    )
+    parser.add_argument(
+        "--training_protocol",
+        choices=("unsupervised", "supervised"),
+        default="unsupervised",
+        help=(
+            "unsupervised excludes target CE but retains target labels for "
+            "SVD/OT; supervised also includes target CE"
+        ),
     )
     parser.add_argument("--seeds", type=parse_seeds, default=parse_seeds("42"))
     parser.add_argument("--epochs", type=int, default=100)
@@ -310,19 +367,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--svd_tolerance", type=float, default=1e-3)
     parser.add_argument("--svd_stat_batch_size", type=int, default=128)
     parser.add_argument("--lr_rgb", type=float, default=5e-6)
-    parser.add_argument("--lr_other", type=float, default=2e-4)
+    parser.add_argument(
+        "--lr_other",
+        type=float,
+        default=1e-4,
+        help="learning rate for NIR/AIS/classifier and alignment parameters",
+    )
+    parser.add_argument(
+        "--lr_discriminator",
+        type=float,
+        default=5e-5,
+        help="independent domain-discriminator learning rate",
+    )
     parser.add_argument("--weight_decay", type=float, default=5e-4)
     parser.add_argument("--label_smoothing", type=float, default=0.1)
-    parser.add_argument(
-        "--target_classification_supervision",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help=(
-            "include target_train labels in classification cross-entropy; "
-            "disabled by default, while target labels remain available for "
-            "same-class pairing, SVD, class-conditional OT, and diagnostics"
-        ),
-    )
     parser.add_argument("--tensor_loss_weight", type=float, default=0.12)
     parser.add_argument("--adv_loss_weight", type=float, default=0.08)
     parser.add_argument(
@@ -342,11 +400,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ot_correction_reg_weight", type=float, default=1e-3)
     parser.add_argument("--ot_warmup_epochs", type=int, default=10)
     parser.add_argument("--ot_ramp_epochs", type=int, default=5)
-    parser.add_argument(
-        "--class_conditional_ot",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-    )
     parser.add_argument(
         "--pretrained",
         action=argparse.BooleanOptionalAction,
@@ -370,7 +423,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--balance_classes",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="repeat each target class to the largest target-class count per epoch",
+        help=(
+            "repeat each target class to the largest target-class count for "
+            "the fixed label-assisted alignment protocol"
+        ),
     )
     parser.add_argument(
         "--image_augmentation",
@@ -408,6 +464,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def validate_args(parser: argparse.ArgumentParser, args) -> None:
+    if args.training_protocol == "unsupervised" and args.ablation_mode != "full":
+        parser.error("unsupervised protocol runs Full only; ablations are supervised only")
     positive_integer_fields = (
         "epochs",
         "batch_size",
@@ -437,6 +495,7 @@ def validate_args(parser: argparse.ArgumentParser, args) -> None:
     for field in (
         "lr_rgb",
         "lr_other",
+        "lr_discriminator",
         "weight_decay",
         "tensor_loss_weight",
         "adv_loss_weight",
@@ -466,8 +525,10 @@ def main() -> None:
     manifest = VDS2RawManifest(args.dataset_root)
     audit_report = manifest.audit(validate_npz=True)
     image_stats = compute_train_image_stats(manifest)
+    protocol_audit = build_protocol_audit(args)
     print(json.dumps(audit_report, ensure_ascii=False, indent=2))
     print(json.dumps(image_stats, ensure_ascii=False, indent=2))
+    print(json.dumps(protocol_audit, ensure_ascii=False, indent=2))
     if args.audit_only:
         return
 
@@ -476,6 +537,7 @@ def main() -> None:
     suite_dir.mkdir(parents=True, exist_ok=False)
     write_json(suite_dir / "dataset_audit.json", audit_report)
     write_json(suite_dir / "image_stats.json", image_stats)
+    write_json(suite_dir / "protocol_audit.json", protocol_audit)
     write_json(
         suite_dir / "invocation.json",
         json.loads(json.dumps(vars(args), default=str)),

@@ -438,7 +438,7 @@ def historical_classification_loss(
     source_logits: torch.Tensor,
     source_labels: torch.Tensor,
     target_logits: torch.Tensor,
-    target_labels: torch.Tensor,
+    target_labels: Optional[torch.Tensor],
     intermediate_logits: Optional[torch.Tensor] = None,
     intermediate_scale: float = 0.0,
     include_target_supervision: bool = True,
@@ -446,13 +446,13 @@ def historical_classification_loss(
     """Sum enabled JMDA classification terms without averaging them.
 
     ``include_target_supervision=False`` removes the target-domain
-    cross-entropy term while deliberately leaving target labels available to
-    the caller for same-class pairing, epoch-SVD statistics, class-conditional
-    OT, and diagnostic metrics.
+    cross-entropy term and permits the caller to omit target labels entirely.
     """
 
     loss = criterion(source_logits, source_labels)
     if include_target_supervision:
+        if target_labels is None:
+            raise ValueError("target_labels are required for target supervision")
         loss = loss + criterion(target_logits, target_labels)
     if intermediate_logits is not None:
         loss = loss + float(intermediate_scale) * criterion(
@@ -480,7 +480,7 @@ def _make_optimizers(args, modules: ExperimentModules):
     )
     optimizer_d = torch.optim.AdamW(
         modules.discriminator.parameters(),
-        lr=args.lr_other,
+        lr=args.lr_discriminator,
         weight_decay=args.weight_decay,
     )
 
@@ -641,8 +641,8 @@ def _train_epoch(
                 source_features,
                 target_features,
                 return_details=True,
-                source_labels=source_labels if args.class_conditional_ot else None,
-                target_labels=target_labels if args.class_conditional_ot else None,
+                source_labels=source_labels,
+                target_labels=target_labels,
             )
 
         discriminator_loss = source_features.new_zeros(())
@@ -670,18 +670,18 @@ def _train_epoch(
         intermediate_logits = None
         if intermediate_features is not None:
             intermediate_logits = modules.classifier(intermediate_features)
-        # Classification terms are summed, never averaged.  The requested
-        # label-assisted setting removes target CE only: target labels remain
-        # available to pairing, SVD, class-conditional OT, and diagnostics.
+        supervised = args.training_protocol == "supervised"
+        # Both protocols expose target labels to pairing/SVD/OT. Only the
+        # supervised protocol also includes target-domain classification CE.
         classification_loss = historical_classification_loss(
             criterion,
             source_logits,
             source_labels,
             target_logits,
-            target_labels,
+            target_labels if supervised else None,
             intermediate_logits,
             joint_ot_scale,
-            include_target_supervision=args.target_classification_supervision,
+            include_target_supervision=supervised,
         )
 
         # Preserve the epoch-level GRL schedule used by the old experiment.
@@ -723,7 +723,7 @@ def _train_epoch(
             torch.nn.utils.clip_grad_norm_(modules.generator.parameters(), 1.0)
         optimizer_g.step()
 
-        batch_count = target_labels.shape[0]
+        batch_count = source_labels.shape[0]
         observation_count += batch_count
         source_correct += int((source_logits.argmax(1) == source_labels).sum())
         target_correct += int((target_logits.argmax(1) == target_labels).sum())
@@ -785,6 +785,10 @@ def run_experiment(
         bool(spec["use_tensor"]),
         bool(spec["use_ot"]),
     )
+    selection_rule = (
+        "maximum target_val accuracy; macro-F1 tie break; "
+        f"eligible epochs >= {selection_start_epoch}"
+    )
     if args.epochs < selection_start_epoch:
         raise ValueError(
             f"epochs={args.epochs} is shorter than the first eligible Full "
@@ -814,6 +818,16 @@ def run_experiment(
             "use_ot": spec["use_ot"],
             "device_resolved": str(device),
             "checkpoint_selection_start_epoch": selection_start_epoch,
+            "checkpoint_selection_resolved": "target_val",
+            "target_classification_supervision": (
+                args.training_protocol == "supervised"
+            ),
+            "target_alignment_supervision": True,
+            "target_labels_used_for_checkpoint_selection": True,
+            "target_labels_used_for_optimization": True,
+            "target_train_labels_in_runtime_batches": True,
+            "class_conditional_ot_effective": True,
+            "class_balancing_effective": bool(args.balance_classes),
         }
     )
     write_json(run_dir / "config.json", config)
@@ -893,7 +907,7 @@ def run_experiment(
     best_epoch = -1
     manifest_sha256 = str(audit_report["manifest_sha256"])
 
-    logger.info("VDS2Raw label-assisted domain adaptation")
+    logger.info("VDS2Raw %s protocol domain adaptation", args.training_protocol)
     logger.info(
         "ablation=%s seed=%d device=%s pretrained=%s tensor=%s ot=%s",
         ablation_name,
@@ -912,14 +926,14 @@ def run_experiment(
     )
     logger.info(
         "modalities RGB=3x224x224 NIR=1x224x224 (repeated to 3 encoder channels) "
-        "AIS=13+13mask; fused_dim=%d",
+        "AIS=heading/length/width only (all nav_* label proxies removed); fused_dim=%d",
         modules.fused_dim,
     )
     logger.info(
         "target_train observations=%d samples/epoch, batches=%d, class balancing=%s",
         batcher.epoch_sample_count,
         len(batcher),
-        args.balance_classes,
+        batcher.balance_classes,
     )
     logger.info(
         "image transform train=%s; SVD/validation/test=deterministic resize 224",
@@ -931,13 +945,18 @@ def run_experiment(
     )
     logger.info(
         "classification supervision source=True target_ce=%s "
-        "transported_source=%s; target labels retained for "
-        "pairing/SVD/class-conditional-OT/metrics; "
-        "discriminator_update_interval=%d; rgb_lr=%g; checkpoint_selection_start_epoch=%d",
-        args.target_classification_supervision,
+        "transported_source=%s; target_alignment_labels=True; "
+        "class_conditional_ot_effective=%s; "
+        "discriminator_update_interval=%d; rgb_lr=%g; other_lr=%g; "
+        "discriminator_lr=%g; "
+        "checkpoint_selection=target_val; checkpoint_selection_start_epoch=%d",
+        args.training_protocol == "supervised",
         spec["use_ot"],
+        True,
         args.discriminator_update_interval,
         args.lr_rgb,
+        args.lr_other,
+        args.lr_discriminator,
         selection_start_epoch,
     )
     if spec["use_tensor"]:
@@ -947,7 +966,7 @@ def run_experiment(
             args.projection_dim,
             args.nir_projection_dim,
             args.ais_projection_dim,
-            args.balance_classes,
+            batcher.balance_classes,
         )
     logger.info(
         "parameters total=%d trainable=%d inference=%d",
@@ -1023,6 +1042,7 @@ def run_experiment(
             "val_f1_macro": float(val_metrics["f1_macro"]),
             "lr_rgb": optimizer_g.param_groups[0]["lr"],
             "lr_other": optimizer_g.param_groups[1]["lr"],
+            "lr_discriminator": optimizer_d.param_groups[0]["lr"],
             "svd_update_seconds": svd_seconds,
             "training_seconds": train_seconds,
             "validation_seconds": validation_seconds,
@@ -1082,10 +1102,8 @@ def run_experiment(
             write_json(
                 run_dir / "best_validation_checkpoint_metrics.json",
                 {
-                    "selection_rule": (
-                        "maximum target_val accuracy; macro-F1 tie break; "
-                        f"eligible epochs >= {selection_start_epoch}"
-                    ),
+                    "selection_rule": selection_rule,
+                    "selection_policy": "target_val",
                     "selection_start_epoch": selection_start_epoch,
                     "best_epoch": best_epoch,
                     "metrics": dict(val_metrics),
@@ -1123,10 +1141,8 @@ def run_experiment(
         run_dir / "best_validation_metrics.json",
         {
             "checkpoint_selection": {
-                "selection_rule": (
-                    "maximum target_val accuracy; macro-F1 tie break; "
-                    f"eligible epochs >= {selection_start_epoch}"
-                ),
+                "selection_rule": selection_rule,
+                "selection_policy": "target_val",
                 "selection_start_epoch": selection_start_epoch,
                 "epoch": best_epoch,
                 "metrics": selected["val_metrics"],
@@ -1145,7 +1161,7 @@ def run_experiment(
         encode_batch=encode_batch,
         fuse_training_pair=fuse_training_pair,
         fuse_target=fuse_target,
-        class_conditional_ot=args.class_conditional_ot,
+        class_conditional_ot=True,
     )
     inference_benchmark = benchmark_inference(
         modules=modules,
@@ -1193,14 +1209,13 @@ def run_experiment(
     complexity_flat = flatten_complexity(complexity)
     _write_csv(run_dir / "complexity.csv", [complexity_flat])
     summary = {
+        "training_protocol": args.training_protocol,
         "ablation_name": ablation_name,
         "seed": seed,
         "run_dir": str(run_dir),
         "best_epoch": best_epoch,
-        "selection_rule": (
-            "maximum target_val accuracy; macro-F1 tie break; "
-            f"eligible epochs >= {selection_start_epoch}"
-        ),
+        "selection_rule": selection_rule,
+        "checkpoint_selection_policy": "target_val",
         "checkpoint_selection_start_epoch": selection_start_epoch,
         "best_val_metrics": selected["val_metrics"],
         "best_val_metrics_by_name": best_metrics_by_name,
@@ -1227,7 +1242,9 @@ def run_experiment(
     )
     logger.info(
         "complexity | params=%d trainable=%d inference_gflops/sample=%s "
-        "training_seconds=%.2f inference_samples/s=%.2f",
+        "training_seconds=%.2f mean_epoch_seconds=%.4f "
+        "inference_latency_ms/sample=%.4f inference_samples/s=%.2f "
+        "training_peak_reserved_bytes=%s",
         complexity_flat["total_parameters"],
         complexity_flat["trainable_parameters"],
         (
@@ -1236,7 +1253,10 @@ def run_experiment(
             else "unavailable"
         ),
         complexity_flat["training_loop_seconds"],
+        complexity_flat["mean_epoch_seconds"],
+        complexity_flat["inference_latency_ms_per_sample"],
         complexity_flat["inference_throughput_samples_per_second"],
+        complexity_flat["training_peak_reserved_bytes"],
     )
     if test_metrics is not None:
         logger.info(

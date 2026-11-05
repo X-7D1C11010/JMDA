@@ -23,6 +23,28 @@ TRAIN_PARTITIONS = ("source_train", "target_train")
 IMAGE_BAND_ORDER = ("B4", "B3", "B2", "B8")
 MODEL_IMAGE_SIZE = (224, 224)
 TRAIN_RESIZE_SIZE = (256, 256)
+AIS_FEATURE_NAMES = (
+    "heading_sin",
+    "heading_cos",
+    "length_z",
+    "width_z",
+    "nav_<UNKNOWN>",
+    "nav_at anchor",
+    "nav_engaged in fishing",
+    "nav_moored",
+    "nav_reserved for future amendment [hsc]",
+    "nav_restricted maneuverability",
+    "nav_under way sailing",
+    "nav_under way using engine",
+    "nav_unknown value",
+)
+# Navigation-status one-hot values can act as feature-level label proxies.
+# Retain only heading, length, and width; remove every nav_* value and mask.
+AIS_RETAINED_BASIC_INDICES = (0, 1, 2, 3)
+AIS_REMOVED_LABEL_PROXY_INDICES = tuple(range(4, len(AIS_FEATURE_NAMES)))
+AIS_REMOVED_LABEL_PROXY_FEATURES = tuple(
+    AIS_FEATURE_NAMES[index] for index in AIS_REMOVED_LABEL_PROXY_INDICES
+)
 REQUIRED_COLUMNS = {
     "sample_id",
     "partition",
@@ -326,6 +348,14 @@ class VDS2RawDataset(Dataset):
             raise ValueError(
                 f"Runtime label mismatch for {record.sample_id}: NPZ={label}, manifest={record.label_id}"
             )
+        if ais.shape != (len(AIS_FEATURE_NAMES),) or ais_mask.shape != ais.shape:
+            raise ValueError(
+                f"Unexpected AIS schema for {record.sample_id}: "
+                f"ais={ais.shape}, mask={ais_mask.shape}"
+            )
+        ais[list(AIS_REMOVED_LABEL_PROXY_INDICES)] = 0.0
+        ais_mask[list(AIS_REMOVED_LABEL_PROXY_INDICES)] = 0.0
+
         padding_mask = np.all(np.concatenate([rgb_raw, nir_raw], axis=0) == 0, axis=0)
         rgb = (rgb_raw - self.rgb_mean) / self.rgb_std
         nir = (nir_raw - self.nir_mean) / self.nir_std
@@ -395,6 +425,10 @@ __all__ = [
     "IMAGE_BAND_ORDER",
     "MODEL_IMAGE_SIZE",
     "TRAIN_RESIZE_SIZE",
+    "AIS_FEATURE_NAMES",
+    "AIS_RETAINED_BASIC_INDICES",
+    "AIS_REMOVED_LABEL_PROXY_INDICES",
+    "AIS_REMOVED_LABEL_PROXY_FEATURES",
     "VDSRecord",
     "VDS2RawManifest",
     "VDS2RawDataset",
