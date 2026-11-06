@@ -99,10 +99,13 @@ same entry point. The manifest uses relative NPZ paths, so it is portable.
 Copy the official cached `resnet18-f37072fd.pth` file as well and pass its
 path explicitly. The training entry never downloads weights silently.
 
-Run `run_all_when_gpu_free.sh` once to execute unsupervised Full, followed by
-supervised Full and the three existing supervised Tensor/OT ablations. Before
-each experiment it waits until physical GPU 1 has at least 10 GiB free;
-combined output is written to `train.log`.
+Run `run_all_when_gpu_free.sh` once to execute only the three supervised
+Tensor/OT ablations (Full runs are intentionally omitted). Before each
+experiment it waits until the configured physical GPU has at least 10 GiB
+free; combined output is written to `train.log`. All modes use the same
+64/32/32 modality dimensions (128 after concatenation) and become eligible for
+checkpoint selection only after the configured warm-up plus ramp (15 epochs
+with the script defaults).
 
 ```bash
 export VDS2RAW_ROOT=/data/VDS2Raw/threeclass_ready
@@ -159,7 +162,8 @@ Each invocation creates one timestamped directory under `VDS2Raw_JMDA/runs`:
   checkpoint-selection rule, and unconditionally removed AIS leakage fields;
 - invocation and per-run configuration;
 - raw epoch metrics CSV and UTF-8 log;
-- `best.pt` and `last.pt` checkpoints;
+- temporary `best.pt` and `last.pt` checkpoints during training; both are
+  deleted automatically after final evaluation and report generation;
 - target-test metrics and per-sample probabilities for non-smoke final runs;
 - a clearly marked diagnostic best target-test checkpoint across the
   validation-selected seed checkpoints. This oracle maximum is not an

@@ -41,6 +41,7 @@ try:  # noqa: E402
         Classifier,
         FEATURE_DIM,
         NIRFeatureExtractor,
+        PlainModalityProjector,
         RGBFeatureExtractor,
     )
     from .complexity import (
@@ -67,6 +68,7 @@ except ImportError:
         Classifier,
         FEATURE_DIM,
         NIRFeatureExtractor,
+        PlainModalityProjector,
         RGBFeatureExtractor,
     )
     from complexity import (  # type: ignore
@@ -104,6 +106,7 @@ class ExperimentModules:
     classifier: Classifier
     discriminator: nn.Module
     tensor: Optional[TensorBasedAlignmentStable]
+    plain_projector: Optional[PlainModalityProjector]
     generator: Optional[NeuralOptimalTransportGenerator]
     fused_dim: int
 
@@ -120,6 +123,8 @@ class ExperimentModules:
         }
         if self.tensor is not None:
             states["tensor"] = self.tensor.state_dict()
+        if self.plain_projector is not None:
+            states["plain_projector"] = self.plain_projector.state_dict()
         if self.generator is not None:
             states["generator"] = self.generator.state_dict()
         return states
@@ -132,6 +137,8 @@ class ExperimentModules:
         self.discriminator.load_state_dict(states["discriminator"])
         if self.tensor is not None:
             self.tensor.load_state_dict(states["tensor"])
+        if self.plain_projector is not None:
+            self.plain_projector.load_state_dict(states["plain_projector"])
         if self.generator is not None:
             self.generator.load_state_dict(states["generator"])
 
@@ -142,6 +149,8 @@ class ExperimentModules:
         self.discriminator.train()
         if self.tensor is not None:
             self.tensor.train()
+        if self.plain_projector is not None:
+            self.plain_projector.train()
         if self.generator is not None:
             self.generator.train()
 
@@ -152,6 +161,8 @@ class ExperimentModules:
         self.discriminator.eval()
         if self.tensor is not None:
             self.tensor.eval()
+        if self.plain_projector is not None:
+            self.plain_projector.eval()
         if self.generator is not None:
             self.generator.eval()
 
@@ -167,12 +178,13 @@ def build_modules(args, spec: Mapping[str, bool], device: torch.device) -> Exper
     nir = NIRFeatureExtractor(output_dim=FEATURE_DIM)
     ais = AISFeatureExtractor(output_dim=FEATURE_DIM)
 
+    projection_dims = [
+        args.projection_dim,
+        args.nir_projection_dim,
+        args.ais_projection_dim,
+    ]
+    fused_dim = sum(projection_dims)
     if spec["use_tensor"]:
-        projection_dims = [
-            args.projection_dim,
-            args.nir_projection_dim,
-            args.ais_projection_dim,
-        ]
         tensor = TensorBasedAlignmentStable(
             input_dims=[FEATURE_DIM, FEATURE_DIM, FEATURE_DIM],
             output_dims=projection_dims,
@@ -180,10 +192,13 @@ def build_modules(args, spec: Mapping[str, bool], device: torch.device) -> Exper
             max_svd_sweeps=args.svd_max_sweeps,
             svd_tolerance=args.svd_tolerance,
         )
-        fused_dim = sum(projection_dims)
+        plain_projector = None
     else:
         tensor = None
-        fused_dim = FEATURE_DIM * 3
+        plain_projector = PlainModalityProjector(
+            input_dims=[FEATURE_DIM, FEATURE_DIM, FEATURE_DIM],
+            output_dims=projection_dims,
+        )
 
     classifier = Classifier(fused_dim, len(CLASS_NAMES))
     if spec["use_ot"]:
@@ -206,6 +221,7 @@ def build_modules(args, spec: Mapping[str, bool], device: torch.device) -> Exper
         classifier=classifier,
         discriminator=discriminator,
         tensor=tensor,
+        plain_projector=plain_projector,
         generator=generator,
         fused_dim=fused_dim,
     )
@@ -216,6 +232,7 @@ def build_modules(args, spec: Mapping[str, bool], device: torch.device) -> Exper
         modules.classifier,
         modules.discriminator,
         modules.tensor,
+        modules.plain_projector,
         modules.generator,
     ):
         if module is not None:
@@ -240,8 +257,16 @@ def fuse_training_pair(
     target_modalities: Sequence[torch.Tensor],
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if modules.tensor is None:
+        if modules.plain_projector is None:
+            raise RuntimeError("No-Tensor fusion requires the plain modality projector")
         zero = source_modalities[0].new_zeros(())
-        return torch.cat(source_modalities, dim=1), torch.cat(target_modalities, dim=1), zero
+        projected_source = modules.plain_projector(source_modalities)
+        projected_target = modules.plain_projector(target_modalities)
+        return (
+            torch.cat(projected_source, dim=1),
+            torch.cat(projected_target, dim=1),
+            zero,
+        )
     projected_source, projected_target, alignment_loss = modules.tensor(
         list(source_modalities), list(target_modalities)
     )
@@ -257,7 +282,9 @@ def fuse_target(
     modalities: Sequence[torch.Tensor],
 ) -> torch.Tensor:
     if modules.tensor is None:
-        return torch.cat(list(modalities), dim=1)
+        if modules.plain_projector is None:
+            raise RuntimeError("No-Tensor fusion requires the plain modality projector")
+        return torch.cat(modules.plain_projector(modalities), dim=1)
     projected = [
         feature.matmul(projection)
         for feature, projection in zip(modalities, modules.tensor.V_matrices)
@@ -424,13 +451,12 @@ def checkpoint_selection_start_epoch(
 ) -> int:
     """First one-based epoch eligible for final checkpoint selection.
 
-    A Tensor+OT run is not the complete method until the warm-up and ramp are
-    finished.  Other ablations are complete from epoch one.
+    Every mode uses the same eligibility window so ablations cannot benefit
+    from an earlier validation peak than the complete method.
     """
 
-    if use_tensor and use_ot:
-        return max(int(warmup_epochs) + int(ramp_epochs), 1)
-    return 1
+    del use_tensor, use_ot
+    return max(int(warmup_epochs) + int(ramp_epochs), 1)
 
 
 def historical_classification_loss(
@@ -466,7 +492,13 @@ def _make_optimizers(args, modules: ExperimentModules):
     rgb_parameters = [p for p in modules.rgb.parameters() if p.requires_grad]
     other_parameters = [
         p
-        for module in (modules.nir, modules.ais, modules.classifier, modules.generator)
+        for module in (
+            modules.nir,
+            modules.ais,
+            modules.plain_projector,
+            modules.classifier,
+            modules.generator,
+        )
         if module is not None
         for p in module.parameters()
         if p.requires_grad
@@ -523,6 +555,19 @@ def _save_checkpoint(path: Path, payload: Mapping[str, object]) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     torch.save(dict(payload), temporary)
     temporary.replace(path)
+
+
+def _delete_checkpoint_artifacts(*paths: Path) -> List[str]:
+    """Delete completed-run checkpoints after all final reports are materialized."""
+
+    deleted = []
+    for path in paths:
+        candidates = (path, path.with_suffix(path.suffix + ".tmp"))
+        for candidate in candidates:
+            if candidate.exists():
+                candidate.unlink()
+                deleted.append(candidate.name)
+    return deleted
 
 
 def _load_model_checkpoint(
@@ -718,6 +763,8 @@ def _train_epoch(
         set_requires_grad(modules.discriminator, True)
         for encoder in modules.encoders():
             torch.nn.utils.clip_grad_norm_(encoder.parameters(), 1.0)
+        if modules.plain_projector is not None:
+            torch.nn.utils.clip_grad_norm_(modules.plain_projector.parameters(), 1.0)
         torch.nn.utils.clip_grad_norm_(modules.classifier.parameters(), 1.0)
         if modules.generator is not None:
             torch.nn.utils.clip_grad_norm_(modules.generator.parameters(), 1.0)
@@ -1224,6 +1271,7 @@ def run_experiment(
         "manifest_sha256": manifest_sha256,
         "completed_epochs": args.epochs,
         "partial_training_epoch": args.max_train_batches > 0,
+        "checkpoint_retention": "deleted_after_final_evaluation",
         "complexity": complexity_flat,
     }
     write_json(run_dir / "summary.json", summary)
@@ -1270,6 +1318,11 @@ def run_experiment(
         )
     else:
         logger.info("target_test skipped for this diagnostic run")
+    deleted_checkpoints = _delete_checkpoint_artifacts(best_checkpoint, last_checkpoint)
+    logger.info(
+        "checkpoint cleanup complete: deleted=%s; metrics/logs/predictions retained",
+        ",".join(deleted_checkpoints) if deleted_checkpoints else "none",
+    )
     for handler in list(logger.handlers):
         handler.flush()
         handler.close()

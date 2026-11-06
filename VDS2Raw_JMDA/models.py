@@ -9,7 +9,7 @@ expected by the historical IR network without changing the prepared dataset.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional, Sequence, Union
 from urllib.parse import urlparse
 
 import torch
@@ -150,6 +150,43 @@ class AISFeatureExtractor(nn.Module):
         return self.encoder(ais_input)
 
 
+class PlainModalityProjector(nn.Module):
+    """Learn ordinary fixed-width modality projections for no-Tensor modes."""
+
+    def __init__(self, input_dims: Sequence[int], output_dims: Sequence[int]):
+        super().__init__()
+        if len(input_dims) != len(output_dims) or not input_dims:
+            raise ValueError("input_dims and output_dims must have the same non-zero length")
+        if any(int(value) < 1 for value in (*input_dims, *output_dims)):
+            raise ValueError("all projection dimensions must be positive")
+        self.input_dims = tuple(int(value) for value in input_dims)
+        self.output_dims = tuple(int(value) for value in output_dims)
+        self.projections = nn.ModuleList(
+            nn.Linear(input_dim, output_dim)
+            for input_dim, output_dim in zip(self.input_dims, self.output_dims)
+        )
+        for projection in self.projections:
+            nn.init.xavier_uniform_(projection.weight)
+            nn.init.zeros_(projection.bias)
+
+    def forward(self, modalities: Sequence[torch.Tensor]):
+        if len(modalities) != len(self.projections):
+            raise ValueError(
+                f"Expected {len(self.projections)} modalities, got {len(modalities)}"
+            )
+        projected = []
+        for index, (feature, expected_dim, projection) in enumerate(
+            zip(modalities, self.input_dims, self.projections)
+        ):
+            if feature.ndim != 2 or feature.shape[1] != expected_dim:
+                raise ValueError(
+                    f"Modality {index} must have shape [batch, {expected_dim}], "
+                    f"got {tuple(feature.shape)}"
+                )
+            projected.append(projection(feature))
+        return projected
+
+
 class Classifier(nn.Module):
     """Classification head kept compatible with SVD basis transport."""
 
@@ -211,6 +248,7 @@ __all__ = [
     "RGBFeatureExtractor",
     "NIRFeatureExtractor",
     "AISFeatureExtractor",
+    "PlainModalityProjector",
     "Classifier",
     "BinaryDomainDiscriminator",
     "trainable_parameters",

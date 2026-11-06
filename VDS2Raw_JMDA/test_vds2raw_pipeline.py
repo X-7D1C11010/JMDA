@@ -22,6 +22,7 @@ from Tensor import TensorBasedAlignmentStable
 from VDS2Raw_JMDA.models import (
     AISFeatureExtractor,
     NIRFeatureExtractor,
+    PlainModalityProjector,
     RGBFeatureExtractor,
 )
 from VDS2Raw_JMDA.complexity import parameter_report
@@ -128,6 +129,18 @@ class ModelTests(unittest.TestCase):
         self.assertEqual([tuple(value.shape) for value in projected_target], [(10, 3), (10, 3), (10, 2)])
         self.assertTrue(torch.isfinite(loss))
 
+    def test_plain_projection_matches_tensor_fusion_dimensions(self):
+        projector = PlainModalityProjector(
+            input_dims=[512, 512, 512],
+            output_dims=[64, 32, 32],
+        )
+        projected = projector([torch.randn(4, 512) for _ in range(3)])
+        self.assertEqual(
+            [tuple(value.shape) for value in projected],
+            [(4, 64), (4, 32), (4, 32)],
+        )
+        self.assertEqual(torch.cat(projected, dim=1).shape[1], 128)
+
 
 class ReportingTests(unittest.TestCase):
     def test_protocol_defaults_and_lower_learning_rates(self):
@@ -185,10 +198,11 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(report["inference_parameters"], expected_inference)
         self.assertGreater(report["total_parameters"], report["inference_parameters"])
 
-    def test_full_checkpoint_selection_starts_after_ot_ramp(self):
+    def test_all_modes_share_checkpoint_selection_window(self):
         self.assertEqual(checkpoint_selection_start_epoch(10, 5, True, True), 15)
-        self.assertEqual(checkpoint_selection_start_epoch(10, 5, True, False), 1)
-        self.assertEqual(checkpoint_selection_start_epoch(10, 5, False, True), 1)
+        self.assertEqual(checkpoint_selection_start_epoch(10, 5, True, False), 15)
+        self.assertEqual(checkpoint_selection_start_epoch(10, 5, False, True), 15)
+        self.assertEqual(checkpoint_selection_start_epoch(10, 5, False, False), 15)
 
     def test_historical_classification_terms_are_summed(self):
         criterion = nn.CrossEntropyLoss()

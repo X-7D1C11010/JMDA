@@ -28,6 +28,7 @@ def _component_modules(modules) -> Dict[str, Optional[nn.Module]]:
         "nir_encoder": modules.nir,
         "ais_encoder": modules.ais,
         "tensor_alignment": modules.tensor,
+        "plain_projection": getattr(modules, "plain_projector", None),
         "classifier": modules.classifier,
         "ot_generator": modules.generator,
         "domain_discriminator": modules.discriminator,
@@ -59,6 +60,7 @@ def parameter_report(modules) -> Dict[str, object]:
         "nir_encoder",
         "ais_encoder",
         "tensor_alignment",
+        "plain_projection",
         "classifier",
     )
     return {
@@ -77,7 +79,7 @@ def parameter_report(modules) -> Dict[str, object]:
         ),
         "notes": {
             "total_parameters": "Includes encoders, classifier, and training-only OT/discriminator modules.",
-            "inference_parameters": "Target inference uses encoders, optional Tensor projections, and classifier only.",
+            "inference_parameters": "Target inference uses encoders, either Tensor projections or matched plain projections, and the classifier.",
             "tensor_projections": "Tensor/SVD projection matrices are checkpointed buffers, not optimizer parameters.",
         },
     }

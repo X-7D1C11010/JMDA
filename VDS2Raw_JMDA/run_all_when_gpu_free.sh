@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GPU_ID=0
+GPU_ID=1
 MIN_FREE_MIB=10240
 CHECK_INTERVAL_SECONDS=60
 PROJECT_ROOT=/home/lixiang/lx/JMDA
@@ -10,8 +10,6 @@ OUTPUT_ROOT=/home/lixiang/lx/JMDA/VDS2Raw_JMDA/runs
 LOG_FILE=/home/lixiang/lx/JMDA/VDS2Raw_JMDA/train.log
 SEEDS=42,43,44,45,46
 EXPERIMENTS=(
-  "unsupervised full"
-  "supervised full"
   "supervised no_tensor_no_ot"
   "supervised no_tensor_with_ot"
   "supervised with_tensor_no_ot"
