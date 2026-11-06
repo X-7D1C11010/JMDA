@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GPU_ID=1
+GPU_ID=0
 MIN_FREE_MIB=10240
 CHECK_INTERVAL_SECONDS=60
 PROJECT_ROOT=/home/lixiang/lx/JMDA
