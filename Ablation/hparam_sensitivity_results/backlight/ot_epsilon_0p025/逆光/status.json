@@ -1,0 +1,30 @@
+{
+  "configuration": "ot_epsilon_0p025",
+  "scan_parameter": "ot_epsilon",
+  "scan_value": "0.025",
+  "target_weather": "逆光",
+  "target_root": "/mnt/data/lixiang/data/Data/逆光",
+  "source_root": "/mnt/data/lixiang/data/Data/晴天",
+  "seed": 42,
+  "task_directory": "/home/lixiang/lx/JMDA/Ablation/hparam_sensitivity_results/backlight/ot_epsilon_0p025/逆光",
+  "task_signature": "c40c2e88b139ed25613c6a7ea273f30c300e73d304d5b7335df75c99a711cfdb",
+  "status": "success",
+  "return_code": 0,
+  "gpu_id": 1,
+  "metrics": {
+    "accuracy": 1.0,
+    "precision_macro": 1.0,
+    "recall_macro": 1.0,
+    "f1_macro": 1.0
+  },
+  "updated_at": "2026-11-09T03:32:33+00:00",
+  "gpu_admission": {
+    "gpu_id": 1,
+    "memory_free_mib": 32094,
+    "utilization_percent": 3
+  },
+  "started_at": "2026-11-09T02:51:51+00:00",
+  "pid": 3274456,
+  "failure_reason": null,
+  "finished_at": "2026-11-09T03:32:33+00:00"
+}
