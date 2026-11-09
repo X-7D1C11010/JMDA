@@ -311,6 +311,8 @@ class VDS2RawDataset(Dataset):
         partition: str,
         image_stats: Mapping[str, Sequence[float]],
         augment: bool = False,
+        model_image_size: Sequence[int] = MODEL_IMAGE_SIZE,
+        train_resize_size: Sequence[int] = TRAIN_RESIZE_SIZE,
     ):
         if partition not in PARTITIONS:
             raise ValueError(f"Unknown partition {partition!r}; expected one of {PARTITIONS}")
@@ -321,6 +323,17 @@ class VDS2RawDataset(Dataset):
         self.manifest = manifest
         self.partition = partition
         self.augment = bool(augment)
+        self.model_image_size = tuple(int(value) for value in model_image_size)
+        self.train_resize_size = tuple(int(value) for value in train_resize_size)
+        if len(self.model_image_size) != 2 or any(value <= 0 for value in self.model_image_size):
+            raise ValueError("model_image_size must contain two positive integers")
+        if len(self.train_resize_size) != 2 or any(value <= 0 for value in self.train_resize_size):
+            raise ValueError("train_resize_size must contain two positive integers")
+        if any(
+            resized < output
+            for resized, output in zip(self.train_resize_size, self.model_image_size)
+        ):
+            raise ValueError("train_resize_size cannot be smaller than model_image_size")
         if self.augment and partition not in TRAIN_PARTITIONS:
             raise ValueError("Image augmentation is allowed only for training partitions")
         self.records = list(manifest.by_partition[partition])
@@ -378,13 +391,13 @@ class VDS2RawDataset(Dataset):
             # 224 crop, then synchronized horizontal flip.  The only absolute
             # directional AIS field is heading represented as sin/cos; an
             # east-west image flip negates sin(theta) and preserves cos(theta).
-            rgb_tensor = resize(rgb_tensor, TRAIN_RESIZE_SIZE)
-            nir_tensor = resize(nir_tensor, TRAIN_RESIZE_SIZE)
-            max_top = TRAIN_RESIZE_SIZE[0] - MODEL_IMAGE_SIZE[0]
-            max_left = TRAIN_RESIZE_SIZE[1] - MODEL_IMAGE_SIZE[1]
+            rgb_tensor = resize(rgb_tensor, self.train_resize_size)
+            nir_tensor = resize(nir_tensor, self.train_resize_size)
+            max_top = self.train_resize_size[0] - self.model_image_size[0]
+            max_left = self.train_resize_size[1] - self.model_image_size[1]
             top = int(torch.randint(0, max_top + 1, ()).item())
             left = int(torch.randint(0, max_left + 1, ()).item())
-            height, width = MODEL_IMAGE_SIZE
+            height, width = self.model_image_size
             rgb_tensor = rgb_tensor[:, top : top + height, left : left + width]
             nir_tensor = nir_tensor[:, top : top + height, left : left + width]
             if bool(torch.rand(()) < 0.5):
@@ -393,15 +406,23 @@ class VDS2RawDataset(Dataset):
                 if ais_mask[0] > 0:
                     ais[0] = -ais[0]
         else:
-            rgb_tensor = resize(rgb_tensor, MODEL_IMAGE_SIZE)
-            nir_tensor = resize(nir_tensor, MODEL_IMAGE_SIZE)
+            rgb_tensor = resize(rgb_tensor, self.model_image_size)
+            nir_tensor = resize(nir_tensor, self.model_image_size)
         ais_input = np.concatenate([ais, ais_mask], axis=0)
+        # A heading is circular, so the prepared JSON scalar is represented by
+        # sin/cos.  The compact single-AIS input contains only that one source
+        # field plus one validity flag; length/width and every nav/type/
+        # identity field are deliberately excluded.
+        ais_heading_input = np.concatenate([ais[:2], ais_mask[:1]], axis=0)
         return {
             "rgb": rgb_tensor,
             "nir": nir_tensor,
             "ais": torch.from_numpy(np.ascontiguousarray(ais)),
             "ais_mask": torch.from_numpy(np.ascontiguousarray(ais_mask)),
             "ais_input": torch.from_numpy(np.ascontiguousarray(ais_input)),
+            "ais_heading_input": torch.from_numpy(
+                np.ascontiguousarray(ais_heading_input)
+            ),
             "label": torch.tensor(label, dtype=torch.long),
             "sample_index": torch.tensor(index, dtype=torch.long),
             "sample_id": record.sample_id,

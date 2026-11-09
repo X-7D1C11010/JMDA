@@ -253,7 +253,7 @@ def benchmark_inference(
         "latency_ms_per_batch": 1000.0 * elapsed / measured_runs,
         "latency_ms_per_sample": 1000.0 * elapsed / max(total_samples, 1),
         "throughput_samples_per_second": total_samples / max(elapsed, 1e-12),
-        "includes": "RGB/NIR/AIS encoders, optional Tensor target projection, and classifier; excludes data loading, OT generator, and discriminator.",
+        "includes": "Active encoder(s), optional Tensor target projection, and classifier; excludes data loading, OT generator, and discriminator.",
     }
     if device.type == "cuda":
         peak_allocated = int(torch.cuda.max_memory_allocated(device))

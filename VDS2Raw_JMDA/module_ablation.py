@@ -77,18 +77,32 @@ def build_protocol_audit(args) -> Dict[str, object]:
     """Describe every target-label and AIS-information path for one invocation."""
 
     supervised = args.training_protocol == "supervised"
+    spec = ABLATION_SPECS[
+        "full" if args.ablation_mode == "all" else args.ablation_mode
+    ]
     target_label_access = {
         "classification_cross_entropy": supervised,
         "same_class_training_pairing": True,
-        "class_paired_epoch_svd": True,
-        "class_conditional_ot": True,
+        "class_paired_epoch_svd": bool(spec["use_tensor"]),
+        "class_conditional_ot": bool(spec["use_ot"]),
         "class_balanced_target_sampling": bool(args.balance_classes),
         "target_train_diagnostic_metrics": True,
         "target_val_checkpoint_selection": True,
         "target_test_final_evaluation": bool(args.evaluate_test),
     }
     removed = set(AIS_REMOVED_LABEL_PROXY_FEATURES)
-    active = [name for name in AIS_FEATURE_NAMES if name not in removed]
+    if args.ablation_mode == "single_ais":
+        active = ["heading_sin", "heading_cos"]
+        ais_policy = (
+            "single-AIS modality: JSON heading only, represented as sin/cos "
+            "with one validity flag; not RF/IQ data"
+        )
+    elif args.ablation_mode in ("single_rgb", "single_nir"):
+        active = []
+        ais_policy = "AIS modality is inactive for this single-modality run"
+    else:
+        active = [name for name in AIS_FEATURE_NAMES if name not in removed]
+        ais_policy = "fixed leakage removal; not an ablation setting"
 
     return {
         "protocol_version": 1,
@@ -103,11 +117,16 @@ def build_protocol_audit(args) -> Dict[str, object]:
         "target_classification_labels_visible": supervised,
         "target_alignment_labels_visible": True,
         "ais": {
-            "policy": "fixed leakage removal; not an ablation setting",
+            "policy": ais_policy,
             "all_feature_names": list(AIS_FEATURE_NAMES),
             "active_feature_names": active,
             "unconditionally_removed_leakage_features": list(
                 AIS_REMOVED_LABEL_PROXY_FEATURES
+            ),
+            "additional_fields_excluded_in_single_ais": (
+                ["length_z", "width_z"]
+                if args.ablation_mode == "single_ais"
+                else []
             ),
             "removal_operation": "set value and validity mask to zero in loader",
         },

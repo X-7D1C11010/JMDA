@@ -91,36 +91,50 @@ except ImportError:
 
 
 ABLATION_SPECS = {
-    "full": {"use_tensor": True, "use_ot": True},
-    "no_tensor_no_ot": {"use_tensor": False, "use_ot": False},
-    "no_tensor_with_ot": {"use_tensor": False, "use_ot": True},
-    "with_tensor_no_ot": {"use_tensor": True, "use_ot": False},
+    "full": {"use_tensor": True, "use_ot": True, "modalities": ("rgb", "nir", "ais")},
+    "no_tensor_no_ot": {"use_tensor": False, "use_ot": False, "modalities": ("rgb", "nir", "ais")},
+    "no_tensor_with_ot": {"use_tensor": False, "use_ot": True, "modalities": ("rgb", "nir", "ais")},
+    "with_tensor_no_ot": {"use_tensor": True, "use_ot": False, "modalities": ("rgb", "nir", "ais")},
+    # Single-modality experiments retain supervised classification and the
+    # historical Sinkhorn-OT domain adaptation path. Tensor outer-product
+    # fusion is undefined as a modality contribution experiment with one view.
+    "single_rgb": {"use_tensor": False, "use_ot": True, "modalities": ("rgb",)},
+    "single_nir": {"use_tensor": False, "use_ot": True, "modalities": ("nir",)},
+    "single_ais": {"use_tensor": False, "use_ot": True, "modalities": ("ais",)},
 }
 
 
 @dataclass
 class ExperimentModules:
-    rgb: RGBFeatureExtractor
-    nir: NIRFeatureExtractor
-    ais: AISFeatureExtractor
+    rgb: Optional[RGBFeatureExtractor]
+    nir: Optional[NIRFeatureExtractor]
+    ais: Optional[AISFeatureExtractor]
     classifier: Classifier
     discriminator: nn.Module
     tensor: Optional[TensorBasedAlignmentStable]
     plain_projector: Optional[PlainModalityProjector]
     generator: Optional[NeuralOptimalTransportGenerator]
     fused_dim: int
+    active_modalities: Tuple[str, ...]
 
-    def encoders(self) -> Tuple[nn.Module, nn.Module, nn.Module]:
-        return self.rgb, self.nir, self.ais
+    def encoder_items(self) -> Tuple[Tuple[str, nn.Module], ...]:
+        modules = {"rgb": self.rgb, "nir": self.nir, "ais": self.ais}
+        return tuple(
+            (name, modules[name])
+            for name in self.active_modalities
+            if modules[name] is not None
+        )
+
+    def encoders(self) -> Tuple[nn.Module, ...]:
+        return tuple(module for _, module in self.encoder_items())
 
     def state_dicts(self) -> Dict[str, Mapping[str, torch.Tensor]]:
         states = {
-            "rgb": self.rgb.state_dict(),
-            "nir": self.nir.state_dict(),
-            "ais": self.ais.state_dict(),
             "classifier": self.classifier.state_dict(),
             "discriminator": self.discriminator.state_dict(),
         }
+        for name, module in self.encoder_items():
+            states[name] = module.state_dict()
         if self.tensor is not None:
             states["tensor"] = self.tensor.state_dict()
         if self.plain_projector is not None:
@@ -130,9 +144,8 @@ class ExperimentModules:
         return states
 
     def load_state_dicts(self, states: Mapping[str, Mapping[str, torch.Tensor]]) -> None:
-        self.rgb.load_state_dict(states["rgb"])
-        self.nir.load_state_dict(states["nir"])
-        self.ais.load_state_dict(states["ais"])
+        for name, module in self.encoder_items():
+            module.load_state_dict(states[name])
         self.classifier.load_state_dict(states["classifier"])
         self.discriminator.load_state_dict(states["discriminator"])
         if self.tensor is not None:
@@ -167,36 +180,56 @@ class ExperimentModules:
             self.generator.eval()
 
 
-def build_modules(args, spec: Mapping[str, bool], device: torch.device) -> ExperimentModules:
-    rgb = RGBFeatureExtractor(
-        output_dim=FEATURE_DIM,
-        pretrained=args.pretrained,
-        pretrained_weights_path=args.pretrained_weights,
+def build_modules(args, spec: Mapping[str, object], device: torch.device) -> ExperimentModules:
+    active_modalities = tuple(spec.get("modalities", ("rgb", "nir", "ais")))
+    rgb = (
+        RGBFeatureExtractor(
+            output_dim=FEATURE_DIM,
+            pretrained=args.pretrained,
+            pretrained_weights_path=args.pretrained_weights,
+        )
+        if "rgb" in active_modalities
+        else None
     )
-    if args.freeze_rgb_backbone:
+    if rgb is not None and args.freeze_rgb_backbone:
         rgb.freeze_backbone()
-    nir = NIRFeatureExtractor(output_dim=FEATURE_DIM)
-    ais = AISFeatureExtractor(output_dim=FEATURE_DIM)
+    nir = NIRFeatureExtractor(output_dim=FEATURE_DIM) if "nir" in active_modalities else None
+    ais = (
+        AISFeatureExtractor(
+            input_dim=3 if active_modalities == ("ais",) else 26,
+            output_dim=FEATURE_DIM,
+        )
+        if "ais" in active_modalities
+        else None
+    )
 
-    projection_dims = [
-        args.projection_dim,
-        args.nir_projection_dim,
-        args.ais_projection_dim,
-    ]
-    fused_dim = sum(projection_dims)
-    if spec["use_tensor"]:
+    projection_by_name = {
+        "rgb": args.projection_dim,
+        "nir": args.nir_projection_dim,
+        "ais": args.ais_projection_dim,
+    }
+    projection_dims = [projection_by_name[name] for name in active_modalities]
+    if len(active_modalities) == 1:
+        # Match the historical single-modality protocol: every encoder exposes
+        # the same 512-D representation directly to OT and the classifier.
+        fused_dim = FEATURE_DIM
+        tensor = None
+        plain_projector = None
+    elif spec["use_tensor"]:
+        fused_dim = sum(projection_dims)
         tensor = TensorBasedAlignmentStable(
-            input_dims=[FEATURE_DIM, FEATURE_DIM, FEATURE_DIM],
+            input_dims=[FEATURE_DIM] * len(active_modalities),
             output_dims=projection_dims,
-            num_modalities=3,
+            num_modalities=len(active_modalities),
             max_svd_sweeps=args.svd_max_sweeps,
             svd_tolerance=args.svd_tolerance,
         )
         plain_projector = None
     else:
+        fused_dim = sum(projection_dims)
         tensor = None
         plain_projector = PlainModalityProjector(
-            input_dims=[FEATURE_DIM, FEATURE_DIM, FEATURE_DIM],
+            input_dims=[FEATURE_DIM] * len(active_modalities),
             output_dims=projection_dims,
         )
 
@@ -224,6 +257,7 @@ def build_modules(args, spec: Mapping[str, bool], device: torch.device) -> Exper
         plain_projector=plain_projector,
         generator=generator,
         fused_dim=fused_dim,
+        active_modalities=active_modalities,
     )
     for module in (
         modules.rgb,
@@ -245,10 +279,18 @@ def encode_batch(
     batch: Mapping[str, object],
     device: torch.device,
 ) -> List[torch.Tensor]:
-    rgb = batch["rgb"].to(device, non_blocking=True)
-    nir = batch["nir"].to(device, non_blocking=True)
-    ais_input = batch["ais_input"].to(device, non_blocking=True)
-    return [modules.rgb(rgb), modules.nir(nir), modules.ais(ais_input)]
+    encoded = []
+    for name, encoder in modules.encoder_items():
+        if name == "rgb":
+            inputs = batch["rgb"]
+        elif name == "nir":
+            inputs = batch["nir"]
+        elif modules.active_modalities == ("ais",):
+            inputs = batch["ais_heading_input"]
+        else:
+            inputs = batch["ais_input"]
+        encoded.append(encoder(inputs.to(device, non_blocking=True)))
+    return encoded
 
 
 def fuse_training_pair(
@@ -258,7 +300,10 @@ def fuse_training_pair(
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if modules.tensor is None:
         if modules.plain_projector is None:
-            raise RuntimeError("No-Tensor fusion requires the plain modality projector")
+            if len(source_modalities) != 1 or len(target_modalities) != 1:
+                raise RuntimeError("Direct fusion is valid only for one active modality")
+            zero = source_modalities[0].new_zeros(())
+            return source_modalities[0], target_modalities[0], zero
         zero = source_modalities[0].new_zeros(())
         projected_source = modules.plain_projector(source_modalities)
         projected_target = modules.plain_projector(target_modalities)
@@ -283,7 +328,9 @@ def fuse_target(
 ) -> torch.Tensor:
     if modules.tensor is None:
         if modules.plain_projector is None:
-            raise RuntimeError("No-Tensor fusion requires the plain modality projector")
+            if len(modalities) != 1:
+                raise RuntimeError("Direct fusion is valid only for one active modality")
+            return modalities[0]
         return torch.cat(modules.plain_projector(modalities), dim=1)
     projected = [
         feature.matmul(projection)
@@ -489,7 +536,11 @@ def historical_classification_loss(
 
 
 def _make_optimizers(args, modules: ExperimentModules):
-    rgb_parameters = [p for p in modules.rgb.parameters() if p.requires_grad]
+    rgb_parameters = (
+        [p for p in modules.rgb.parameters() if p.requires_grad]
+        if modules.rgb is not None
+        else []
+    )
     other_parameters = [
         p
         for module in (
@@ -604,7 +655,10 @@ def _update_tensor_projections(
     information = update_epoch_projections(
         tal_module=modules.tensor,
         encoders=list(modules.encoders()),
-        modality_keys=["rgb", "nir", "ais_input"],
+        modality_keys=[
+            {"rgb": "rgb", "nir": "nir", "ais": "ais_input"}[name]
+            for name in modules.active_modalities
+        ],
         source_dataset=source_dataset,
         target_dataset=target_dataset,
         batch_size=args.svd_stat_batch_size,
@@ -875,6 +929,12 @@ def run_experiment(
             "target_train_labels_in_runtime_batches": True,
             "class_conditional_ot_effective": True,
             "class_balancing_effective": bool(args.balance_classes),
+            "active_modalities": list(spec["modalities"]),
+            "ais_input_policy": (
+                "heading_sin_cos_plus_validity_only"
+                if tuple(spec["modalities"]) == ("ais",)
+                else "heading_length_width_plus_validity"
+            ),
         }
     )
     write_json(run_dir / "config.json", config)
@@ -919,11 +979,12 @@ def run_experiment(
         balance_classes=args.balance_classes,
     )
     maximum_centered_rank = batcher.epoch_sample_count - 1
-    requested_rank = max(
-        args.projection_dim,
-        args.nir_projection_dim,
-        args.ais_projection_dim,
-    )
+    projection_by_name = {
+        "rgb": args.projection_dim,
+        "nir": args.nir_projection_dim,
+        "ais": args.ais_projection_dim,
+    }
+    requested_rank = max(projection_by_name[name] for name in spec["modalities"])
     if spec["use_tensor"] and requested_rank > maximum_centered_rank:
         raise ValueError(
             f"maximum projection dimension {requested_rank} exceeds centered "
@@ -971,9 +1032,19 @@ def run_experiment(
         len(target_val),
         len(target_test),
     )
+    modality_descriptions = {
+        "rgb": "RGB=B4/B3/B2, 3x224x224",
+        "nir": "NIR=B8, 1x224x224 repeated only at encoder input (not thermal IR)",
+        "ais": (
+            "AIS=JSON heading only -> sin/cos + one validity flag (3-D), not RF/IQ"
+            if modules.active_modalities == ("ais",)
+            else "AIS=heading/length/width + validity; nav/type/MMSI removed"
+        ),
+    }
     logger.info(
-        "modalities RGB=3x224x224 NIR=1x224x224 (repeated to 3 encoder channels) "
-        "AIS=heading/length/width only (all nav_* label proxies removed); fused_dim=%d",
+        "active_modalities=%s; inputs=%s; fused_dim=%d",
+        ",".join(modules.active_modalities),
+        "; ".join(modality_descriptions[name] for name in modules.active_modalities),
         modules.fused_dim,
     )
     logger.info(

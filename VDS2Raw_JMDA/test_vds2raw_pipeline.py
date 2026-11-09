@@ -292,6 +292,13 @@ class PreparedDatasetTests(unittest.TestCase):
         self.assertEqual(tuple(sample["ais"].shape), (13,))
         self.assertEqual(tuple(sample["ais_mask"].shape), (13,))
         self.assertEqual(tuple(sample["ais_input"].shape), (26,))
+        self.assertEqual(tuple(sample["ais_heading_input"].shape), (3,))
+        self.assertTrue(
+            torch.equal(
+                sample["ais_heading_input"],
+                torch.cat((sample["ais"][:2], sample["ais_mask"][:1])),
+            )
+        )
         self.assertEqual(sample["rgb"].dtype, torch.float32)
         self.assertEqual(sample["nir"].dtype, torch.float32)
         self.assertTrue(torch.isfinite(sample["rgb"]).all())

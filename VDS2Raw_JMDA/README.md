@@ -4,6 +4,79 @@ This directory is the isolated training path for the prepared three-class
 VDS2Raw v2 dataset. It does not reuse or modify the historical weather
 VIS/IR data loader or its split rules.
 
+## Single-modality ResNet / ViT / ConvNeXt baselines
+
+`single_modal_baselines.py` runs the requested 45 independent experiments:
+
+- ResNet-50, ViT-B/16, and ConvNeXt-Base;
+- RGB (B4/B3/B2), NIR (B8), and structured AIS as separate inputs;
+- seeds 42, 43, 44, 45, and 46 for every model/modality pair.
+
+RGB and NIR are evaluated at their native 96x96 resolution. Training resizes
+them to 112x112 and takes a random 96x96 crop before horizontal flipping. AIS
+uses only `heading`; length and width are deliberately removed because their
+class-dependent distributions can make the task trivial. The prepared heading
+is represented by `heading_sin`, `heading_cos`, and one validity indicator.
+No length, width, navigation status, MMSI, ship type, name, coordinates, date,
+scene, or other metadata enters an AIS model. The three AIS classifiers are
+architecture-family adaptations: a residual MLP, a field-token Transformer,
+and a one-dimensional ConvNeXt.
+
+All models are initialized without downloaded pretrained weights. Training is
+supervised on `source_train + target_train`; image statistics and class weights
+also use only those partitions. The checkpoint with maximum `target_val` ACC
+is selected, with macro F1 as the tie break. Only after restoring that
+checkpoint is `target_test` constructed and evaluated once. Reported
+Precision, Recall, and F1 are macro averages across all three classes.
+Image models default to AdamW with peak learning rate `3e-4`, five warm-up
+epochs, cosine decay, 100 epochs maximum, patience 20, and label smoothing
+0.05. AIS keeps a 50-epoch maximum, patience 12, no warm-up, and no label
+smoothing.
+
+Local audit and smoke test:
+
+```powershell
+D:\Anaconda\envs\pytorch\python.exe -B .\VDS2Raw_JMDA\single_modal_baselines.py --audit-only
+D:\Anaconda\envs\pytorch\python.exe -B .\VDS2Raw_JMDA\single_modal_baselines.py `
+  --smoke-test --models resnet,vit,convnext --modalities rgb,nir,ais --seeds 42
+```
+
+Run all 45 experiments locally:
+
+```powershell
+D:\Anaconda\envs\pytorch\python.exe -u -B .\VDS2Raw_JMDA\single_modal_baselines.py `
+  --dataset-root D:\Downloads\VDS2Raw\threeclass_ready `
+  --run-name vds2raw_heading_only_tuned_images_45runs `
+  --epochs 100 --patience 20 --warmup-epochs 5 `
+  --lr-image 3e-4 --label-smoothing 0.05 --train-resize-size 112 `
+  --ais-epochs 50 --ais-patience 12 --batch-size 32 --num-workers 0
+```
+
+Run all 45 experiments on the server:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -u -B VDS2Raw_JMDA/single_modal_baselines.py \
+  --dataset-root /home/lixiang/lx/VDS2Raw/threeclass_ready \
+  --run-name vds2raw_heading_only_tuned_images_45runs \
+  --epochs 100 --patience 20 --warmup-epochs 5 \
+  --lr-image 3e-4 --label-smoothing 0.05 --train-resize-size 112 \
+  --ais-epochs 50 --ais-patience 12 --batch-size 32 --num-workers 4
+```
+
+Each seed directory contains the immutable configuration, epoch curve, log,
+validation-selected `best.pt`, target-test metrics, and per-sample target-test
+probabilities. The run root contains `results.csv`, `summary.csv`,
+`summary.json`, the complete dataset/protocol audit, and train-only image
+statistics. Reusing the same `--run-name` skips seed runs whose `result.json`
+already has status `complete`, allowing an interrupted grid to resume.
+
+For a 224x224 image-only experiment without random cropping, set
+`--modalities rgb,nir --image-size 224 --train-resize-size 224`. Keeping both
+sizes equal makes the spatial crop deterministic (the full resized image),
+while the optional horizontal flip remains enabled. Use
+`--label-smoothing 0` to remove smoothing for the small-data underfitting
+diagnostic.
+
 ## Fixed protocol
 
 - Classes: `Cargo=0`, `Fishing=1`, `Sailing & Pleasure=2`.

@@ -27,6 +27,7 @@ models/
 visualizations/
 JMDA_Net_VDS2Raw_Codex/
 tmp/
+VDS2Raw_JMDA/single_modal_runs/
 
 # 忽略 Python 缓存
 __pycache__/
