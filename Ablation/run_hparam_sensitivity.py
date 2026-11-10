@@ -32,8 +32,11 @@ SCAN_PARAMETERS: Tuple[str, ...] = (
     "adv_loss_weight",
     "ot_correction_reg_weight",
     "projection_dim",
-    "ot_epsilon",
 )
+
+# ``ot_epsilon`` remains fixed at the method baseline and is still passed
+# explicitly to the trainer; it is no longer part of the sensitivity scan.
+TRAINING_HYPERPARAMETERS: Tuple[str, ...] = SCAN_PARAMETERS + ("ot_epsilon",)
 
 BASELINE: Dict[str, object] = {
     "tensor_loss_weight": 0.12,
@@ -44,11 +47,10 @@ BASELINE: Dict[str, object] = {
 }
 
 SCAN_VALUES: Mapping[str, Sequence[object]] = {
-    "tensor_loss_weight": (0.03, 0.06, 0.12, 0.24, 0.48),
-    "adv_loss_weight": (0.02, 0.04, 0.08, 0.16, 0.32),
-    "ot_correction_reg_weight": (1e-4, 3e-4, 1e-3, 3e-3, 1e-2),
-    "projection_dim": (16, 32, 64, 128),
-    "ot_epsilon": (0.025, 0.05, 0.10, 0.20, 0.40),
+    "tensor_loss_weight": (0.08, 0.10, 0.12, 0.14, 0.16),
+    "adv_loss_weight": (0.04, 0.06, 0.08, 0.10, 0.12),
+    "ot_correction_reg_weight": (1e-4, 5e-4, 1e-3, 5e-3, 1e-2),
+    "projection_dim": (16, 32, 48, 64, 80),
 }
 
 FIXED_TRAINING_ARGUMENTS: Tuple[Tuple[str, Optional[str]], ...] = (
@@ -79,6 +81,12 @@ METRIC_FIELDS: Tuple[str, ...] = (
     "f1_macro",
 )
 
+LAST_WINDOW_FIELDS: Tuple[str, ...] = (
+    "last10_accuracy_mean",
+    "last10_accuracy_std",
+    "last10_epoch_count",
+)
+
 CSV_FIELDS: Tuple[str, ...] = (
     "configuration",
     "scan_parameter",
@@ -90,6 +98,9 @@ CSV_FIELDS: Tuple[str, ...] = (
     "precision_macro",
     "recall_macro",
     "f1_macro",
+    "last10_accuracy_mean",
+    "last10_accuracy_std",
+    "last10_epoch_count",
     "status",
     "return_code",
     "gpu_id",
@@ -170,8 +181,8 @@ def build_configurations() -> List[Dict[str, object]]:
 
 
 def validate_configurations(configurations: Sequence[Mapping[str, object]]) -> None:
-    if len(configurations) != 20:
-        raise RuntimeError(f"Expected 20 unique configurations, found {len(configurations)}.")
+    if len(configurations) != 17:
+        raise RuntimeError(f"Expected 17 unique configurations, found {len(configurations)}.")
 
     names = [str(config["name"]) for config in configurations]
     if len(set(names)) != len(names):
@@ -280,7 +291,7 @@ def build_training_command(
     command = [python_executable, "-u", str(module_path)]
     command.extend(fixed_training_cli())
     command.extend(("--source_root", str(source_root), "--target_root", str(target_root)))
-    for parameter in SCAN_PARAMETERS:
+    for parameter in TRAINING_HYPERPARAMETERS:
         command.extend((f"--{parameter}", display_value(parameters[parameter])))
     return command
 
@@ -473,6 +484,32 @@ def parse_report_metrics(log_path: Path) -> Optional[Dict[str, float]]:
     return {field: float(block_matches[-1].group(field)) for field in METRIC_FIELDS}
 
 
+def parse_last_window_accuracy(
+    log_path: Path, window: int = 10
+) -> Optional[Dict[str, float]]:
+    """Return the mean/std ACC over the final ``window`` recorded epochs."""
+    if not log_path.is_file():
+        return None
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    epoch_values: Dict[int, float] = {}
+    for match in re.finditer(
+        r"Epoch \[(?P<epoch>\d+)/(?:\d+)\].*?Val Acc:\s*"
+        r"(?P<accuracy>[0-9]+(?:\.[0-9]+)?)",
+        text,
+    ):
+        epoch_values[int(match.group("epoch"))] = float(match.group("accuracy"))
+    if len(epoch_values) < window:
+        return None
+    selected = [value for _, value in sorted(epoch_values.items())[-window:]]
+    mean = sum(selected) / len(selected)
+    variance = sum((value - mean) ** 2 for value in selected) / len(selected)
+    return {
+        "last10_accuracy_mean": mean,
+        "last10_accuracy_std": math.sqrt(variance),
+        "last10_epoch_count": float(len(selected)),
+    }
+
+
 def successful_status(task: Mapping[str, object], task_dir: Path) -> bool:
     status_path = task_dir / "status.json"
     if not status_path.is_file():
@@ -490,6 +527,10 @@ def successful_status(task: Mapping[str, object], task_dir: Path) -> bool:
         and (task_dir / "parameters.json").is_file()
         and isinstance(metrics, Mapping)
         and all(isinstance(metrics.get(field), (int, float)) for field in METRIC_FIELDS)
+        and all(
+            isinstance(metrics.get(field), (int, float))
+            for field in LAST_WINDOW_FIELDS
+        )
     )
 
 
@@ -527,6 +568,9 @@ def csv_row_from_status(status: Mapping[str, object]) -> Dict[str, object]:
         "precision_macro": metrics.get("precision_macro", ""),
         "recall_macro": metrics.get("recall_macro", ""),
         "f1_macro": metrics.get("f1_macro", ""),
+        "last10_accuracy_mean": metrics.get("last10_accuracy_mean", ""),
+        "last10_accuracy_std": metrics.get("last10_accuracy_std", ""),
+        "last10_epoch_count": metrics.get("last10_epoch_count", ""),
         "status": status.get("status", ""),
         "return_code": status.get("return_code", ""),
         "gpu_id": status.get("gpu_id", ""),
@@ -561,10 +605,21 @@ def update_csv_outputs(plan: Sequence[Mapping[str, object]], output_dir: Path) -
         rows.append(csv_row_from_status(status))
 
     rows.sort(key=lambda row: (str(row["configuration"]), str(row["target_weather"])))
-    # There is exactly one seed per task, so summary.csv deliberately contains
-    # the same per-task values and no cross-seed standard-deviation columns.
+    # per_seed.csv contains the 17 actual runs.  summary.csv reuses the single
+    # baseline once in each of the four parameter groups, yielding 20 plotting
+    # rows without retraining the baseline.
     atomic_write_csv(output_dir / "per_seed.csv", rows)
-    atomic_write_csv(output_dir / "summary.csv", rows)
+    summary_rows: List[Dict[str, object]] = []
+    for row in rows:
+        if row["configuration"] != "baseline":
+            summary_rows.append(row)
+            continue
+        for parameter in SCAN_PARAMETERS:
+            reused = dict(row)
+            reused["scan_parameter"] = parameter
+            reused["scan_value"] = display_value(BASELINE[parameter])
+            summary_rows.append(reused)
+    atomic_write_csv(output_dir / "summary.csv", summary_rows)
 
 
 def base_status(task: Mapping[str, object]) -> Dict[str, object]:
@@ -706,15 +761,21 @@ def run_task(
                 return_code = process.wait()
 
     metrics = parse_report_metrics(train_log)
+    last_window_metrics = parse_last_window_accuracy(train_log)
+    if metrics is not None and last_window_metrics is not None:
+        metrics.update(last_window_metrics)
     if interrupted:
         final_status = "interrupted"
         failure_reason = "Runner interrupted by user."
     elif return_code != 0:
         final_status = "failed"
         failure_reason = f"Training process exited with return code {return_code}."
-    elif metrics is None:
+    elif metrics is None or last_window_metrics is None:
         final_status = "metrics_missing"
-        failure_reason = "Training exited successfully but required report metrics were not found."
+        failure_reason = (
+            "Training exited successfully but required report or final-window metrics "
+            "were not found."
+        )
     else:
         final_status = "success"
         failure_reason = None
@@ -768,7 +829,7 @@ def parse_args() -> argparse.Namespace:
     project_root = script_path.parent.parent
     parser = argparse.ArgumentParser(
         description=(
-            "Run the 20-configuration supervised JMDA-Net one-factor "
+            "Run the 17-configuration supervised JMDA-Net one-factor "
             "hyperparameter sensitivity plan serially."
         )
     )
@@ -790,7 +851,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=project_root / "Ablation" / "hparam_sensitivity_results",
+        default=project_root / "Ablation" / "hparam_sensitivity_results_refined",
         help="persistent result root used for artifacts and resume",
     )
     parser.add_argument(

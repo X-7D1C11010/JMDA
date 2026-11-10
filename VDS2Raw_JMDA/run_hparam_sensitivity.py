@@ -28,14 +28,15 @@ REPO_ROOT = PACKAGE_DIR.parent
 MODULE_SCRIPT = PACKAGE_DIR / "module_ablation.py"
 
 DEFAULT_DATASET_ROOT = "/home/lixiang/lx/VDS2Raw/threeclass_ready"
-DEFAULT_OUTPUT_ROOT = "/home/lixiang/lx/JMDA/VDS2Raw_JMDA/runs/hparam_sensitivity"
+DEFAULT_OUTPUT_ROOT = (
+    "/home/lixiang/lx/JMDA/VDS2Raw_JMDA/runs/hparam_sensitivity_refined"
+)
 
 SCAN_VALUES: Mapping[str, Sequence[object]] = {
-    "tensor_loss_weight": (0.03, 0.06, 0.12, 0.24, 0.48),
-    "adv_loss_weight": (0.02, 0.04, 0.08, 0.16, 0.32),
-    "ot_correction_reg_weight": (1e-4, 3e-4, 1e-3, 3e-3, 1e-2),
-    "projection_dim": (16, 32, 64, 128),
-    "ot_epsilon": (0.025, 0.05, 0.10, 0.20, 0.40),
+    "tensor_loss_weight": (0.08, 0.10, 0.12, 0.14, 0.16),
+    "adv_loss_weight": (0.04, 0.06, 0.08, 0.10, 0.12),
+    "ot_correction_reg_weight": (1e-4, 5e-4, 1e-3, 5e-3, 1e-2),
+    "projection_dim": (16, 32, 48, 64, 80),
 }
 
 BASELINE_VALUES: Mapping[str, object] = {
@@ -95,6 +96,9 @@ RESULT_FIELDS = (
     "val_precision_macro",
     "val_recall_macro",
     "val_f1_macro",
+    "last10_accuracy_mean",
+    "last10_accuracy_std",
+    "last10_epoch_count",
     "gpu_physical_index",
     "trainer_suite_dir",
     "trainer_run_dir",
@@ -176,8 +180,8 @@ def build_scan_plan() -> List[ScanConfiguration]:
 
 
 def validate_scan_plan(plan: Sequence[ScanConfiguration]) -> None:
-    if len(plan) != 20:
-        raise AssertionError(f"Expected 20 unique configurations, found {len(plan)}")
+    if len(plan) != 17:
+        raise AssertionError(f"Expected 17 unique configurations, found {len(plan)}")
     if len({item.config_id for item in plan}) != len(plan):
         raise AssertionError("Configuration identifiers are not unique")
     baselines = [item for item in plan if item.is_baseline]
@@ -214,7 +218,7 @@ def validate_scan_plan(plan: Sequence[ScanConfiguration]) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Run the 20-configuration supervised VDS2Raw one-factor "
+            "Run the 17-configuration supervised VDS2Raw one-factor "
             "hyperparameter sensitivity suite serially"
         )
     )
@@ -656,6 +660,9 @@ def _base_result_row(config: ScanConfiguration, status: str) -> Dict[str, object
         "val_precision_macro": "",
         "val_recall_macro": "",
         "val_f1_macro": "",
+        "last10_accuracy_mean": "",
+        "last10_accuracy_std": "",
+        "last10_epoch_count": "",
         "gpu_physical_index": "",
         "trainer_suite_dir": "",
         "trainer_run_dir": "",
@@ -669,6 +676,7 @@ def _result_from_metrics(
     metrics: Mapping[str, str],
     gpu_index: object = "",
 ) -> Dict[str, object]:
+    last_window = _read_last_window_accuracy(suite_dir, window=10)
     row = _base_result_row(config, "completed")
     row.update(
         {
@@ -677,12 +685,44 @@ def _result_from_metrics(
             "val_precision_macro": float(metrics["val_precision_macro"]),
             "val_recall_macro": float(metrics["val_recall_macro"]),
             "val_f1_macro": float(metrics["val_f1_macro"]),
+            **last_window,
             "gpu_physical_index": gpu_index,
             "trainer_suite_dir": str(suite_dir),
             "trainer_run_dir": metrics["run_dir"],
         }
     )
     return row
+
+
+def _read_last_window_accuracy(
+    suite_dir: Path, window: int = 10
+) -> Dict[str, object]:
+    metrics_path = suite_dir / "full" / "seed_42" / "metrics.csv"
+    if not metrics_path.is_file():
+        raise RuntimeError(f"Per-epoch metrics are missing: {metrics_path}")
+    with metrics_path.open("r", encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    usable = []
+    for row in rows:
+        try:
+            usable.append((int(row["epoch"]), float(row["val_accuracy"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    usable.sort(key=lambda item: item[0])
+    selected = usable[-window:]
+    if len(selected) != window:
+        raise RuntimeError(
+            f"Expected {window} final epoch ACC values in {metrics_path}, "
+            f"found {len(selected)}"
+        )
+    values = [value for _, value in selected]
+    mean = sum(values) / len(values)
+    variance = sum((value - mean) ** 2 for value in values) / len(values)
+    return {
+        "last10_accuracy_mean": mean,
+        "last10_accuracy_std": variance ** 0.5,
+        "last10_epoch_count": len(values),
+    }
 
 
 def _load_json(path: Path) -> Optional[Dict[str, object]]:
@@ -798,9 +838,9 @@ def _write_aggregate_tables(
     rows = [rows_by_id[item.config_id] for item in plan if item.config_id in rows_by_id]
     _atomic_write_csv(output_root / "per_seed.csv", rows, RESULT_FIELDS)
 
-    # Keep 20 actual-run rows in per_seed.csv.  For direct sensitivity plotting,
-    # summary.csv reuses the single baseline result once in each of the five
-    # parameter groups (24 plotting points, still only 20 trained configs).
+    # Keep 17 actual-run rows in per_seed.csv.  For direct sensitivity plotting,
+    # summary.csv reuses the single baseline result once in each of the four
+    # parameter groups (20 plotting points, still only 17 trained configs).
     summary_rows: List[Mapping[str, object]] = []
     for row in rows:
         if not bool(row["is_baseline"]):
@@ -955,11 +995,11 @@ def main() -> int:
             trainer_output_root = task_dir / "trainer_results"
             command = build_training_command(config, args, trainer_output_root)
             print(
-                f"[{config.index:02d}/20] {config.config_id}: "
+                f"[{config.index:02d}/{len(plan):02d}] {config.config_id}: "
                 f"{shlex.join(command)}"
             )
         print(
-            "DRY RUN PASS: one shared baseline, 20 unique configurations, "
+            "DRY RUN PASS: one shared baseline, 17 unique configurations, "
             "and exactly one changed scan parameter per non-baseline configuration."
         )
         print(f"Plan saved to: {output_root}")
@@ -977,7 +1017,7 @@ def main() -> int:
     rows_by_id: Dict[str, Mapping[str, object]] = {}
     _append_scheduler_log(
         output_root,
-        "starting supervised sensitivity suite: 20 serial configurations, seed=42, "
+        "starting supervised sensitivity suite: 17 serial configurations, seed=42, "
         "selection=target_val, target_test=disabled",
     )
     try:

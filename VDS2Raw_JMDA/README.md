@@ -77,6 +77,28 @@ while the optional horizontal flip remains enabled. Use
 `--label-smoothing 0` to remove smoothing for the small-data underfitting
 diagnostic.
 
+For the leakage-safe transfer-learning diagnostic, the script also supports
+torchvision ImageNet initialization, separate backbone/head learning rates,
+initial backbone freezing, source/target-by-class balanced sampling, and
+macro-F1-first checkpoint selection. For example:
+
+```powershell
+D:\Anaconda\envs\pytorch\python.exe -u -B .\VDS2Raw_JMDA\single_modal_baselines.py `
+  --models resnet,vit --modalities rgb,nir --seeds 42,43,44,45,46 `
+  --backbone-profile transfer-small --pretrained --freeze-backbone-epochs 5 `
+  --lr-backbone 3e-5 --lr-image 3e-4 --checkpoint-metric macro_f1 `
+  --domain-class-balanced-sampling --no-class-weighting `
+  --image-size 224 --train-resize-size 224 --label-smoothing 0 `
+  --amp --amp-dtype bfloat16 --channels-last
+```
+
+With `transfer-small`, ResNet and ConvNeXt use ResNet-18 and ConvNeXt-Small;
+ViT remains ViT-B/16 because torchvision does not provide a small ViT in this
+environment. NIR keeps one physical channel: the pretrained RGB stem is
+collapsed by summing its three input-channel kernels, which is mathematically
+equivalent to repeating normalized NIR into three channels. These options do
+not change the fixed train/validation/test partitions.
+
 ## Fixed protocol
 
 - Classes: `Cargo=0`, `Fishing=1`, `Sailing & Pleasure=2`.

@@ -11,10 +11,10 @@ GPU_IDS="${GPU_IDS:-0,1}"
 
 WEATHER_SOURCE_ROOT="${WEATHER_SOURCE_ROOT:-/mnt/data/lixiang/data/Data/晴天}"
 WEATHER_TARGET_ROOT="${WEATHER_TARGET_ROOT:-逆光}"
-WEATHER_OUTPUT_ROOT="${WEATHER_OUTPUT_ROOT:-${PROJECT_ROOT}/Ablation/hparam_sensitivity_results/backlight}"
+WEATHER_OUTPUT_ROOT="${WEATHER_OUTPUT_ROOT:-${PROJECT_ROOT}/Ablation/hparam_sensitivity_results_refined/backlight}"
 
 VDS2RAW_DATASET_ROOT="${VDS2RAW_DATASET_ROOT:-/home/lixiang/lx/VDS2Raw/threeclass_ready}"
-VDS2RAW_OUTPUT_ROOT="${VDS2RAW_OUTPUT_ROOT:-${PROJECT_ROOT}/VDS2Raw_JMDA/runs/hparam_sensitivity}"
+VDS2RAW_OUTPUT_ROOT="${VDS2RAW_OUTPUT_ROOT:-${PROJECT_ROOT}/VDS2Raw_JMDA/runs/hparam_sensitivity_refined}"
 
 timestamp() {
   date '+%Y-%m-%d %H:%M:%S %Z'
