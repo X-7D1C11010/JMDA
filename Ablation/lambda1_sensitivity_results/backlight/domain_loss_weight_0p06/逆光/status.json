@@ -1,0 +1,34 @@
+{
+  "configuration": "domain_loss_weight_0p06",
+  "scan_parameter": "domain_loss_weight",
+  "scan_value": "0.06",
+  "target_weather": "逆光",
+  "target_root": "/mnt/data/lixiang/data/Data/逆光",
+  "source_root": "/mnt/data/lixiang/data/Data/晴天",
+  "seed": 42,
+  "domain_loss_weight": 0.06,
+  "task_directory": "/home/lixiang/lx/JMDA/Ablation/lambda1_sensitivity_results/backlight/domain_loss_weight_0p06/逆光",
+  "task_signature": "fc551eb1a0089a190d0fc76ddf0a03d25a942603fa3d360971d9f20c5f1ec64f",
+  "status": "success",
+  "return_code": 0,
+  "gpu_id": 1,
+  "metrics": {
+    "accuracy": 1.0,
+    "precision_macro": 1.0,
+    "recall_macro": 1.0,
+    "f1_macro": 1.0,
+    "last10_accuracy_mean": 0.9555199999999999,
+    "last10_accuracy_std": 0.013619162969874438,
+    "last10_epoch_count": 10.0
+  },
+  "updated_at": "2026-11-12T10:40:16+00:00",
+  "gpu_admission": {
+    "gpu_id": 1,
+    "memory_free_mib": 32094,
+    "utilization_percent": 0
+  },
+  "started_at": "2026-11-12T09:00:36+00:00",
+  "pid": 705392,
+  "failure_reason": null,
+  "finished_at": "2026-11-12T10:40:16+00:00"
+}
