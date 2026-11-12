@@ -403,6 +403,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tensor_loss_weight", type=float, default=0.12)
     parser.add_argument("--adv_loss_weight", type=float, default=0.08)
     parser.add_argument(
+        "--domain_loss_weight",
+        type=float,
+        default=1.0,
+        help="lambda1 weight applied only to the detached-feature discriminator loss",
+    )
+    parser.add_argument(
         "--discriminator_update_interval",
         type=int,
         default=2,
@@ -518,6 +524,7 @@ def validate_args(parser: argparse.ArgumentParser, args) -> None:
         "weight_decay",
         "tensor_loss_weight",
         "adv_loss_weight",
+        "domain_loss_weight",
         "ot_epsilon",
         "ot_correction_scale",
         "ot_correction_reg_weight",

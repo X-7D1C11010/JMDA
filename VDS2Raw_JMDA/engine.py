@@ -709,6 +709,7 @@ def _train_epoch(
         "loss_tensor": 0.0,
         "loss_adv": 0.0,
         "loss_d": 0.0,
+        "loss_d_weighted": 0.0,
         "loss_ot_reg": 0.0,
         "ot_objective": 0.0,
         "ot_marginal_residual": 0.0,
@@ -745,6 +746,7 @@ def _train_epoch(
             )
 
         discriminator_loss = source_features.new_zeros(())
+        weighted_discriminator_loss = source_features.new_zeros(())
         discriminator_step = (steps + 1) % args.discriminator_update_interval == 0
         if discriminator_step and ((not use_ot) or intermediate_features is not None):
             optimizer_d.zero_grad(set_to_none=True)
@@ -759,7 +761,8 @@ def _train_epoch(
                     modules.discriminator(source_features.detach()),
                     modules.discriminator(target_features.detach()),
                 )
-            discriminator_loss.backward()
+            weighted_discriminator_loss = args.domain_loss_weight * discriminator_loss
+            weighted_discriminator_loss.backward()
             torch.nn.utils.clip_grad_norm_(modules.discriminator.parameters(), 1.0)
             optimizer_d.step()
 
@@ -833,6 +836,7 @@ def _train_epoch(
         sums["loss_tensor"] += float(tensor_loss.detach())
         sums["loss_adv"] += float(adversarial_loss.detach())
         sums["loss_d"] += float(discriminator_loss.detach())
+        sums["loss_d_weighted"] += float(weighted_discriminator_loss.detach())
         sums["loss_ot_reg"] += float(correction_regularization.detach())
         if transport_details is not None:
             ot_steps += 1
@@ -1181,6 +1185,7 @@ def run_experiment(
         _write_csv(metrics_path, [_flatten_epoch_record(row) for row in history])
         logger.info(
             "epoch %d/%d | loss=%.4f cls=%.4f tensor=%.4f adv=%.4f "
+            "domain=%.4f weighted_domain=%.4f "
             "src_acc=%.4f tgt_train_acc=%.4f val_acc=%.4f val_precision=%.4f "
             "val_recall=%.4f val_f1=%.4f ot_scale=%.2f epoch_seconds=%.2f",
             epoch + 1,
@@ -1189,6 +1194,8 @@ def run_experiment(
             record["loss_cls"],
             record["loss_tensor"],
             record["loss_adv"],
+            record["loss_d"],
+            record["loss_d_weighted"],
             record["source_train_accuracy"],
             record["target_train_accuracy"],
             record["val_accuracy"],

@@ -27,31 +27,44 @@ from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 
-SCAN_PARAMETERS: Tuple[str, ...] = (
-    "tensor_loss_weight",
-    "adv_loss_weight",
-    "ot_correction_reg_weight",
-    "projection_dim",
-)
-
-# ``ot_epsilon`` remains fixed at the method baseline and is still passed
-# explicitly to the trainer; it is no longer part of the sensitivity scan.
-TRAINING_HYPERPARAMETERS: Tuple[str, ...] = SCAN_PARAMETERS + ("ot_epsilon",)
-
 BASELINE: Dict[str, object] = {
     "tensor_loss_weight": 0.12,
     "adv_loss_weight": 0.08,
+    "domain_loss_weight": 1.0,
     "ot_correction_reg_weight": 1e-3,
     "projection_dim": 64,
     "ot_epsilon": 0.10,
 }
 
-SCAN_VALUES: Mapping[str, Sequence[object]] = {
+REFINED_SCAN_VALUES: Mapping[str, Sequence[object]] = {
     "tensor_loss_weight": (0.08, 0.10, 0.12, 0.14, 0.16),
     "adv_loss_weight": (0.04, 0.06, 0.08, 0.10, 0.12),
     "ot_correction_reg_weight": (1e-4, 5e-4, 1e-3, 5e-3, 1e-2),
     "projection_dim": (16, 32, 48, 64, 80),
 }
+
+LAMBDA1_SCAN_VALUES: Mapping[str, Sequence[object]] = {
+    "domain_loss_weight": (0.06, 0.08, 0.10, 0.12, 0.14, 1.0),
+}
+
+SCAN_PROFILES: Mapping[str, Mapping[str, Sequence[object]]] = {
+    "refined": REFINED_SCAN_VALUES,
+    "lambda1": LAMBDA1_SCAN_VALUES,
+}
+
+SCAN_VALUES: Mapping[str, Sequence[object]] = REFINED_SCAN_VALUES
+SCAN_PARAMETERS: Tuple[str, ...] = tuple(SCAN_VALUES)
+
+# Every trainer-facing method hyperparameter is passed explicitly.  A scan
+# profile controls only which one-factor configurations are created.
+TRAINING_HYPERPARAMETERS: Tuple[str, ...] = (
+    "tensor_loss_weight",
+    "adv_loss_weight",
+    "domain_loss_weight",
+    "ot_correction_reg_weight",
+    "projection_dim",
+    "ot_epsilon",
+)
 
 FIXED_TRAINING_ARGUMENTS: Tuple[Tuple[str, Optional[str]], ...] = (
     ("--ablation_mode", "full"),
@@ -94,6 +107,7 @@ CSV_FIELDS: Tuple[str, ...] = (
     "target_weather",
     "target_root",
     "seed",
+    "domain_loss_weight",
     "accuracy",
     "precision_macro",
     "recall_macro",
@@ -153,6 +167,12 @@ def values_equal(left: object, right: object) -> bool:
     return math.isclose(float(left), float(right), rel_tol=0.0, abs_tol=1e-12)
 
 
+def activate_scan_profile(profile: str) -> None:
+    global SCAN_VALUES, SCAN_PARAMETERS
+    SCAN_VALUES = SCAN_PROFILES[profile]
+    SCAN_PARAMETERS = tuple(SCAN_VALUES)
+
+
 def build_configurations() -> List[Dict[str, object]]:
     configurations: List[Dict[str, object]] = [
         {
@@ -181,8 +201,17 @@ def build_configurations() -> List[Dict[str, object]]:
 
 
 def validate_configurations(configurations: Sequence[Mapping[str, object]]) -> None:
-    if len(configurations) != 17:
-        raise RuntimeError(f"Expected 17 unique configurations, found {len(configurations)}.")
+    expected_count = 1 + sum(
+        1
+        for parameter in SCAN_PARAMETERS
+        for value in SCAN_VALUES[parameter]
+        if not values_equal(value, BASELINE[parameter])
+    )
+    if len(configurations) != expected_count:
+        raise RuntimeError(
+            f"Expected {expected_count} unique configurations, "
+            f"found {len(configurations)}."
+        )
 
     names = [str(config["name"]) for config in configurations]
     if len(set(names)) != len(names):
@@ -564,6 +593,7 @@ def csv_row_from_status(status: Mapping[str, object]) -> Dict[str, object]:
         "target_weather": status.get("target_weather", ""),
         "target_root": status.get("target_root", ""),
         "seed": status.get("seed", 42),
+        "domain_loss_weight": status.get("domain_loss_weight", ""),
         "accuracy": metrics.get("accuracy", ""),
         "precision_macro": metrics.get("precision_macro", ""),
         "recall_macro": metrics.get("recall_macro", ""),
@@ -605,9 +635,8 @@ def update_csv_outputs(plan: Sequence[Mapping[str, object]], output_dir: Path) -
         rows.append(csv_row_from_status(status))
 
     rows.sort(key=lambda row: (str(row["configuration"]), str(row["target_weather"])))
-    # per_seed.csv contains the 17 actual runs.  summary.csv reuses the single
-    # baseline once in each of the four parameter groups, yielding 20 plotting
-    # rows without retraining the baseline.
+    # summary.csv reuses the single baseline once in every active parameter
+    # group without retraining it.
     atomic_write_csv(output_dir / "per_seed.csv", rows)
     summary_rows: List[Dict[str, object]] = []
     for row in rows:
@@ -631,6 +660,7 @@ def base_status(task: Mapping[str, object]) -> Dict[str, object]:
         "target_root": task["target_root"],
         "source_root": task["source_root"],
         "seed": task["seed"],
+        "domain_loss_weight": task["parameters"]["domain_loss_weight"],
         "task_directory": task["task_directory"],
         "task_signature": task["signature"],
         "status": "pending",
@@ -829,9 +859,15 @@ def parse_args() -> argparse.Namespace:
     project_root = script_path.parent.parent
     parser = argparse.ArgumentParser(
         description=(
-            "Run the 17-configuration supervised JMDA-Net one-factor "
+            "Run a supervised JMDA-Net one-factor "
             "hyperparameter sensitivity plan serially."
         )
+    )
+    parser.add_argument(
+        "--scan-profile",
+        choices=tuple(SCAN_PROFILES),
+        default="refined",
+        help="refined scans four historical parameters; lambda1 scans only domain_loss_weight",
     )
     parser.add_argument(
         "--source-root",
@@ -907,6 +943,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    activate_scan_profile(args.scan_profile)
     configurations = build_configurations()
     validate_configurations(configurations)
 
@@ -939,6 +976,8 @@ def main() -> int:
         output_dir / "plan.json",
         {
             "created_at": utc_now(),
+            "scan_profile": args.scan_profile,
+            "scan_values": {key: list(values) for key, values in SCAN_VALUES.items()},
             "configuration_count": len(configurations),
             "target_count": len(targets),
             "task_count": len(plan),

@@ -99,6 +99,65 @@ collapsed by summing its three input-channel kernels, which is mathematically
 equivalent to repeating normalized NIR into three channels. These options do
 not change the fixed train/validation/test partitions.
 
+## RGB/NIR grouped five-fold baselines
+
+`grouped_cv_baselines.py` runs ResNet-50, ViT-B/16, and ConvNeXt-Base with
+matching ImageNet pretrained weights on RGB and NIR only. The default
+`--split-mode grouped` fixes all 116 day3 samples as source and constructs five
+scene/MMSI-connected target folds; all 155 non-day3 samples are tested exactly
+once and every fold must pass the zero-overlap audit. Training uses 224x224
+resize without random crop, source:target expected sampling mass 1:2, five
+head-only epochs, last-stage fine-tuning, target-only refinement, validation
+ACC/macro-F1 checkpoint selection, and fixed horizontal-flip TTA.
+
+```powershell
+D:\Anaconda\envs\pytorch\python.exe -u -B .\VDS2Raw_JMDA\grouped_cv_baselines.py `
+  --run-name vds2raw_grouped_cv_target2stage_30runs `
+  --split-mode grouped
+```
+
+`--split-mode sample-stratified` is provided only as a protocol-sensitivity
+comparison. It intentionally permits scene/MMSI overlap and writes
+`WARNING_SCENE_OR_MMSI_OVERLAP` to every affected audit; its results must not
+be described as leakage-safe. See
+`GROUPED_CV_EXPERIMENT_REPORT_20261110.md` for the completed 30-run results of
+both protocols and the full evaluation metrics.
+
+For the sample-stratified diagnostic, the validation-selected checkpoints can
+be refitted for a fixed three epochs on `target_train + target_val`, followed
+by an equal-weight ensemble of the three backbones within each modality:
+
+```powershell
+D:\Anaconda\envs\pytorch\python.exe -u -B .\VDS2Raw_JMDA\sample_protocol_refit.py
+D:\Anaconda\envs\pytorch\python.exe -u -B .\VDS2Raw_JMDA\equal_weight_ensemble.py `
+  --prediction-root .\VDS2Raw_JMDA\single_modal_runs\vds2raw_sample_stratified_fixedtta_30runs_20261110\refit_head3_lr5e-05
+```
+
+This optimization achieved five-fold ACC `60.00 +/- 2.89%` for the RGB-only
+ensemble and `61.94 +/- 1.44%` for the NIR-only ensemble. It remains a
+scene-overlapping protocol-B result and is not interchangeable with grouped
+leakage-safe CV.
+
+### Further single-backbone optimization audit
+
+The follow-up requirement that every ResNet/ViT/ConvNeXt x RGB/NIR cell exceed
+60% mean ACC was tested, but was **not achieved** under the target-only
+sample-stratified five-fold protocol. Validation-only pilots covered target-only
+full/last-stage fine-tuning, deterministic center zoom, per-image radiometric
+standardization, ImageNet-style 0-255 normalization, identity versus horizontal
+flip inference, bounded class-bias calibration, HOG/morphology probes, and
+fine-tuned deep-feature plus morphology probes. None provided a consistent
+validation-supported improvement across all six cells. The standalone shape
+probe reached `60.65 +/- 5.77%` ACC on NIR but only `53.55 +/- 7.07%` on RGB;
+it is therefore diagnostic evidence, not a replacement for the six requested
+backbones.
+
+`sample_protocol_target_finetune.py` contains the reproducible validation-first
+pilot runner. Its default is `--no-evaluate-test`; target_test must only be
+enabled after a configuration has been fixed. Rejected diagnostics must not be
+reported as final results, and repeated tuning against the already observed
+five target-test folds is post-hoc rather than a new unbiased evaluation.
+
 ## Fixed protocol
 
 - Classes: `Cargo=0`, `Fishing=1`, `Sailing & Pleasure=2`.

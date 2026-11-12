@@ -32,16 +32,28 @@ DEFAULT_OUTPUT_ROOT = (
     "/home/lixiang/lx/JMDA/VDS2Raw_JMDA/runs/hparam_sensitivity_refined"
 )
 
-SCAN_VALUES: Mapping[str, Sequence[object]] = {
+REFINED_SCAN_VALUES: Mapping[str, Sequence[object]] = {
     "tensor_loss_weight": (0.08, 0.10, 0.12, 0.14, 0.16),
     "adv_loss_weight": (0.04, 0.06, 0.08, 0.10, 0.12),
     "ot_correction_reg_weight": (1e-4, 5e-4, 1e-3, 5e-3, 1e-2),
     "projection_dim": (16, 32, 48, 64, 80),
 }
 
+LAMBDA1_SCAN_VALUES: Mapping[str, Sequence[object]] = {
+    "domain_loss_weight": (0.06, 0.08, 0.10, 0.12, 0.14, 1.0),
+}
+
+SCAN_PROFILES: Mapping[str, Mapping[str, Sequence[object]]] = {
+    "refined": REFINED_SCAN_VALUES,
+    "lambda1": LAMBDA1_SCAN_VALUES,
+}
+
+SCAN_VALUES: Mapping[str, Sequence[object]] = REFINED_SCAN_VALUES
+
 BASELINE_VALUES: Mapping[str, object] = {
     "tensor_loss_weight": 0.12,
     "adv_loss_weight": 0.08,
+    "domain_loss_weight": 1.0,
     "ot_correction_reg_weight": 1e-3,
     "projection_dim": 64,
     "ot_epsilon": 0.10,
@@ -86,6 +98,7 @@ RESULT_FIELDS = (
     "seed",
     "tensor_loss_weight",
     "adv_loss_weight",
+    "domain_loss_weight",
     "ot_correction_reg_weight",
     "ot_epsilon",
     "rgb_projection_dim",
@@ -145,6 +158,11 @@ def _value_slug(value: object) -> str:
     return text.replace("-", "m").replace(".", "p").replace("+", "")
 
 
+def activate_scan_profile(profile: str) -> None:
+    global SCAN_VALUES
+    SCAN_VALUES = SCAN_PROFILES[profile]
+
+
 def build_scan_plan() -> List[ScanConfiguration]:
     plan: List[ScanConfiguration] = [
         ScanConfiguration(
@@ -180,8 +198,16 @@ def build_scan_plan() -> List[ScanConfiguration]:
 
 
 def validate_scan_plan(plan: Sequence[ScanConfiguration]) -> None:
-    if len(plan) != 17:
-        raise AssertionError(f"Expected 17 unique configurations, found {len(plan)}")
+    expected_count = 1 + sum(
+        1
+        for parameter, values in SCAN_VALUES.items()
+        for value in values
+        if value != BASELINE_VALUES[parameter]
+    )
+    if len(plan) != expected_count:
+        raise AssertionError(
+            f"Expected {expected_count} unique configurations, found {len(plan)}"
+        )
     if len({item.config_id for item in plan}) != len(plan):
         raise AssertionError("Configuration identifiers are not unique")
     baselines = [item for item in plan if item.is_baseline]
@@ -189,7 +215,8 @@ def validate_scan_plan(plan: Sequence[ScanConfiguration]) -> None:
         raise AssertionError("The shared baseline must occur exactly once")
 
     expected_nonbaseline_counts = {
-        parameter: len(values) - 1 for parameter, values in SCAN_VALUES.items()
+        parameter: sum(value != BASELINE_VALUES[parameter] for value in values)
+        for parameter, values in SCAN_VALUES.items()
     }
     actual_counts = {parameter: 0 for parameter in SCAN_VALUES}
     for item in plan:
@@ -218,9 +245,15 @@ def validate_scan_plan(plan: Sequence[ScanConfiguration]) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Run the 17-configuration supervised VDS2Raw one-factor "
+            "Run a supervised VDS2Raw one-factor "
             "hyperparameter sensitivity suite serially"
         )
+    )
+    parser.add_argument(
+        "--scan-profile",
+        choices=tuple(SCAN_PROFILES),
+        default="refined",
+        help="refined scans four historical parameters; lambda1 scans only domain_loss_weight",
     )
     parser.add_argument(
         "--dataset-root",
@@ -379,6 +412,8 @@ def build_training_command(
         str(values["tensor_loss_weight"]),
         "--adv_loss_weight",
         str(values["adv_loss_weight"]),
+        "--domain_loss_weight",
+        str(values["domain_loss_weight"]),
         "--discriminator_update_interval",
         "2",
         "--freeze_rgb_backbone",
@@ -409,6 +444,7 @@ def _plan_document(
     return {
         "plan_version": 1,
         "created_at": _utc_timestamp(),
+        "scan_profile": args.scan_profile,
         "configuration_count": len(plan),
         "execution": "serial; seed 42 once per configuration",
         "selection_and_reporting": {
@@ -450,6 +486,7 @@ def _plan_csv_rows(plan: Sequence[ScanConfiguration]) -> List[Dict[str, object]]
                 "scan_value": item.scan_value,
                 "tensor_loss_weight": item.values["tensor_loss_weight"],
                 "adv_loss_weight": item.values["adv_loss_weight"],
+                "domain_loss_weight": item.values["domain_loss_weight"],
                 "ot_correction_reg_weight": item.values[
                     "ot_correction_reg_weight"
                 ],
@@ -650,6 +687,7 @@ def _base_result_row(config: ScanConfiguration, status: str) -> Dict[str, object
         "seed": 42,
         "tensor_loss_weight": config.values["tensor_loss_weight"],
         "adv_loss_weight": config.values["adv_loss_weight"],
+        "domain_loss_weight": config.values["domain_loss_weight"],
         "ot_correction_reg_weight": config.values["ot_correction_reg_weight"],
         "ot_epsilon": config.values["ot_epsilon"],
         "rgb_projection_dim": config.values["projection_dim"],
@@ -838,9 +876,8 @@ def _write_aggregate_tables(
     rows = [rows_by_id[item.config_id] for item in plan if item.config_id in rows_by_id]
     _atomic_write_csv(output_root / "per_seed.csv", rows, RESULT_FIELDS)
 
-    # Keep 17 actual-run rows in per_seed.csv.  For direct sensitivity plotting,
-    # summary.csv reuses the single baseline result once in each of the four
-    # parameter groups (20 plotting points, still only 17 trained configs).
+    # For direct sensitivity plotting, summary.csv reuses the single baseline
+    # once in every active parameter group without retraining it.
     summary_rows: List[Mapping[str, object]] = []
     for row in rows:
         if not bool(row["is_baseline"]):
@@ -979,6 +1016,7 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     validate_wrapper_args(parser, args)
+    activate_scan_profile(args.scan_profile)
     plan = build_scan_plan()
     output_root = Path(args.output_root).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -999,7 +1037,7 @@ def main() -> int:
                 f"{shlex.join(command)}"
             )
         print(
-            "DRY RUN PASS: one shared baseline, 17 unique configurations, "
+            f"DRY RUN PASS: one shared baseline, {len(plan)} unique configurations, "
             "and exactly one changed scan parameter per non-baseline configuration."
         )
         print(f"Plan saved to: {output_root}")
@@ -1017,7 +1055,8 @@ def main() -> int:
     rows_by_id: Dict[str, Mapping[str, object]] = {}
     _append_scheduler_log(
         output_root,
-        "starting supervised sensitivity suite: 17 serial configurations, seed=42, "
+        f"starting supervised sensitivity suite: profile={args.scan_profile}, "
+        f"{len(plan)} serial configurations, seed=42, "
         "selection=target_val, target_test=disabled",
     )
     try:

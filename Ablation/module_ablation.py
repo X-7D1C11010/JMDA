@@ -570,6 +570,7 @@ def run_single_iteration(args, seed, logger):
     PROJ_DIM = args.projection_dim
     TENSOR_LOSS_WEIGHT = args.tensor_loss_weight if args.use_tensor_module else 0.0
     ADV_LOSS_WEIGHT = args.adv_loss_weight
+    DOMAIN_LOSS_WEIGHT = args.domain_loss_weight
     DISCRIMINATOR_UPDATE_INTERVAL = 2
     use_class_conditional_ot = (
         args.use_ot_module
@@ -750,6 +751,9 @@ def run_single_iteration(args, seed, logger):
         loss_cls_accum = 0.0
         loss_tal_accum = 0.0
         loss_adv_accum = 0.0
+        loss_d_accum = 0.0
+        loss_d_weighted_accum = 0.0
+        loss_d_steps = 0
         loss_ot_reg_accum = 0.0
         marginal_residual_accum = 0.0
         row_marginal_residual_accum = 0.0
@@ -802,6 +806,8 @@ def run_single_iteration(args, seed, logger):
                 feat_mid = None
                 transport_details = None
 
+            loss_d = feat_src.new_zeros(())
+            loss_d_weighted = feat_src.new_zeros(())
             if (
                 steps % DISCRIMINATOR_UPDATE_INTERVAL == 0
                 and (not args.use_ot_module or joint_ot_scale > 0.0)
@@ -818,9 +824,13 @@ def run_single_iteration(args, seed, logger):
                         discriminator(feat_src.detach()),
                         discriminator(feat_tgt.detach())
                     )
-                loss_d.backward()
+                loss_d_weighted = DOMAIN_LOSS_WEIGHT * loss_d
+                loss_d_weighted.backward()
                 torch.nn.utils.clip_grad_norm_(discriminator.parameters(), max_norm=1.0)
                 optimizer_d.step()
+                loss_d_accum += loss_d.item()
+                loss_d_weighted_accum += loss_d_weighted.item()
+                loss_d_steps += 1
 
             optimizer_g.zero_grad()
 
@@ -931,6 +941,10 @@ def run_single_iteration(args, seed, logger):
         avg_loss_cls = loss_cls_accum / steps if steps > 0 else 0.0
         avg_loss_tal = loss_tal_accum / steps if steps > 0 else 0.0
         avg_loss_adv = loss_adv_accum / steps if steps > 0 else 0.0
+        avg_loss_d = loss_d_accum / loss_d_steps if loss_d_steps > 0 else 0.0
+        avg_loss_d_weighted = (
+            loss_d_weighted_accum / loss_d_steps if loss_d_steps > 0 else 0.0
+        )
         avg_loss_ot_reg = loss_ot_reg_accum / steps if steps > 0 else 0.0
         avg_marginal_residual = marginal_residual_accum / steps if steps > 0 else 0.0
         avg_row_residual = row_marginal_residual_accum / steps if steps > 0 else 0.0
@@ -955,7 +969,9 @@ def run_single_iteration(args, seed, logger):
 
         log_msg = (f"Epoch [{epoch + 1}/{EPOCHS}] | "
                    f"Loss: {avg_loss:.4f} (Cls: {avg_loss_cls:.4f}, TAL: {avg_loss_tal:.4f}, "
-                   f"Adv: {avg_loss_adv:.4f}, OT-Reg: {avg_loss_ot_reg:.6f}) | "
+                   f"Adv: {avg_loss_adv:.4f}, D: {avg_loss_d:.4f}, "
+                   f"lambda1*D: {avg_loss_d_weighted:.4f}, "
+                   f"OT-Reg: {avg_loss_ot_reg:.6f}) | "
                    f"{ot_diagnostic}"
                    f"Train Acc: {train_acc:.4f} | "
                    f"Val Acc: {val_acc:.4f} | "
@@ -1041,7 +1057,10 @@ def run_ablation_experiment(args):
         f"目标标签比例/权重: {effective_target_ratio}/{effective_target_weight}"
     )
     effective_tensor_weight = args.tensor_loss_weight if args.use_tensor_module else 0.0
-    logger.info(f"Tensor/Adv损失权重: {effective_tensor_weight}/{args.adv_loss_weight}")
+    logger.info(
+        f"Tensor/Adv/Domain损失权重: {effective_tensor_weight}/"
+        f"{args.adv_loss_weight}/{args.domain_loss_weight}"
+    )
     if args.use_tensor_module:
         logger.info(
             f"Tensor投影维度/更新: {args.projection_dim}/每epoch一次; "
@@ -1143,6 +1162,8 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=5e-4, help='weight decay')
     parser.add_argument('--adv_loss_weight', type=float, default=0.08, help='domain adversarial loss weight')
     parser.add_argument('--tensor_loss_weight', type=float, default=0.12, help='Tensor alignment loss weight')
+    parser.add_argument('--domain_loss_weight', type=float, default=1.0,
+                       help='lambda1 weight applied only to the detached-feature discriminator loss')
     parser.add_argument('--projection_dim', type=int, default=64,
                        help='rank retained by each epoch-level modal SVD projection')
     parser.add_argument('--transport_mode', type=str, default='sinkhorn',
@@ -1199,6 +1220,8 @@ def main():
         parser.error('--ot_warmup_epochs cannot be negative')
     if args.ot_ramp_epochs < 1:
         parser.error('--ot_ramp_epochs must be at least 1')
+    if args.domain_loss_weight < 0:
+        parser.error('--domain_loss_weight cannot be negative')
 
     if args.ablation_mode == 'all':
         # "all" means all ablation settings only. The complete model

@@ -34,7 +34,7 @@ from sklearn.model_selection import (
     StratifiedKFold,
     StratifiedShuffleSplit,
 )
-from torch.utils.data import ConcatDataset, DataLoader, WeightedRandomSampler
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, WeightedRandomSampler
 
 from VDS2Raw_JMDA.single_modal_baselines import (
     DEFAULT_SEEDS,
@@ -436,6 +436,29 @@ def target_priority_sampler(
     )
 
 
+class RandomD4Dataset(Dataset):
+    """Apply a random right-angle rotation and optional reflection.
+
+    Ship type is invariant to image orientation.  This augmentation covers the
+    eight symmetries of a square without cropping or interpolation.
+    """
+
+    def __init__(self, base: Dataset):
+        self.base = base
+
+    def __len__(self) -> int:
+        return len(self.base)
+
+    def __getitem__(self, index: int):
+        image, label, sample_id = self.base[index]
+        image = torch.rot90(
+            image, int(torch.randint(0, 4, ()).item()), dims=(-2, -1)
+        )
+        if bool(torch.rand(()) < 0.5):
+            image = torch.flip(image, dims=(-1,))
+        return image.contiguous(), label, sample_id
+
+
 def set_last_stage_trainable(model: nn.Module, model_name: str) -> None:
     for parameter in model.parameters():
         parameter.requires_grad = False
@@ -516,7 +539,7 @@ def evaluate_prediction_mode(
     channels_last: bool,
     mode: str,
 ) -> Tuple[Dict[str, object], List[Dict[str, object]]]:
-    if mode not in {"identity", "horizontal_flip_mean"}:
+    if mode not in {"identity", "horizontal_flip_mean", "d4_mean"}:
         raise ValueError(f"Unknown prediction mode: {mode}")
     model.eval()
     all_labels: List[int] = []
@@ -531,7 +554,25 @@ def evaluate_prediction_mode(
         with torch.autocast(
             device_type=device.type, dtype=torch.bfloat16, enabled=use_amp
         ):
-            probabilities = torch.softmax(model(inputs).float(), dim=1)
+            if mode == "d4_mean":
+                probability_sum = torch.zeros(
+                    (inputs.shape[0], len(CLASS_NAMES)),
+                    device=inputs.device,
+                    dtype=torch.float32,
+                )
+                for rotation in range(4):
+                    rotated = torch.rot90(inputs, rotation, dims=(-2, -1))
+                    reflected = torch.flip(rotated, dims=(-1,))
+                    if channels_last:
+                        rotated = rotated.contiguous(memory_format=torch.channels_last)
+                        reflected = reflected.contiguous(
+                            memory_format=torch.channels_last
+                        )
+                    probability_sum += torch.softmax(model(rotated).float(), dim=1)
+                    probability_sum += torch.softmax(model(reflected).float(), dim=1)
+                probabilities = probability_sum / 8.0
+            else:
+                probabilities = torch.softmax(model(inputs).float(), dim=1)
             if mode == "horizontal_flip_mean":
                 flipped = torch.flip(inputs, dims=(-1,))
                 if channels_last:
@@ -608,6 +649,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--weight-decay", type=float, default=1e-2)
     parser.add_argument("--target-mass", type=float, default=2.0)
     parser.add_argument("--label-smoothing", type=float, default=0.0)
+    parser.add_argument("--rotation-augmentation", action="store_true")
+    parser.add_argument(
+        "--tta-mode",
+        choices=("identity", "horizontal_flip_mean", "d4_mean"),
+        default="horizontal_flip_mean",
+    )
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--grad-clip", type=float, default=5.0)
@@ -651,11 +698,29 @@ def run_fold_model(
             return existing
     run_dir.mkdir(parents=True, exist_ok=True)
     seed_everything(seed)
-    source = SingleModalityDataset(
-        manifest, "source_train", image_stats, modality, True, args.image_size, args.image_size
+    source_base = SingleModalityDataset(
+        manifest,
+        "source_train",
+        image_stats,
+        modality,
+        not args.rotation_augmentation,
+        args.image_size,
+        args.image_size,
     )
-    target = SingleModalityDataset(
-        manifest, "target_train", image_stats, modality, True, args.image_size, args.image_size
+    target_base = SingleModalityDataset(
+        manifest,
+        "target_train",
+        image_stats,
+        modality,
+        not args.rotation_augmentation,
+        args.image_size,
+        args.image_size,
+    )
+    source: Dataset = (
+        RandomD4Dataset(source_base) if args.rotation_augmentation else source_base
+    )
+    target: Dataset = (
+        RandomD4Dataset(target_base) if args.rotation_augmentation else target_base
     )
     validation = SingleModalityDataset(
         manifest, "target_val", image_stats, modality, False, args.image_size, args.image_size
@@ -716,6 +781,7 @@ def run_fold_model(
         "pretrained": True,
         "input_size": [args.image_size, args.image_size],
         "random_crop": False,
+        "rotation_augmentation": args.rotation_augmentation,
         "target_priority_mass": args.target_mass,
         "stage1": "source_train + target_train",
         "stage2": "target_train only",
@@ -723,7 +789,7 @@ def run_fold_model(
         "partial_unfreeze": "classification head + final backbone stage",
         "freeze_resnet_batch_norm_stats": model_name == "resnet",
         "checkpoint_selection": "maximum target_val ACC; macro F1 tie break",
-        "test_time_augmentation": "original + horizontal flip probability mean",
+        "test_time_augmentation": args.tta_mode,
         "learning_rates": {
             "stage1_backbone": args.backbone_lr,
             "stage1_head": args.head_lr,
@@ -875,6 +941,14 @@ def run_fold_model(
         raise RuntimeError("No validation-selected checkpoint was produced")
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state"])
+    validation_tta_metrics, _ = evaluate_prediction_mode(
+        model,
+        val_loader,
+        device,
+        use_amp,
+        channels_last,
+        args.tta_mode,
+    )
     test_metrics: Optional[Dict[str, object]] = None
     if evaluate_test:
         test_dataset = SingleModalityDataset(
@@ -889,26 +963,18 @@ def run_fold_model(
         test_loader = make_loader(
             test_dataset, args.batch_size, False, args.num_workers, device, seed
         )
-        val_flip_metrics, _ = evaluate_prediction_mode(
-            model,
-            val_loader,
-            device,
-            use_amp,
-            channels_last,
-            "horizontal_flip_mean",
-        )
         test_metrics, prediction_rows = evaluate_prediction_mode(
             model,
             test_loader,
             device,
             use_amp,
             channels_last,
-            "horizontal_flip_mean",
+            args.tta_mode,
         )
         test_metrics["prediction_mode_audit"] = {
             "selection": "fixed by protocol before target_test evaluation",
             "identity": compact_metrics(best_metrics),
-            "horizontal_flip_mean": compact_metrics(val_flip_metrics),
+            args.tta_mode: compact_metrics(validation_tta_metrics),
         }
         write_csv(run_dir / "target_test_predictions.csv", prediction_rows)
         atomic_write_json(run_dir / "target_test_metrics.json", test_metrics)
@@ -930,6 +996,7 @@ def run_fold_model(
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
         "checkpoint": str(checkpoint_path),
         "validation": best_metrics,
+        "validation_tta": validation_tta_metrics,
         "target_test": test_metrics,
         "duration_seconds": time.perf_counter() - started,
         "completed_at": utc_free_timestamp(),
@@ -956,6 +1023,59 @@ def write_fold_manifest(path: Path, manifest: FoldManifest) -> None:
         for record in manifest.records
     ]
     write_csv(path, rows)
+
+
+def write_pooled_cv_metrics(
+    run_root: Path, results: Sequence[Mapping[str, object]]
+) -> List[Dict[str, object]]:
+    grouped: Dict[Tuple[str, str], Dict[str, object]] = defaultdict(
+        lambda: {"labels": [], "predictions": [], "sample_ids": []}
+    )
+    for result in results:
+        if not result.get("target_test"):
+            continue
+        key = str(result["model"]), str(result["modality"])
+        prediction_path = (
+            run_root
+            / key[0]
+            / key[1]
+            / f"fold_{int(result['fold'])}"
+            / "target_test_predictions.csv"
+        )
+        with prediction_path.open("r", encoding="utf-8-sig", newline="") as handle:
+            for row in csv.DictReader(handle):
+                grouped[key]["sample_ids"].append(str(row["sample_id"]))
+                grouped[key]["labels"].append(int(row["label"]))
+                grouped[key]["predictions"].append(int(row["prediction"]))
+    output: List[Dict[str, object]] = []
+    flat_rows: List[Dict[str, object]] = []
+    for (model_name, modality), values in sorted(grouped.items()):
+        sample_ids = list(values["sample_ids"])
+        if len(sample_ids) != len(set(sample_ids)):
+            raise RuntimeError(
+                f"Duplicate pooled target_test samples for {model_name}/{modality}"
+            )
+        metrics = classification_metrics(values["labels"], values["predictions"])
+        entry: Dict[str, object] = {
+            "model": model_name,
+            "modality": modality,
+            "sample_count": len(sample_ids),
+            "metrics": metrics,
+        }
+        output.append(entry)
+        flat_rows.append(
+            {
+                "model": model_name,
+                "modality": modality,
+                "sample_count": len(sample_ids),
+                **compact_metrics(metrics),
+                "confusion_matrix": json.dumps(metrics["confusion_matrix"]),
+            }
+        )
+    if output:
+        atomic_write_json(run_root / "pooled_metrics.json", output)
+        write_csv(run_root / "pooled_metrics.csv", flat_rows)
+    return output
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -997,7 +1117,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "fold_seeds": list(DEFAULT_FOLD_SEEDS),
             "checkpoint_selection": "target_val ACC; macro F1 tie break",
             "training": "source+target with 2:1 target mass, then target-only refinement",
-            "test_time_augmentation": "original + horizontal flip probability mean",
+            "test_time_augmentation": args.tta_mode,
         },
     )
     atomic_write_json(run_root / "environment.json", environment_report(device))
@@ -1045,7 +1165,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.audit_only:
         print("Grouped 5-fold audit complete; no model or target_test was loaded.")
         return 0
+    pooled = write_pooled_cv_metrics(run_root, results)
     print(f"Completed runs: {len(results)}")
+    if pooled:
+        print(f"Pooled metrics: {run_root / 'pooled_metrics.csv'}")
     print(f"Results: {run_root / 'results.csv'}")
     print(f"Summary: {run_root / 'summary.csv'}")
     return 0
