@@ -1,0 +1,155 @@
+{
+  "configuration": "projection_dim_16",
+  "scan_parameter": "projection_dim",
+  "scan_value": "16",
+  "seed": 42,
+  "source_root": "/mnt/data/lixiang/data/Data/晴天",
+  "target_root": "/mnt/data/lixiang/data/Data/逆光",
+  "scanned_parameters": {
+    "tensor_loss_weight": 0.12,
+    "adv_loss_weight": 0.08,
+    "ot_correction_reg_weight": 0.001,
+    "projection_dim": 16,
+    "ot_epsilon": 0.1
+  },
+  "fixed_training_arguments": [
+    {
+      "option": "--ablation_mode",
+      "value": "full"
+    },
+    {
+      "option": "--use_target_labels",
+      "value": null
+    },
+    {
+      "option": "--no_auto_ablation_hparams",
+      "value": null
+    },
+    {
+      "option": "--transport_mode",
+      "value": "sinkhorn"
+    },
+    {
+      "option": "--batch_size",
+      "value": "32"
+    },
+    {
+      "option": "--epochs",
+      "value": "100"
+    },
+    {
+      "option": "--num_iterations",
+      "value": "1"
+    },
+    {
+      "option": "--lr_feature",
+      "value": "5e-6"
+    },
+    {
+      "option": "--lr_other",
+      "value": "2e-4"
+    },
+    {
+      "option": "--weight_decay",
+      "value": "5e-4"
+    },
+    {
+      "option": "--report_strategy",
+      "value": "best"
+    },
+    {
+      "option": "--svd_max_sweeps",
+      "value": "10"
+    },
+    {
+      "option": "--svd_tolerance",
+      "value": "1e-3"
+    },
+    {
+      "option": "--svd_stat_batch_size",
+      "value": "128"
+    },
+    {
+      "option": "--ot_sinkhorn_iterations",
+      "value": "50"
+    },
+    {
+      "option": "--ot_correction_scale",
+      "value": "0.1"
+    },
+    {
+      "option": "--ot_warmup_epochs",
+      "value": "10"
+    },
+    {
+      "option": "--ot_ramp_epochs",
+      "value": "5"
+    }
+  ],
+  "runner_arguments": {
+    "python": "/home/lixiang/envs/lx_pytorch/bin/python",
+    "module_path": "/home/lixiang/lx/JMDA/Ablation/module_ablation.py",
+    "gpu_ids": [
+      0,
+      1
+    ],
+    "minimum_free_memory_mib": 15360,
+    "utilization_must_be_below_percent": 15,
+    "gpu_poll_seconds": 60,
+    "nvidia_smi": "nvidia-smi"
+  },
+  "command": [
+    "/home/lixiang/envs/lx_pytorch/bin/python",
+    "-u",
+    "/home/lixiang/lx/JMDA/Ablation/module_ablation.py",
+    "--ablation_mode",
+    "full",
+    "--use_target_labels",
+    "--no_auto_ablation_hparams",
+    "--transport_mode",
+    "sinkhorn",
+    "--batch_size",
+    "32",
+    "--epochs",
+    "100",
+    "--num_iterations",
+    "1",
+    "--lr_feature",
+    "5e-6",
+    "--lr_other",
+    "2e-4",
+    "--weight_decay",
+    "5e-4",
+    "--report_strategy",
+    "best",
+    "--svd_max_sweeps",
+    "10",
+    "--svd_tolerance",
+    "1e-3",
+    "--svd_stat_batch_size",
+    "128",
+    "--ot_sinkhorn_iterations",
+    "50",
+    "--ot_correction_scale",
+    "0.1",
+    "--ot_warmup_epochs",
+    "10",
+    "--ot_ramp_epochs",
+    "5",
+    "--source_root",
+    "/mnt/data/lixiang/data/Data/晴天",
+    "--target_root",
+    "/mnt/data/lixiang/data/Data/逆光",
+    "--tensor_loss_weight",
+    "0.12",
+    "--adv_loss_weight",
+    "0.08",
+    "--ot_correction_reg_weight",
+    "0.001",
+    "--projection_dim",
+    "16",
+    "--ot_epsilon",
+    "0.1"
+  ],
+  "task_signature": "bc960d6947595ff8e81b82ae8453726bc26f2c3e82364a53240299e0c2f5782f"
+}

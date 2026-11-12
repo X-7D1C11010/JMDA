@@ -1,0 +1,33 @@
+{
+  "configuration": "tensor_loss_weight_0p1",
+  "scan_parameter": "tensor_loss_weight",
+  "scan_value": "0.1",
+  "target_weather": "逆光",
+  "target_root": "/mnt/data/lixiang/data/Data/逆光",
+  "source_root": "/mnt/data/lixiang/data/Data/晴天",
+  "seed": 42,
+  "task_directory": "/home/lixiang/lx/JMDA/Ablation/hparam_sensitivity_results_refined/backlight/tensor_loss_weight_0p1/逆光",
+  "task_signature": "d64ed7e7e2685963eb0940252e8d24398f8e6381c764f3b2922523174670f333",
+  "status": "success",
+  "return_code": 0,
+  "gpu_id": 0,
+  "metrics": {
+    "accuracy": 1.0,
+    "precision_macro": 1.0,
+    "recall_macro": 1.0,
+    "f1_macro": 1.0,
+    "last10_accuracy_mean": 0.9610799999999999,
+    "last10_accuracy_std": 0.01361916296987444,
+    "last10_epoch_count": 10.0
+  },
+  "updated_at": "2026-11-10T17:21:53+00:00",
+  "gpu_admission": {
+    "gpu_id": 0,
+    "memory_free_mib": 24300,
+    "utilization_percent": 0
+  },
+  "started_at": "2026-11-10T14:08:00+00:00",
+  "pid": 2145812,
+  "failure_reason": null,
+  "finished_at": "2026-11-10T17:21:53+00:00"
+}

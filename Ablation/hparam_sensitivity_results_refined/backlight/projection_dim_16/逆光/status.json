@@ -1,0 +1,33 @@
+{
+  "configuration": "projection_dim_16",
+  "scan_parameter": "projection_dim",
+  "scan_value": "16",
+  "target_weather": "逆光",
+  "target_root": "/mnt/data/lixiang/data/Data/逆光",
+  "source_root": "/mnt/data/lixiang/data/Data/晴天",
+  "seed": 42,
+  "task_directory": "/home/lixiang/lx/JMDA/Ablation/hparam_sensitivity_results_refined/backlight/projection_dim_16/逆光",
+  "task_signature": "bc960d6947595ff8e81b82ae8453726bc26f2c3e82364a53240299e0c2f5782f",
+  "status": "success",
+  "return_code": 0,
+  "gpu_id": 1,
+  "metrics": {
+    "accuracy": 0.9722,
+    "precision_macro": 0.9722,
+    "recall_macro": 0.9815,
+    "f1_macro": 0.974,
+    "last10_accuracy_mean": 0.90556,
+    "last10_accuracy_std": 0.025448583457630798,
+    "last10_epoch_count": 10.0
+  },
+  "updated_at": "2026-11-11T01:51:15+00:00",
+  "gpu_admission": {
+    "gpu_id": 1,
+    "memory_free_mib": 32094,
+    "utilization_percent": 0
+  },
+  "started_at": "2026-11-11T01:13:43+00:00",
+  "pid": 2813686,
+  "failure_reason": null,
+  "finished_at": "2026-11-11T01:51:15+00:00"
+}
